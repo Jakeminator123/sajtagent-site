@@ -26,7 +26,8 @@ interface LanyardProps {
     fov?: number;
     transparent?: boolean;
     containerClassName?: string;
-    cardTextureUrl?: string;
+    frontTextureUrl?: string;
+    backTextureUrl?: string;
     canvasRef?: React.RefObject<HTMLCanvasElement | null>;
 }
 
@@ -36,7 +37,8 @@ export default function Lanyard({
                                     fov = 20,
                                     transparent = true,
                                     containerClassName,
-                                    cardTextureUrl,
+                                    frontTextureUrl = '/images/sajtmaskin-card-front.png',
+                                    backTextureUrl = '/images/sajtmaskin-card-back.png',
                                     canvasRef
                                 }: LanyardProps) {
     const [isMobile, setIsMobile] = useState<boolean>(() => typeof window !== 'undefined' && window.innerWidth < 768);
@@ -59,7 +61,11 @@ export default function Lanyard({
             >
                 <ambientLight intensity={Math.PI}/>
                 <Physics gravity={gravity} timeStep={isMobile ? 1 / 30 : 1 / 60}>
-                    <Band isMobile={isMobile} cardTextureUrl={cardTextureUrl}/>
+                    <Band
+                        isMobile={isMobile}
+                        frontTextureUrl={frontTextureUrl}
+                        backTextureUrl={backTextureUrl}
+                    />
                 </Physics>
                 <Environment blur={0.75}>
                     <Lightformer
@@ -100,10 +106,17 @@ interface BandProps {
     maxSpeed?: number;
     minSpeed?: number;
     isMobile?: boolean;
-    cardTextureUrl?: string;
+    frontTextureUrl: string;
+    backTextureUrl: string;
 }
 
-function Band({maxSpeed = 50, minSpeed = 0, isMobile = false, cardTextureUrl}: BandProps) {
+function Band({
+    maxSpeed = 50,
+    minSpeed = 0,
+    isMobile = false,
+    frontTextureUrl,
+    backTextureUrl
+}: BandProps) {
     // Using "any" for refs since the exact types depend on Rapier's internals
     const band = useRef<any>(null);
     const fixed = useRef<any>(null);
@@ -127,35 +140,24 @@ function Band({maxSpeed = 50, minSpeed = 0, isMobile = false, cardTextureUrl}: B
 
     const {nodes, materials} = useGLTF(cardGLB) as any;
     const texture = useTexture('/lanyard-sm.svg') as THREE.Texture;
-    
-    // Load custom card texture if provided - use state to handle async loading
-    const [customCardTexture, setCustomCardTexture] = useState<THREE.Texture | null>(null);
-    
-    useEffect(() => {
-        if (!cardTextureUrl) {
-            setCustomCardTexture(null);
-            return;
-        }
-        
-        const loader = new THREE.TextureLoader();
-        loader.load(cardTextureUrl, (loadedTexture) => {
-            loadedTexture.flipY = false;
-            loadedTexture.colorSpace = THREE.SRGBColorSpace;
-            setCustomCardTexture(loadedTexture);
-        });
-        
-        return () => {
-            if (customCardTexture) {
-                customCardTexture.dispose();
-            }
-        };
-    }, [cardTextureUrl]);
+    const [frontTexture, backTexture] = useTexture([
+        frontTextureUrl,
+        backTextureUrl
+    ]) as THREE.Texture[];
+
+    [frontTexture, backTexture].forEach((cardTexture) => {
+        cardTexture.colorSpace = THREE.SRGBColorSpace;
+        cardTexture.anisotropy = 16;
+        cardTexture.minFilter = THREE.LinearMipmapLinearFilter;
+        cardTexture.magFilter = THREE.LinearFilter;
+    });
     const [curve] = useState(
         () =>
             new THREE.CatmullRomCurve3([new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()])
     );
     const [dragged, drag] = useState<false | THREE.Vector3>(false);
     const [hovered, hover] = useState(false);
+    const [ropeReady, setRopeReady] = useState(false);
 
     useRopeJoint(fixed, j1, [[0, 0, 0], [0, 0, 0], 1]);
     useRopeJoint(j1, j2, [[0, 0, 0], [0, 0, 0], 1]);
@@ -186,7 +188,19 @@ function Band({maxSpeed = 50, minSpeed = 0, isMobile = false, cardTextureUrl}: B
                 z: vec.z - dragged.z
             });
         }
-        if (fixed.current) {
+        // Rapier-refs monteras över flera frames; vänta tills hela kedjan finns
+        // så MeshLine aldrig får ofullständiga/NaN-koordinater.
+        if (fixed.current && j1.current && j2.current && j3.current && card.current) {
+            const translations = [fixed, j1, j2, j3].map((ref) => ref.current.translation());
+            const chainIsReady = translations.every(({x, y, z}) =>
+                Number.isFinite(x) && Number.isFinite(y) && Number.isFinite(z)
+            );
+            if (!chainIsReady) return;
+            if (!band.current) {
+                if (!ropeReady) setRopeReady(true);
+                return;
+            }
+
             [j1, j2].forEach(ref => {
                 if (!ref.current.lerped) ref.current.lerped = new THREE.Vector3().copy(ref.current.translation());
                 const clampedDistance = Math.max(0.1, Math.min(1, ref.current.lerped.distanceTo(ref.current.translation())));
@@ -243,33 +257,45 @@ function Band({maxSpeed = 50, minSpeed = 0, isMobile = false, cardTextureUrl}: B
                             drag(new THREE.Vector3().copy(e.point).sub(vec.copy(card.current.translation())));
                         }}
                     >
+                        {/* GLB-kroppen ger kortet en riktig mörk kant och fysisk tjocklek. */}
                         <mesh geometry={nodes.card.geometry}>
                             <meshPhysicalMaterial
-                                map={cardTextureUrl && customCardTexture ? customCardTexture : materials.base.map}
-                                map-anisotropy={16}
-                                clearcoat={isMobile ? 0 : 1}
-                                clearcoatRoughness={0.15}
-                                roughness={0.9}
-                                metalness={0.8}
+                                color="#050706"
+                                clearcoat={isMobile ? 0 : 0.65}
+                                clearcoatRoughness={0.22}
+                                roughness={0.72}
+                                metalness={0.35}
                             />
+                        </mesh>
+
+                        {/* Tunna separata ytor undviker spegelvänd text och bevarar kortets fysik. */}
+                        <mesh position={[0, 0, 0.012]}>
+                            <planeGeometry args={[0.69, 1.025]} />
+                            <meshBasicMaterial map={frontTexture} toneMapped={false} />
+                        </mesh>
+                        <mesh position={[0, 0, -0.012]} rotation={[0, Math.PI, 0]}>
+                            <planeGeometry args={[0.665, 1.025]} />
+                            <meshBasicMaterial map={backTexture} toneMapped={false} />
                         </mesh>
                         <mesh geometry={nodes.clip.geometry} material={materials.metal} material-roughness={0.3}/>
                         <mesh geometry={nodes.clamp.geometry} material={materials.metal}/>
                     </group>
                 </RigidBody>
             </group>
-            <mesh ref={band}>
-                <meshLineGeometry/>
-                <meshLineMaterial
-                    color="white"
-                    depthTest={false}
-                    resolution={isMobile ? [1000, 2000] : [1000, 1000]}
-                    useMap
-                    map={texture}
-                    repeat={[-4, 1]}
-                    lineWidth={1}
-                />
-            </mesh>
+            {ropeReady && (
+                <mesh ref={band} frustumCulled={false}>
+                    <meshLineGeometry/>
+                    <meshLineMaterial
+                        color="white"
+                        depthTest={false}
+                        resolution={isMobile ? [1000, 2000] : [1000, 1000]}
+                        useMap
+                        map={texture}
+                        repeat={[-4, 1]}
+                        lineWidth={1}
+                    />
+                </mesh>
+            )}
         </>
     );
 }

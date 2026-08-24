@@ -21,6 +21,8 @@ export interface StreamChatParams {
   model?: string
   /** Promptläge från förstasidans dock: analyserad | audit | template | fritext */
   mode?: string
+  /** Strukturerat underlag från lägets UI, t.ex. audit-URL eller vald template. */
+  metadata?: Record<string, string>
   onEvent: (event: StreamEvent) => void
   signal?: AbortSignal
 }
@@ -31,13 +33,13 @@ export interface StreamChatParams {
  * Läser SSE-events (text/preview/done/error) från /api/engine/chats/stream.
  */
 export async function streamChat(params: StreamChatParams): Promise<void> {
-  const { chatId, message, choices, planMode, model, mode, onEvent, signal } = params
+  const { chatId, message, choices, planMode, model, mode, metadata, onEvent, signal } = params
 
   try {
     const res = await fetch("/api/engine/chats/stream", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ chatId, message, meta: { choices, planMode, model, mode } }),
+      body: JSON.stringify({ chatId, message, meta: { choices, planMode, model, mode, ...metadata } }),
       signal,
     })
 

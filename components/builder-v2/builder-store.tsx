@@ -18,7 +18,7 @@ interface BuilderStore {
   // Chat
   messages: ChatMessage[]
   isStreaming: boolean
-  sendMessage: (text: string, opts?: { planMode?: boolean; mode?: string; metadata?: Record<string, string> }) => Promise<void>
+  sendMessage: (text: string, opts?: { planMode?: boolean; mode?: string }) => Promise<void>
   promptAssist: (text: string) => Promise<string>
   model: string
   setModel: (m: string) => void
@@ -87,7 +87,7 @@ export function BuilderProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   const sendMessage = useCallback(
-    async (text: string, opts?: { planMode?: boolean; mode?: string; metadata?: Record<string, string> }) => {
+    async (text: string, opts?: { planMode?: boolean; mode?: string }) => {
       const trimmed = text.trim()
       if (!trimmed || isStreaming) return
 
@@ -140,7 +140,6 @@ export function BuilderProvider({ children }: { children: React.ReactNode }) {
         planMode: opts?.planMode,
         model,
         mode: opts?.mode,
-        metadata: opts?.metadata,
         signal: controller.signal,
         onEvent: (ev) => {
           if (ev.type === "text") {

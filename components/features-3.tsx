@@ -7,7 +7,7 @@ import {AnimatedGroup} from "@/components/motion-primitives/animated-group";
 
 export default function Features() {
     return (
-        <section id="varfor-sajtmaskin" className="scroll-mt-24 py-16 md:py-24 dark:bg-transparent bg-transparent">
+        <section id="varfor-sajtmaskin" className="scroll-mt-24 py-16 md:py-32 dark:bg-transparent bg-transparent">
             <div className="@container mx-auto max-w-5xl px-6">
                 <div className="text-center">
                     <TextEffect
@@ -34,7 +34,7 @@ export default function Features() {
                     }}
                 >
                     <Card
-                        className="mx-auto mt-8 grid max-w-sm divide-y overflow-hidden shadow-zinc-950/5 *:text-center md:mt-16 lg:max-w-full lg:grid-cols-3 lg:divide-x lg:divide-y-0">
+                        className="@min-4xl:max-w-full @min-4xl:grid-cols-3 @min-4xl:divide-x @min-4xl:divide-y-0 mx-auto mt-8 grid max-w-sm divide-y overflow-hidden shadow-zinc-950/5 *:text-center md:mt-16">
                         <div className="group shadow-zinc-950/5">
                             <CardHeader className="pb-3">
                                 <CardDecorator>

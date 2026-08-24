@@ -17,12 +17,13 @@ function LandingPromptHandoffInner() {
   const { sendMessage, isStreaming, messages } = useBuilder()
   const consumed = useRef(false)
   const prompt = params.get('prompt')?.trim() ?? ''
+  const mode = params.get('mode')?.trim() || undefined
 
   useEffect(() => {
     if (consumed.current || !prompt || isStreaming || messages.length > 0) return
     consumed.current = true
-    void sendMessage(prompt)
-  }, [prompt, isStreaming, messages.length, sendMessage])
+    void sendMessage(prompt, { mode })
+  }, [prompt, mode, isStreaming, messages.length, sendMessage])
 
   return null
 }

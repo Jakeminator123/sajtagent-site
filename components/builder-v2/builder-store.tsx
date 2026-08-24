@@ -18,7 +18,7 @@ interface BuilderStore {
   // Chat
   messages: ChatMessage[]
   isStreaming: boolean
-  sendMessage: (text: string, opts?: { planMode?: boolean }) => Promise<void>
+  sendMessage: (text: string, opts?: { planMode?: boolean; mode?: string }) => Promise<void>
   promptAssist: (text: string) => Promise<string>
   model: string
   setModel: (m: string) => void
@@ -87,7 +87,7 @@ export function BuilderProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   const sendMessage = useCallback(
-    async (text: string, opts?: { planMode?: boolean }) => {
+    async (text: string, opts?: { planMode?: boolean; mode?: string }) => {
       const trimmed = text.trim()
       if (!trimmed || isStreaming) return
 
@@ -107,7 +107,11 @@ export function BuilderProvider({ children }: { children: React.ReactNode }) {
       ])
       setIsStreaming(true)
       setPreviewStatus("starting")
-      pushLog(`> skickar prompt (modell: ${model}${opts?.planMode ? ", planläge" : ""})`)
+      pushLog(
+        `> skickar prompt (modell: ${model}${opts?.mode ? `, läge: ${opts.mode}` : ""}${
+          opts?.planMode ? ", planläge" : ""
+        })`
+      )
 
       // Ny version i "building"-läge
       const versionId = nextId("v")
@@ -135,6 +139,7 @@ export function BuilderProvider({ children }: { children: React.ReactNode }) {
         choices,
         planMode: opts?.planMode,
         model,
+        mode: opts?.mode,
         signal: controller.signal,
         onEvent: (ev) => {
           if (ev.type === "text") {

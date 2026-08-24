@@ -1,43 +1,67 @@
 -- Workflow Editor Database Schema
--- Run this migration to set up tables for the node-based workflow editor
+-- Skapar de tre tabellerna builder-v2 behover. Ror INGA befintliga tabeller.
+--
+-- Konventioner harmade fran sajtmaskin (jakembase_dev):
+--   * TEXT-kolumner for id:n och strangar (deras schema anvander text() 294 ggr,
+--     uuid() noll ggr). DB-defaulten behalls sa route-koden slipper generera id.
+--   * TIMESTAMPTZ pa alla tidsstamplar (bar TIMESTAMP ger 2h-drift).
+--   * RLS pa + policy <tabell>_backend_full_access, precis som databasens
+--     ovriga 42 tabeller. Utan detta star tabellerna oskyddade i en DB dar
+--     allt annat ar last.
 
--- Workflows table - stores the visual workflow definitions
 CREATE TABLE IF NOT EXISTS workflows (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  name VARCHAR(255) NOT NULL,
+  id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  name TEXT NOT NULL,
   description TEXT,
   nodes JSONB NOT NULL DEFAULT '[]',
   edges JSONB NOT NULL DEFAULT '[]',
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Workflow executions log - tracks each run of a workflow
 CREATE TABLE IF NOT EXISTS workflow_executions (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  workflow_id UUID REFERENCES workflows(id) ON DELETE CASCADE,
-  status VARCHAR(50) NOT NULL DEFAULT 'pending',
+  id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  workflow_id TEXT REFERENCES workflows(id) ON DELETE CASCADE,
+  status TEXT NOT NULL DEFAULT 'pending',
   input JSONB,
   output JSONB,
   error TEXT,
-  started_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  completed_at TIMESTAMP WITH TIME ZONE
+  final_output TEXT,
+  started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  completed_at TIMESTAMPTZ
 );
 
--- Memory store for persistence nodes - key-value storage per workflow
 CREATE TABLE IF NOT EXISTS workflow_memory (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  workflow_id UUID REFERENCES workflows(id) ON DELETE CASCADE,
-  key VARCHAR(255) NOT NULL,
+  id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  workflow_id TEXT REFERENCES workflows(id) ON DELETE CASCADE,
+  key TEXT NOT NULL,
   value JSONB NOT NULL,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  data_type TEXT DEFAULT 'text',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   UNIQUE(workflow_id, key)
 );
 
--- Create indexes for better query performance
+CREATE INDEX IF NOT EXISTS idx_workflows_updated_at ON workflows(updated_at DESC);
 CREATE INDEX IF NOT EXISTS idx_workflow_executions_workflow_id ON workflow_executions(workflow_id);
 CREATE INDEX IF NOT EXISTS idx_workflow_executions_status ON workflow_executions(status);
 CREATE INDEX IF NOT EXISTS idx_workflow_memory_workflow_id ON workflow_memory(workflow_id);
 CREATE INDEX IF NOT EXISTS idx_workflow_memory_key ON workflow_memory(key);
-CREATE INDEX IF NOT EXISTS idx_workflows_updated_at ON workflows(updated_at DESC);
+
+-- RLS enligt databasens befintliga monster. service_role anvands av var
+-- server-side pg-pool; anon/authenticated far ingen atkomst.
+ALTER TABLE workflows ENABLE ROW LEVEL SECURITY;
+ALTER TABLE workflow_executions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE workflow_memory ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS workflows_backend_full_access ON workflows;
+CREATE POLICY workflows_backend_full_access ON workflows
+  FOR ALL TO service_role USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS workflow_executions_backend_full_access ON workflow_executions;
+CREATE POLICY workflow_executions_backend_full_access ON workflow_executions
+  FOR ALL TO service_role USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS workflow_memory_backend_full_access ON workflow_memory;
+CREATE POLICY workflow_memory_backend_full_access ON workflow_memory
+  FOR ALL TO service_role USING (true) WITH CHECK (true);

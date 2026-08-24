@@ -19,6 +19,8 @@ export interface StreamChatParams {
   planMode?: boolean
   /** Modellval från chatkortet (t.ex. "fast" | "standard" | "max") */
   model?: string
+  /** Promptläge från förstasidans dock: analyserad | audit | template | fritext */
+  mode?: string
   onEvent: (event: StreamEvent) => void
   signal?: AbortSignal
 }
@@ -29,13 +31,13 @@ export interface StreamChatParams {
  * Läser SSE-events (text/preview/done/error) från /api/engine/chats/stream.
  */
 export async function streamChat(params: StreamChatParams): Promise<void> {
-  const { chatId, message, choices, planMode, model, onEvent, signal } = params
+  const { chatId, message, choices, planMode, model, mode, onEvent, signal } = params
 
   try {
     const res = await fetch("/api/engine/chats/stream", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ chatId, message, meta: { choices, planMode, model } }),
+      body: JSON.stringify({ chatId, message, meta: { choices, planMode, model, mode } }),
       signal,
     })
 

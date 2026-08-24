@@ -67,15 +67,24 @@ export default function LanyardWithControls({
   const cardTemplateRef = useRef<CardTemplateRef>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   
-  // Capture the supplied artwork on mount so the 3D card never flashes the legacy texture.
+  // Auto-capture texture when component mounts with a defaultName from URL
   useEffect(() => {
-    const timer = setTimeout(async () => {
-      await cardTemplateRef.current?.captureTexture();
+    // If no defaultName, mark as initialized immediately
+    if (!defaultName) {
       setIsInitialized(true);
-    }, 500);
-
+      return;
+    }
+    
+    // If there's a defaultName, wait for card template to render then capture
+    const timer = setTimeout(async () => {
+      if (cardTemplateRef.current) {
+        await cardTemplateRef.current.captureTexture();
+      }
+      setIsInitialized(true);
+    }, 150);
+    
     return () => clearTimeout(timer);
-  }, []);
+  }, [defaultName]);
 
   // Generate shareable URL with encrypted username and variant
   const getShareableUrl = useCallback(() => {

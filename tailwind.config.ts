@@ -77,6 +77,16 @@ const config: Config = {
           handle: 'hsl(var(--workflow-handle))',
           'handle-border': 'hsl(var(--workflow-handle-border))',
         },
+        brand: {
+          blue: 'hsl(var(--brand-blue))',
+          teal: 'hsl(var(--brand-teal))',
+          warm: 'hsl(var(--brand-warm))',
+          amber: 'hsl(var(--brand-amber))',
+        },
+      },
+      fontFamily: {
+        sans: ['var(--font-geist-sans)', 'system-ui', 'sans-serif'],
+        mono: ['var(--font-geist-mono)', 'Consolas', 'monospace'],
       },
       borderRadius: {
         lg: 'var(--radius)',

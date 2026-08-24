@@ -14,7 +14,7 @@ import type {
   WorkflowNodeType,
 } from "@/lib/workflow-types";
 import { AGENT_TEMPLATES } from "@/lib/workflow-types";
-import { getDb } from "@/lib/db";
+import { db, workflowExecutions } from "@/lib/db";
 
 interface ExecutionContext {
   nodeOutputs: Map<string, string>;
@@ -265,11 +265,13 @@ export async function POST(request: Request) {
     // Save execution to database if workflowId is provided
     if (workflowId) {
       try {
-        const sql = getDb();
-        await sql`
-          INSERT INTO workflow_executions (workflow_id, status, final_output, started_at, completed_at)
-          VALUES (${workflowId}, 'completed', ${finalOutput}, NOW(), NOW())
-        `;
+        await db.insert(workflowExecutions).values({
+          workflowId,
+          status: "completed",
+          finalOutput,
+          startedAt: new Date(),
+          completedAt: new Date(),
+        });
       } catch (dbError) {
         console.error("Failed to save execution history:", dbError);
       }
@@ -287,11 +289,13 @@ export async function POST(request: Request) {
     const { workflowId } = await request.json().catch(() => ({}));
     if (workflowId) {
       try {
-        const sql = getDb();
-        await sql`
-          INSERT INTO workflow_executions (workflow_id, status, error, started_at, completed_at)
-          VALUES (${workflowId}, 'failed', ${error instanceof Error ? error.message : "Execution failed"}, NOW(), NOW())
-        `;
+        await db.insert(workflowExecutions).values({
+          workflowId,
+          status: "failed",
+          error: error instanceof Error ? error.message : "Execution failed",
+          startedAt: new Date(),
+          completedAt: new Date(),
+        });
       } catch (dbError) {
         console.error("Failed to save execution history:", dbError);
       }

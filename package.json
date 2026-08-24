@@ -6,12 +6,14 @@
     "dev": "next dev --turbo",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "eslint .",
+    "db:generate": "drizzle-kit generate",
+    "db:push": "drizzle-kit push",
+    "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
     "@emotion/is-prop-valid": "^1.4.0",
     "@hookform/resolvers": "^3.9.1",
-    "@neondatabase/serverless": "^1.0.2",
     "@radix-ui/react-accordion": "1.2.2",
     "@radix-ui/react-alert-dialog": "1.1.4",
     "@radix-ui/react-aspect-ratio": "1.1.1",
@@ -51,6 +53,7 @@
     "clsx": "^2.1.1",
     "cmdk": "1.1.1",
     "date-fns": "4.1.0",
+    "drizzle-orm": "^0.45.2",
     "embla-carousel-react": "8.5.1",
     "input-otp": "1.4.1",
     "lucide-react": "^0.544.0",
@@ -58,6 +61,7 @@
     "motion": "^13.1.0",
     "next": "16.0.10",
     "next-themes": "^0.4.6",
+    "pg": "^8.23.0",
     "postprocessing": "^6.39.4",
     "react": "19.2.3",
     "react-day-picker": "8.10.1",
@@ -78,8 +82,11 @@
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.13",
     "@types/node": "^22",
+    "@types/pg": "^8.23.1",
     "@types/react": "19.2.7",
     "@types/react-dom": "19.2.3",
+    "dotenv": "^17.4.2",
+    "drizzle-kit": "^0.31.10",
     "postcss": "^8.5",
     "tailwindcss": "^3.4.17",
     "typescript": "5.7.3"

@@ -60,7 +60,7 @@ export function PreviewStage() {
 
       {/* Själva sajtfönstret — ljust, upphöjt, med chrome-list */}
       <div className="absolute inset-x-0 top-6 bottom-6 flex items-stretch justify-center px-6">
-        <div className="relative w-full max-w-[1100px] rounded-xl overflow-hidden shadow-2xl ring-1 ring-rose-500/30 flex flex-col bg-white dark:bg-zinc-100">
+        <div className="relative w-full max-w-[1100px] rounded-xl overflow-hidden shadow-2xl ring-1 ring-primary/30 flex flex-col bg-white dark:bg-zinc-100">
           {/* Chrome-list */}
           <div className="h-10 shrink-0 bg-zinc-100 dark:bg-zinc-200 border-b border-zinc-200 dark:border-zinc-300 flex items-center gap-3 px-3">
             <div className="flex items-center gap-1.5">

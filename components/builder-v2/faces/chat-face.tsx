@@ -3,7 +3,8 @@
 // Tärningssida: Chat. Samma logik som tidigare chat-noden, utan xyflow.
 
 import React, { useEffect, useRef, useState } from "react"
-import { FileText, ImageIcon, Loader2, Send, Sparkles, Type } from "lucide-react"
+import { FileText, ImageIcon, Loader2, Mic, Send, Sparkles, Square, Type } from "lucide-react"
+import { useAudioTranscription } from "@/lib/use-audio-transcription"
 import { cn } from "@/lib/utils"
 import { useBuilder } from "../builder-store"
 
@@ -17,10 +18,20 @@ const MODELS = [
 
 export function ChatFace() {
   const { messages, isStreaming, sendMessage, promptAssist, model, setModel } = useBuilder()
+
   const [input, setInput] = useState("")
   const [planMode, setPlanMode] = useState(false)
   const [assisting, setAssisting] = useState(false)
   const listRef = useRef<HTMLDivElement>(null)
+
+  // Diktering: transkriberad text läggs till i fältet i stället för att skickas direkt,
+  // så användaren kan justera innan den skickas.
+  const { status: recStatus, seconds: recSeconds, toggle: toggleRecording } =
+    useAudioTranscription({
+      onTranscript: (text) => setInput((prev) => (prev.trim() ? `${prev.trim()} ${text}` : text)),
+    })
+  const isRecording = recStatus === "recording"
+  const isTranscribing = recStatus === "transcribing"
 
   useEffect(() => {
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight })
@@ -126,6 +137,31 @@ export function ChatFace() {
             Prompt-assist
           </button>
           <div className="ml-auto flex items-center gap-1">
+            <button
+              type="button"
+              onClick={toggleRecording}
+              disabled={isTranscribing}
+              aria-label={isRecording ? "Stoppa inspelning" : "Spela in och transkribera"}
+              aria-pressed={isRecording}
+              title={isRecording ? "Stoppa inspelning" : "Spela in och transkribera"}
+              className={cn(
+                "flex items-center gap-1 px-1.5 py-1 rounded font-mono text-[11px] transition-colors duration-150 disabled:opacity-40",
+                isRecording
+                  ? "text-destructive bg-destructive/15"
+                  : "text-workflow-text-subtle hover:text-workflow-text"
+              )}
+            >
+              {isTranscribing ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : isRecording ? (
+                <>
+                  <Square className="w-3 h-3 fill-current" />
+                  {Math.floor(recSeconds / 60)}:{(recSeconds % 60).toString().padStart(2, "0")}
+                </>
+              ) : (
+                <Mic className="w-3.5 h-3.5" />
+              )}
+            </button>
             <button
               type="button"
               className="p-1.5 rounded text-workflow-text-subtle hover:text-workflow-text transition-colors duration-150"

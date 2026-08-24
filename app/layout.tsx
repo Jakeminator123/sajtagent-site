@@ -5,8 +5,14 @@ import { ThemeProvider } from "@/components/theme-provider"
 
 import './globals.css'
 
-const _geist = Geist({ subsets: ['latin'] })
-const _geistMono = Geist_Mono({ subsets: ['latin'] })
+const geistSans = Geist({
+  subsets: ['latin'],
+  variable: '--font-geist-sans',
+})
+const geistMono = Geist_Mono({
+  subsets: ['latin'],
+  variable: '--font-geist-mono',
+})
 
 export const metadata: Metadata = {
   title: 'Sajtmaskin — Beskriv sajten. Se den ta form.',
@@ -20,7 +26,11 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="sv" className="bg-background" suppressHydrationWarning>
+    <html
+      lang="sv"
+      className={`${geistSans.variable} ${geistMono.variable} bg-background`}
+      suppressHydrationWarning
+    >
       <body className="font-sans antialiased" suppressHydrationWarning>
         <ThemeProvider
           attribute="class"

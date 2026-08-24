@@ -28,7 +28,7 @@ export function LandingHeader() {
         </div>
 
         <div className="hidden items-center gap-2 md:flex">
-          <Link href="/builder" className="rounded-lg px-3 py-2 text-sm text-workflow-text-muted transition-colors hover:text-foreground">Öppna studion</Link>
+          <Link href="#login" className="rounded-lg px-3 py-2 text-sm text-workflow-text-muted transition-colors hover:text-foreground">Logga in</Link>
           <Link href="#skapa" className="rounded-lg bg-foreground px-4 py-2 text-sm font-medium text-background transition-opacity hover:opacity-90">Skapa din sida</Link>
         </div>
 
@@ -42,7 +42,7 @@ export function LandingHeader() {
           {links.map((link) => (
             <Link key={link.href} href={link.href} onClick={() => setOpen(false)} className="rounded-xl px-4 py-3 text-sm text-workflow-text-muted hover:bg-workflow-surface hover:text-foreground">{link.label}</Link>
           ))}
-          <Link href="/builder" onClick={() => setOpen(false)} className="mt-1 rounded-xl bg-foreground px-4 py-3 text-center text-sm font-medium text-background">Öppna studion</Link>
+          <Link href="#login" onClick={() => setOpen(false)} className="mt-1 rounded-xl bg-foreground px-4 py-3 text-center text-sm font-medium text-background">Logga in</Link>
         </div>
       )}
     </header>

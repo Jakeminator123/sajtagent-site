@@ -53,8 +53,8 @@ export default function CallToAction() {
                             asChild
                             size="lg"
                             variant="outline">
-                            <Link href="/builder">
-                                <span>Öppna studion</span>
+                            <Link href="#login">
+                                <span>Logga in</span>
                             </Link>
                         </Button>
                     </AnimatedGroup>

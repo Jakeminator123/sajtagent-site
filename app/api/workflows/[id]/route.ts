@@ -1,13 +1,12 @@
 import { NextResponse } from "next/server";
-import { neon } from "@neondatabase/serverless";
-
-const sql = neon(process.env.DATABASE_URL!);
+import { getDb } from "@/lib/db";
 
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const sql = getDb();
     const { id } = await params;
     const workflows = await sql`
       SELECT * FROM workflows WHERE id = ${id}
@@ -29,6 +28,7 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const sql = getDb();
     const { id } = await params;
     const { name, description, nodes, edges } = await request.json();
 
@@ -60,6 +60,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const sql = getDb();
     const { id } = await params;
     await sql`DELETE FROM workflows WHERE id = ${id}`;
     return NextResponse.json({ success: true });

@@ -23,7 +23,7 @@ const CardTemplate = forwardRef<CardTemplateRef, CardTemplateProps>(
   ({ userName, variant, onTextureReady, city, date }, ref) => {
     const [baseImage, setBaseImage] = useState<HTMLImageElement | null>(null);
 
-    const imageSrc = variant === "dark" ? "/card-base-dark.png" : "/card-base-light.png";
+    const imageSrc = variant === "dark" ? "/card-sajtmaskin-source.png" : "/card-base-light.png";
     const textColor = variant === "dark" ? "#ffffff" : "#000000";
 
     // Preload the base card image
@@ -42,16 +42,22 @@ const CardTemplate = forwardRef<CardTemplateRef, CardTemplateProps>(
       
       if (!ctx) return;
 
-      // Draw base card image (fills entire canvas)
+      // Preserve the supplied two-sided artwork's aspect ratio inside the square UV atlas.
       if (baseImage) {
-        ctx.drawImage(baseImage, 0, 0, CANVAS_SIZE, CANVAS_SIZE);
+        ctx.fillStyle = "#000000";
+        ctx.fillRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+        const artworkHeight = variant === "dark"
+          ? Math.round(CANVAS_SIZE * (baseImage.naturalHeight / baseImage.naturalWidth))
+          : CANVAS_SIZE;
+        ctx.drawImage(baseImage, 0, 0, CANVAS_SIZE, artworkHeight);
       } else {
         // Fallback black background if image not loaded
         ctx.fillStyle = "#000000";
         ctx.fillRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
       }
 
-      // Draw user name at the bottom left area (below the geometric pattern)
+      // The supplied dark artwork is complete; overlays remain only on the legacy light card.
+      if (variant === "light") {
       const displayName = userName || "YOUR NAME";
       ctx.fillStyle = textColor;
       ctx.font = 'normal 48px "Geist Mono", monospace';
@@ -93,7 +99,7 @@ const CardTemplate = forwardRef<CardTemplateRef, CardTemplateProps>(
         const dateTextY = CANVAS_SIZE - 1170;
         dateRender.fillText(date.toUpperCase(), dateTextX, dateTextY);
       }
-
+      }
 
       const dataUrl = canvas.toDataURL("image/png");
       onTextureReady(dataUrl);
@@ -111,16 +117,21 @@ const CardTemplate = forwardRef<CardTemplateRef, CardTemplateProps>(
       
       if (!fullCtx) return;
 
-      // Draw base card image (fills entire canvas)
+      // Preserve the supplied two-sided artwork's aspect ratio in exports too.
       if (baseImage) {
-        fullCtx.drawImage(baseImage, 0, 0, CANVAS_SIZE, CANVAS_SIZE);
+        fullCtx.fillStyle = "#000000";
+        fullCtx.fillRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+        const artworkHeight = variant === "dark"
+          ? Math.round(CANVAS_SIZE * (baseImage.naturalHeight / baseImage.naturalWidth))
+          : CANVAS_SIZE;
+        fullCtx.drawImage(baseImage, 0, 0, CANVAS_SIZE, artworkHeight);
       } else {
         // Fallback black background if image not loaded
         fullCtx.fillStyle = "#000000";
         fullCtx.fillRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
       }
 
-      // Draw user name at the bottom left area (below the geometric pattern)
+      if (variant === "light") {
       const displayName = userName || "YOUR NAME";
       fullCtx.fillStyle = textColor;
       fullCtx.font = 'normal 48px "Geist Mono", monospace';
@@ -161,6 +172,7 @@ const CardTemplate = forwardRef<CardTemplateRef, CardTemplateProps>(
         const dateTextX = (CANVAS_SIZE / 2) - 55;
         const dateTextY = CANVAS_SIZE - 1170;
         dateRender.fillText(date.toUpperCase(), dateTextX, dateTextY);
+      }
       }
 
       // Create cropped export canvas (excludes bottom 334px)

@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, useEffect, useMemo, useRef } from 'react'
+import { Suspense, useEffect, useRef } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { useBuilder } from './builder-store'
 
@@ -18,22 +18,12 @@ function LandingPromptHandoffInner() {
   const consumed = useRef(false)
   const prompt = params.get('prompt')?.trim() ?? ''
   const mode = params.get('mode')?.trim() || undefined
-  const rawMetadata = params.get('meta')
-  const metadata = useMemo<Record<string, string> | undefined>(() => {
-    if (!rawMetadata) return undefined
-    try {
-      const parsed: unknown = JSON.parse(rawMetadata)
-      return parsed && typeof parsed === 'object' ? parsed as Record<string, string> : undefined
-    } catch {
-      return undefined
-    }
-  }, [rawMetadata])
 
   useEffect(() => {
     if (consumed.current || !prompt || isStreaming || messages.length > 0) return
     consumed.current = true
-    void sendMessage(prompt, { mode, metadata })
-  }, [prompt, mode, metadata, isStreaming, messages.length, sendMessage])
+    void sendMessage(prompt, { mode })
+  }, [prompt, mode, isStreaming, messages.length, sendMessage])
 
   return null
 }

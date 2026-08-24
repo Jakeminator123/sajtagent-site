@@ -91,13 +91,12 @@ export function HomePrompt() {
           className="min-h-32 w-full resize-none bg-transparent px-4 py-4 text-base leading-relaxed text-workflow-text outline-none placeholder:text-workflow-text-subtle"
         />
 
-        <div className="flex items-center gap-2 border-t border-workflow-border-subtle px-3 py-3">
-          {/* Lägesväljaren får krympa och scrolla i sidled så åtgärderna
-              till höger aldrig trycks ner på en egen rad. */}
+        <div className="flex flex-wrap items-center gap-2 border-t border-workflow-border-subtle px-3 py-3">
+          {/* Lägesväljaren får radbryta som en egen enhet, så inget chip klipps av. */}
           <div
             role="group"
             aria-label="Promptläge"
-            className="flex min-w-0 flex-1 items-center gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            className="flex flex-wrap items-center gap-2"
           >
             {MODES.map((item) => {
               const Icon = item.icon
@@ -121,45 +120,48 @@ export function HomePrompt() {
             })}
           </div>
 
-          <button
-            type="button"
-            onClick={toggleRecording}
-            disabled={isTranscribing}
-            aria-label={isRecording ? 'Stoppa inspelning' : 'Spela in och transkribera'}
-            aria-pressed={isRecording}
-            className={cn(
-              'flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 font-mono text-[11px] transition-colors disabled:cursor-not-allowed',
-              isRecording
-                ? 'border-destructive bg-destructive/15 text-destructive'
-                : 'border-workflow-border-subtle text-workflow-text-muted hover:border-workflow-border hover:text-workflow-text'
-            )}
-          >
-            {isTranscribing ? (
-              <>
-                <Loader2 className="size-3 animate-spin" aria-hidden="true" />
-                Tolkar…
-              </>
-            ) : isRecording ? (
-              <>
-                <Square className="size-3 fill-current" aria-hidden="true" />
-                {formatSeconds(seconds)}
-              </>
-            ) : (
-              <>
-                <Mic className="size-3" aria-hidden="true" />
-                Spela in
-              </>
-            )}
-          </button>
+          {/* Inspelning och skicka hålls ihop och pressas mot högerkanten. */}
+          <div className="ml-auto flex shrink-0 items-center gap-2">
+            <button
+              type="button"
+              onClick={toggleRecording}
+              disabled={isTranscribing}
+              aria-label={isRecording ? 'Stoppa inspelning' : 'Spela in och transkribera'}
+              aria-pressed={isRecording}
+              className={cn(
+                'flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 font-mono text-[11px] transition-colors disabled:cursor-not-allowed',
+                isRecording
+                  ? 'border-destructive bg-destructive/15 text-destructive'
+                  : 'border-workflow-border-subtle text-workflow-text-muted hover:border-workflow-border hover:text-workflow-text'
+              )}
+            >
+              {isTranscribing ? (
+                <>
+                  <Loader2 className="size-3 animate-spin" aria-hidden="true" />
+                  Tolkar…
+                </>
+              ) : isRecording ? (
+                <>
+                  <Square className="size-3 fill-current" aria-hidden="true" />
+                  {formatSeconds(seconds)}
+                </>
+              ) : (
+                <>
+                  <Mic className="size-3" aria-hidden="true" />
+                  Spela in
+                </>
+              )}
+            </button>
 
-          <button
-            type="submit"
-            disabled={!prompt.trim()}
-            aria-label="Skapa webbplats"
-            className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-foreground text-background transition-opacity disabled:cursor-not-allowed disabled:opacity-30"
-          >
-            <ArrowUp className="size-4" aria-hidden="true" />
-          </button>
+            <button
+              type="submit"
+              disabled={!prompt.trim()}
+              aria-label="Skapa webbplats"
+              className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-foreground text-background transition-opacity disabled:cursor-not-allowed disabled:opacity-30"
+            >
+              <ArrowUp className="size-4" aria-hidden="true" />
+            </button>
+          </div>
         </div>
       </div>
       <p aria-live="polite" className="mt-2 font-mono text-[11px] text-workflow-text-subtle">

@@ -28,24 +28,40 @@ function extensionFor(mimeType: string): string {
   return EXTENSIONS[base] ?? 'webm'
 }
 
+/** Webbläsarens taligenkänning (Chrome/Safari), utan officiella TS-typer. */
+function getSpeechRecognition(): any | undefined {
+  if (typeof window === 'undefined') return undefined
+  return (window as any).SpeechRecognition ?? (window as any).webkitSpeechRecognition
+}
+
 interface Options {
   /** Anropas med transkriberad text när inspelningen är klar. */
   onTranscript: (text: string) => void
+  /** Språktagg för igenkänningen. */
+  lang?: string
 }
 
 /**
- * Spelar in mikrofonljud och skickar det till /api/ai/transcribe.
- * Strömmen stängs alltid ned, även vid fel, så mikrofonindikatorn inte hänger kvar.
+ * Diktering med två vägar:
+ *  1. Webbläsarens SpeechRecognition — fungerar direkt utan API-nyckel.
+ *  2. MediaRecorder + /api/ai/transcribe — används när (1) saknas.
+ *
+ * Serverrouten kräver OPENAI_API_KEY (AI Gateway proxyar inte ljud), så när
+ * varken (1) eller nyckeln finns får användaren ett tydligt felmeddelande.
  */
-export function useAudioTranscription({ onTranscript }: Options) {
+export function useAudioTranscription({ onTranscript, lang = 'sv-SE' }: Options) {
   const [status, setStatus] = useState<RecorderStatus>('idle')
   const [error, setError] = useState<string | null>(null)
   const [seconds, setSeconds] = useState(0)
 
+  const recognitionRef = useRef<any>(null)
   const recorderRef = useRef<MediaRecorder | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const chunksRef = useRef<Blob[]>([])
-  // Håll callbacken i en ref så stop-handlern aldrig blir stale.
+  // Samlar ihop slutgiltiga fraser under en session.
+  const transcriptRef = useRef('')
+
+  // Håll callbacken i en ref så handlers aldrig blir stale.
   const onTranscriptRef = useRef(onTranscript)
   onTranscriptRef.current = onTranscript
 
@@ -56,7 +72,17 @@ export function useAudioTranscription({ onTranscript }: Options) {
   }, [])
 
   // Städa upp om komponenten unmountas mitt i en inspelning.
-  useEffect(() => releaseStream, [releaseStream])
+  useEffect(() => {
+    return () => {
+      releaseStream()
+      try {
+        recognitionRef.current?.abort()
+      } catch {
+        /* redan stoppad */
+      }
+      recognitionRef.current = null
+    }
+  }, [releaseStream])
 
   // Sekundräknare under inspelning.
   useEffect(() => {
@@ -65,9 +91,55 @@ export function useAudioTranscription({ onTranscript }: Options) {
     return () => clearInterval(id)
   }, [status])
 
-  const start = useCallback(async () => {
-    setError(null)
+  /** Väg 1: webbläsarens inbyggda taligenkänning. */
+  const startRecognition = useCallback(
+    (Recognition: any) => {
+      const recognition = new Recognition()
+      recognition.lang = lang
+      recognition.continuous = true
+      recognition.interimResults = false
 
+      transcriptRef.current = ''
+
+      recognition.onresult = (event: any) => {
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const result = event.results[i]
+          if (result.isFinal) {
+            transcriptRef.current += `${result[0].transcript} `
+          }
+        }
+      }
+
+      recognition.onerror = (event: any) => {
+        recognitionRef.current = null
+        setStatus('error')
+        setError(
+          event?.error === 'not-allowed'
+            ? 'Mikrofonåtkomst nekades.'
+            : event?.error === 'no-speech'
+              ? 'Inget tal uppfattades. Försök igen.'
+              : 'Taligenkänningen misslyckades.'
+        )
+      }
+
+      recognition.onend = () => {
+        recognitionRef.current = null
+        const text = transcriptRef.current.trim()
+        if (text) onTranscriptRef.current(text)
+        // Rör inte status om ett fel redan satt den.
+        setStatus((prev) => (prev === 'error' ? prev : 'idle'))
+      }
+
+      recognitionRef.current = recognition
+      recognition.start()
+      setSeconds(0)
+      setStatus('recording')
+    },
+    [lang]
+  )
+
+  /** Väg 2: spela in och låt servern transkribera. */
+  const startRecording = useCallback(async () => {
     if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
       setStatus('error')
       setError('Inspelning stöds inte i den här webbläsaren.')
@@ -103,8 +175,15 @@ export function useAudioTranscription({ onTranscript }: Options) {
           body.append('audio', blob, `inspelning.${extensionFor(type)}`)
 
           const res = await fetch('/api/ai/transcribe', { method: 'POST', body })
-          const data = (await res.json()) as { text?: string; error?: string }
+          const data = (await res.json().catch(() => ({}))) as {
+            text?: string
+            error?: string
+            code?: string
+          }
 
+          if (res.status === 501 || data.code === 'not_configured') {
+            throw new Error('Diktering stöds inte i den här webbläsaren ännu.')
+          }
           if (!res.ok) throw new Error(data.error ?? 'Transkribering misslyckades')
 
           const text = data.text?.trim()
@@ -130,7 +209,29 @@ export function useAudioTranscription({ onTranscript }: Options) {
     }
   }, [releaseStream])
 
+  const start = useCallback(async () => {
+    setError(null)
+    const Recognition = getSpeechRecognition()
+    if (Recognition) {
+      try {
+        startRecognition(Recognition)
+        return
+      } catch {
+        // Faller igenom till inspelning nedan.
+      }
+    }
+    await startRecording()
+  }, [startRecognition, startRecording])
+
   const stop = useCallback(() => {
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.stop()
+      } catch {
+        /* redan stoppad */
+      }
+      return
+    }
     if (recorderRef.current?.state === 'recording') recorderRef.current.stop()
   }, [])
 

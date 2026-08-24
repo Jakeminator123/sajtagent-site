@@ -15,7 +15,7 @@ export default function HeroSection() {
             <LandingHeader />
             <section id="top" className='lg:min-h-screen'>
                 <div
-                    className="pb-24 pt-12 md:pb-32 lg:pb-56 lg:pt-44 lg:grid lg:grid-cols-2 lg:grid-rows-1 grid-cols-1 grid-rows-2">
+                    className="pb-16 pt-12 md:pb-24 lg:pb-24 lg:pt-36 lg:grid lg:grid-cols-2 lg:grid-rows-1 grid-cols-1 grid-rows-2">
                     <div className="relative mx-auto flex max-w-xl flex-col px-6 lg:block">
                         <div id="skapa" className="mx-auto max-w-2xl scroll-mt-28 text-center lg:ml-0 lg:text-left">
                             <div className='mt-8 lg:mt-16'>
@@ -61,7 +61,7 @@ export default function HeroSection() {
                         defaultName="" />
                 </div>
             </section>
-            <section className="bg-background pb-16 md:pb-32">
+            <section className="bg-background pb-12 md:pb-20">
                 <AnimatedGroup
                     variants={{
                         container: {

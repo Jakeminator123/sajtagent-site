@@ -5,7 +5,7 @@ import {AnimatedGroup} from "@/components/motion-primitives/animated-group";
 
 export default function Agenda() {
     return (
-        <section id="sa-fungerar-det" className="scroll-mt-24 scroll-py-16 py-16 md:scroll-py-32 md:py-32">
+        <section id="sa-fungerar-det" className="scroll-mt-24 scroll-py-16 py-16 md:scroll-py-24 md:py-24">
             <div className="mx-auto max-w-5xl px-6">
                 <div className="grid gap-y-12 px-2 lg:grid-cols-[1fr_auto]">
                     <div className="text-center lg:text-left">

@@ -122,8 +122,8 @@ export function BuilderHeader({ showDrawer, onToggleDrawer }: BuilderHeaderProps
             publishState === "publishing"
               ? "bg-workflow-surface text-workflow-text-muted cursor-not-allowed"
               : publishState === "published"
-                ? "bg-emerald-600 text-white hover:bg-emerald-700"
-                : "bg-foreground text-background hover:bg-foreground/90"
+                ? "bg-accent text-accent-foreground hover:bg-accent/90"
+                : "bg-primary text-primary-foreground hover:bg-primary/90"
           )}
         >
           {publishState === "publishing" ? (

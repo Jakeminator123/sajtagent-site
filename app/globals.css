@@ -2,10 +2,6 @@
 @tailwind components;
 @tailwind utilities;
 
-body {
-  font-family: Arial, Helvetica, sans-serif;
-}
-
 @layer utilities {
   .text-balance {
     text-wrap: balance;
@@ -14,105 +10,93 @@ body {
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 0 0% 3.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 0 0% 3.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 3.9%;
-    --primary: 0 0% 9%;
-    --primary-foreground: 0 0% 98%;
-    --secondary: 0 0% 96.1%;
-    --secondary-foreground: 0 0% 9%;
-    --muted: 0 0% 96.1%;
-    --muted-foreground: 0 0% 45.1%;
-    --accent: 0 0% 96.1%;
-    --accent-foreground: 0 0% 9%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 89.8%;
-    --input: 0 0% 89.8%;
-    --ring: 0 0% 3.9%;
-    --chart-1: 12 76% 61%;
-    --chart-2: 173 58% 39%;
-    --chart-3: 197 37% 24%;
-    --chart-4: 43 74% 66%;
-    --chart-5: 27 87% 67%;
+    /* Speglar sajtmaskins corporate-tema (src/app/globals.css): blå primary,
+       teal accent, blåtonade neutraler. Temat är mörkt-först precis som där —
+       .dark nedan håller identiska värden så ThemeProvider inte ändrar något. */
+    --background: 220 16% 7%;
+    --foreground: 0 0% 95%;
+    --card: 220 14% 10%;
+    --card-foreground: 0 0% 95%;
+    --popover: 220 14% 12%;
+    --popover-foreground: 0 0% 95%;
+    --primary: 219 100% 60%;
+    --primary-hover: 219 100% 65%;
+    /* Mörk text på brand-blå ger 4.85:1 (WCAG AA) — samma val som sajtmaskin. */
+    --primary-foreground: 220 16% 7%;
+    --secondary: 220 14% 11%;
+    --secondary-foreground: 0 0% 95%;
+    --muted: 220 14% 9%;
+    --muted-foreground: 220 6% 60%;
+    --accent: 152 45% 50%;
+    --accent-foreground: 220 16% 7%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 220 10% 17%;
+    --input: 220 10% 17%;
+    --ring: 219 100% 60%;
     --radius: 0.5rem;
-    --sidebar-background: 0 0% 98%;
-    --sidebar-foreground: 240 5.3% 26.1%;
-    --sidebar-primary: 240 5.9% 10%;
-    --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 240 4.8% 95.9%;
-    --sidebar-accent-foreground: 240 5.9% 10%;
-    --sidebar-border: 220 13% 91%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
 
-    /* Workflow editor tokens - Light mode */
-    --workflow-bg: 0 0% 96%;
-    --workflow-surface: 0 0% 100%;
-    --workflow-surface-hover: 0 0% 98%;
-    --workflow-border: 0 0% 85%;
-    --workflow-border-subtle: 0 0% 90%;
-    --workflow-text: 0 0% 9%;
-    --workflow-text-muted: 0 0% 45%;
-    --workflow-text-subtle: 0 0% 60%;
-    --workflow-node-bg: 0 0% 100%;
-    --workflow-node-input: 0 0% 96%;
-    --workflow-canvas-dot: 0 0% 80%;
-    --workflow-edge: 0 0% 60%;
-    --workflow-handle: 0 0% 50%;
-    --workflow-handle-border: 0 0% 70%;
+    /* Brand-skala från sajtmaskin */
+    --brand-blue: 219 100% 60%;
+    --brand-amber: 38 92% 60%;
+    --brand-warm: 12 84% 58%;
+    --brand-teal: 152 45% 50%;
+
+    --chart-1: 219 100% 60%;
+    --chart-2: 152 45% 50%;
+    --chart-3: 38 92% 60%;
+    --chart-4: 12 84% 58%;
+    --chart-5: 219 60% 45%;
+
+    --sidebar-background: 220 14% 10%;
+    --sidebar-foreground: 0 0% 95%;
+    --sidebar-primary: 219 100% 60%;
+    --sidebar-primary-foreground: 220 16% 7%;
+    --sidebar-accent: 220 14% 13%;
+    --sidebar-accent-foreground: 0 0% 95%;
+    --sidebar-border: 220 10% 17%;
+    --sidebar-ring: 219 100% 60%;
+
+    /* Workflow-editorn: blåtonade neutraler i stället för ren gråskala,
+       med brand-blå på handtag och kanter. */
+    --workflow-bg: 220 16% 7%;
+    --workflow-surface: 220 14% 10%;
+    --workflow-surface-hover: 220 14% 13%;
+    --workflow-border: 220 10% 17%;
+    --workflow-border-subtle: 220 10% 14%;
+    --workflow-text: 0 0% 95%;
+    --workflow-text-muted: 220 6% 60%;
+    --workflow-text-subtle: 220 6% 45%;
+    --workflow-node-bg: 220 14% 10%;
+    --workflow-node-input: 220 14% 13%;
+    --workflow-canvas-dot: 220 10% 20%;
+    --workflow-edge: 219 45% 45%;
+    --workflow-handle: 219 100% 60%;
+    --workflow-handle-border: 219 55% 38%;
   }
+  /* Temat är mörkt-först som hos sajtmaskin. .dark ärver :root så att
+     ThemeProvider-klassen inte introducerar en avvikande palett. */
   .dark {
-    --background: 0 0% 3.9%;
-    --foreground: 0 0% 98%;
-    --card: 0 0% 3.9%;
-    --card-foreground: 0 0% 98%;
-    --popover: 0 0% 3.9%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 0 0% 98%;
-    --primary-foreground: 0 0% 9%;
-    --secondary: 0 0% 14.9%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 0 0% 14.9%;
-    --muted-foreground: 0 0% 63.9%;
-    --accent: 0 0% 14.9%;
-    --accent-foreground: 0 0% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 14.9%;
-    --input: 0 0% 14.9%;
-    --ring: 0 0% 83.1%;
-    --chart-1: 220 70% 50%;
-    --chart-2: 160 60% 45%;
-    --chart-3: 30 80% 55%;
-    --chart-4: 280 65% 60%;
-    --chart-5: 340 75% 55%;
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
-
-    /* Workflow editor tokens - Dark mode */
-    --workflow-bg: 0 0% 4%;
-    --workflow-surface: 0 0% 7%;
-    --workflow-surface-hover: 0 0% 10%;
-    --workflow-border: 0 0% 15%;
-    --workflow-border-subtle: 0 0% 18%;
-    --workflow-text: 0 0% 90%;
-    --workflow-text-muted: 0 0% 64%;
-    --workflow-text-subtle: 0 0% 45%;
-    --workflow-node-bg: 0 0% 7%;
-    --workflow-node-input: 0 0% 12%;
-    --workflow-canvas-dot: 0 0% 16%;
-    --workflow-edge: 0 0% 32%;
-    --workflow-handle: 0 0% 38%;
-    --workflow-handle-border: 0 0% 50%;
+    --background: 220 16% 7%;
+    --foreground: 0 0% 95%;
+    --card: 220 14% 10%;
+    --card-foreground: 0 0% 95%;
+    --popover: 220 14% 12%;
+    --popover-foreground: 0 0% 95%;
+    --primary: 219 100% 60%;
+    --primary-hover: 219 100% 65%;
+    --primary-foreground: 220 16% 7%;
+    --secondary: 220 14% 11%;
+    --secondary-foreground: 0 0% 95%;
+    --muted: 220 14% 9%;
+    --muted-foreground: 220 6% 60%;
+    --accent: 152 45% 50%;
+    --accent-foreground: 220 16% 7%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 220 10% 17%;
+    --input: 220 10% 17%;
+    --ring: 219 100% 60%;
   }
 }
 
@@ -120,8 +104,19 @@ body {
   * {
     @apply border-border;
   }
+
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+
+  html {
+    color-scheme: dark;
+    background-color: hsl(var(--background));
+  }
+
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-sans antialiased;
   }
 }
 

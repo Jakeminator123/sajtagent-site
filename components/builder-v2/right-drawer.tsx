@@ -82,9 +82,9 @@ export function RightDrawer() {
                     <span
                       className={cn(
                         "font-mono text-[10px] px-1.5 py-0.5 rounded",
-                        v.status === "ready" && "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400",
-                        v.status === "building" && "bg-amber-500/15 text-amber-600 dark:text-amber-400",
-                        v.status === "error" && "bg-rose-500/15 text-rose-600 dark:text-rose-400"
+                        v.status === "ready" && "bg-brand-teal/15 text-brand-teal",
+                        v.status === "building" && "bg-brand-amber/15 text-brand-amber",
+                        v.status === "error" && "bg-destructive/15 text-destructive"
                       )}
                     >
                       {v.status === "ready" ? "Klar" : v.status === "building" ? "Bygger" : "Fel"}
@@ -98,7 +98,7 @@ export function RightDrawer() {
                       className={cn(
                         "ml-auto p-1 rounded transition-colors duration-150",
                         v.pinned
-                          ? "text-amber-500"
+                          ? "text-brand-amber"
                           : "text-workflow-text-subtle hover:text-workflow-text"
                       )}
                       title={v.pinned ? "Ta bort pin" : "Pinna"}

@@ -1,15 +1,15 @@
 "use client"
 
-// Tärningssida: Sajtagenten (D-ID/openclaw-slot).
-// Vid merge: montera dagens D-ID-embed i #builder-v2-did-slot.
+// Tärningssida: Siteagent (D-ID/openclaw-slot).
+// Vid merge: montera dagens D-ID-embed i #siteagent-did-slot.
 
 import React, { useState } from "react"
 import { Send, Video } from "lucide-react"
 
 const QUICK_REPLIES = [
-  "Hur kan Sajtagenten hjälpa ett småföretag på sajten?",
+  "Hur kan Siteagent hjälpa ett småföretag på sajten?",
   "Vad kan jag senare kundanpassa för ett specifikt företag?",
-  "Hur fungerar Sajtagenten i buildern i dag?",
+  "Hur fungerar Siteagent i studion i dag?",
 ]
 
 export function AgentFace() {
@@ -18,7 +18,7 @@ export function AgentFace() {
   return (
     <div className="flex flex-col h-full">
       <div
-        id="builder-v2-did-slot"
+        id="siteagent-did-slot"
         className="h-[120px] shrink-0 bg-workflow-node-input flex flex-col items-center justify-center gap-1.5"
       >
         <Video className="w-6 h-6 text-workflow-text-subtle" />
@@ -29,7 +29,7 @@ export function AgentFace() {
 
       <div className="flex-1 min-h-0 overflow-y-auto p-3 flex flex-col gap-2">
         <p className="text-xs text-workflow-text-muted leading-relaxed">
-          Hej! Jag är Sajtagenten. Jag kan förklara hur agenten fungerar och hur du bygger vidare på
+          Hej! Jag är Siteagent. Jag kan förklara hur agenten fungerar och hur du bygger vidare på
           din sajt.
         </p>
         {QUICK_REPLIES.map((q) => (
@@ -55,7 +55,7 @@ export function AgentFace() {
           type="button"
           className="p-1.5 rounded-md bg-foreground text-background disabled:opacity-40"
           disabled={!input.trim()}
-          aria-label="Skicka till Sajtagenten"
+          aria-label="Skicka till Siteagent"
         >
           <Send className="w-3.5 h-3.5" />
         </button>

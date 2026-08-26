@@ -15,9 +15,9 @@ const geistMono = Geist_Mono({
 })
 
 export const metadata: Metadata = {
-  title: 'Sajtmaskin — Beskriv sajten. Se den ta form.',
-  description: 'Planera, bygg och forma en redigerbar webbplats med Sajtmaskins AI-studio.',
-  generator: 'v0.app',
+  title: 'Siteagent — Beskriv sajten. Se den ta form.',
+  description: 'Planera, bygg och forma en redigerbar webbplats med Siteagent.',
+  generator: 'Siteagent',
 }
 
 export default function RootLayout({
@@ -36,7 +36,7 @@ export default function RootLayout({
           attribute="class"
           defaultTheme="dark"
           enableSystem={false}
-          storageKey="flowforge-theme"
+          storageKey="siteagent-theme"
         >
           {children}
         </ThemeProvider>

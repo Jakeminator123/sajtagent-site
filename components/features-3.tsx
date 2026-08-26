@@ -7,7 +7,7 @@ import {AnimatedGroup} from "@/components/motion-primitives/animated-group";
 
 export default function Features() {
     return (
-        <section id="varfor-sajtmaskin" className="scroll-mt-24 py-16 md:py-32 dark:bg-transparent bg-transparent">
+        <section id="varfor-siteagent" className="scroll-mt-24 py-16 md:py-32 dark:bg-transparent bg-transparent">
             <div className="@container mx-auto max-w-5xl px-6">
                 <div className="text-center">
                     <TextEffect

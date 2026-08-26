@@ -15,7 +15,7 @@ export default function Agenda() {
                             speedSegment={0.3}
                             as="h2"
                             className="mb-4 text-3xl font-semibold md:text-4xl">
-                            Så arbetar Sajtmaskin
+                            Så arbetar Siteagent
                         </TextEffect>
                     </div>
 
@@ -46,7 +46,7 @@ export default function Agenda() {
                                 <span className='text-muted-foreground font-mono '>02</span>
                                 <span>Granska planen</span>
                             </div>
-                            <p className="text-muted-foreground mt-4">Sajtmaskin föreslår struktur och byggval innan den första generationen börjar.</p>
+                            <p className="text-muted-foreground mt-4">Siteagent föreslår struktur och byggval innan den första generationen börjar.</p>
                         </div>
                         <div className="py-6">
                             <div className="font-medium space-x-2">

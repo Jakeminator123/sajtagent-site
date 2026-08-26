@@ -50,7 +50,7 @@ export default function HeroSection() {
                                 delay={0.5}
                                 as="p"
                                 className="mt-8 max-w-2xl text-pretty text-lg leading-relaxed text-workflow-text-muted">
-                                Maskinen skriver, skissar och bygger. Du styr, stryker och godkänner. Halvautomatiskt på riktigt — ingen sida lämnar Sajtmaskin utan att en människa har tittat på den.
+                                Siteagent skriver, skissar och bygger. Du styr, stryker och godkänner. Halvautomatiskt på riktigt — ingen sida publiceras utan att en människa har tittat på den.
                             </TextEffect>
                             <HomePrompt />
                         </div>

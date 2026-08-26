@@ -122,7 +122,7 @@ function LanyardPhysics() {
 
 export default function LanyardScene() {
   return (
-    <div className="relative h-full min-h-[430px] w-full cursor-grab active:cursor-grabbing" aria-label="Interaktiv Sajtmaskin-bricka">
+    <div className="relative h-full min-h-[430px] w-full cursor-grab active:cursor-grabbing" aria-label="Interaktiv Siteagent-bricka">
       <Canvas camera={{ position: [0, 0.2, 8.2], fov: 42 }} dpr={[1, 1.5]} shadows>
         <color attach="background" args={['#0d0f10']} />
         <ambientLight intensity={1.1} />
@@ -137,7 +137,7 @@ export default function LanyardScene() {
       <div className="pointer-events-none absolute inset-0 flex items-center justify-center pt-28">
         <div className="text-center font-mono text-foreground">
           <p className="text-[10px] uppercase tracking-[0.35em] text-muted-foreground">AI-webbplatsstudio</p>
-          <p className="mt-2 text-3xl font-semibold tracking-tight">SAJTMASKIN</p>
+          <p className="mt-2 text-3xl font-semibold tracking-tight">SITEAGENT</p>
           <p className="mt-2 text-xs text-muted-foreground">Dra i kortet</p>
         </div>
       </div>

@@ -36,7 +36,7 @@ export async function POST(request: Request) {
       audio,
       providerOptions: {
         openai: {
-          // Svensk prompt-diktering är standardfallet i Sajtmaskin.
+          // Svensk prompt-diktering är standardfallet i Siteagent.
           language: "sv",
           temperature: 0,
         },

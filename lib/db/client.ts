@@ -142,11 +142,11 @@ function resolveIdleTimeoutMs(connStr: string): number {
  * mot poolern tills allt svarar 500. Samma mönster som Prisma-rekommendationen.
  */
 type GlobalWithPool = typeof globalThis & {
-  __builderV2PgPool__?: Pool | null;
+  __siteagentPgPool__?: Pool | null;
 };
 const globalForPool = globalThis as GlobalWithPool;
 
-const pool = (globalForPool.__builderV2PgPool__ ??= connectionString
+const pool = (globalForPool.__siteagentPgPool__ ??= connectionString
   ? new Pool({
       connectionString: cleanConnectionString(connectionString),
       ssl: resolvePoolSslConfig(connectionString),

@@ -1,13 +1,13 @@
 "use client"
 
-// Layoutinställningar för builder v2 — vilka kort som är nedvikta,
+// Layoutinställningar för Siteagent — vilka kort som är nedvikta,
 // kortens storlekar och kortlekens skala. Sparas i localStorage så att
 // användarens setup överlever omladdning. "Återställ layout" nollställer allt.
 
 import { useCallback, useEffect, useRef, useState } from "react"
 import { FACES, type FaceId } from "./faces/face-defs"
 
-const STORAGE_KEY = "builder-v2:layout:v1"
+const STORAGE_KEY = "siteagent:layout:v1"
 
 export interface FaceSize {
   w: number

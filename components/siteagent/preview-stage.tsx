@@ -72,7 +72,7 @@ export function PreviewStage() {
               <div className="flex items-center gap-1.5 bg-white dark:bg-zinc-50 border border-zinc-200 rounded-full px-3 py-1 max-w-[420px] w-full justify-center">
                 <Globe className="w-3 h-3 text-zinc-400" />
                 <span className="font-mono text-[11px] text-zinc-500 truncate">
-                  {previewUrl ?? "din-sajt.sajtmaskin.app"}
+                  {previewUrl ?? "din-sajt.siteagent.app"}
                 </span>
               </div>
             </div>

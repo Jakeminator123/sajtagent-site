@@ -1,7 +1,7 @@
 "use client"
 
 // Flytande widget nere till höger (ersätter minimappen):
-// flik 1: Sajtagenten (D-ID/openclaw-slot), flik 2: Karta (sajtkarta).
+// flik 1: Siteagent (D-ID/openclaw-slot), flik 2: Karta (sajtkarta).
 
 import React, { useState } from "react"
 import { Bot, ChevronDown, Map, Send, Video } from "lucide-react"
@@ -9,9 +9,9 @@ import { cn } from "@/lib/utils"
 import { useBuilder } from "./builder-store"
 
 const QUICK_REPLIES = [
-  "Hur kan Sajtagenten hjälpa ett småföretag på sajten?",
+  "Hur kan Siteagent hjälpa ett småföretag på sajten?",
   "Vad kan jag senare kundanpassa för ett specifikt företag?",
-  "Hur fungerar Sajtagenten i buildern i dag?",
+  "Hur fungerar Siteagent i studion i dag?",
 ]
 
 export function AgentWidget() {
@@ -28,7 +28,7 @@ export function AgentWidget() {
         className="absolute bottom-4 right-4 z-10 flex items-center gap-2 px-4 py-2.5 rounded-full bg-workflow-surface border border-workflow-border shadow-lg font-mono text-sm text-workflow-text hover:bg-workflow-surface-hover transition-colors duration-200"
       >
         <Bot className="w-4 h-4" />
-        Sajtagenten
+        Siteagent
       </button>
     )
   }
@@ -45,7 +45,7 @@ export function AgentWidget() {
               tab === "agent" ? "bg-workflow-surface text-workflow-text shadow" : "text-workflow-text-muted"
             )}
           >
-            <Bot className="w-3.5 h-3.5" /> Sajtagenten
+            <Bot className="w-3.5 h-3.5" /> Siteagent
           </button>
           <button
             type="button"
@@ -73,7 +73,7 @@ export function AgentWidget() {
           {/* Monteringsslot för D-ID/openclaw-videoavataren.
               Vid merge: montera dagens D-ID-embed i denna container. */}
           <div
-            id="builder-v2-did-slot"
+            id="siteagent-did-slot"
             className="h-[140px] bg-workflow-node-input flex flex-col items-center justify-center gap-1.5"
           >
             <Video className="w-6 h-6 text-workflow-text-subtle" />
@@ -84,7 +84,7 @@ export function AgentWidget() {
 
           <div className="p-3 flex flex-col gap-2">
             <p className="text-xs text-workflow-text-muted leading-relaxed">
-              Hej! Jag är Sajtagenten. Jag kan förklara hur agenten fungerar och hur du bygger vidare
+              Hej! Jag är Siteagent. Jag kan förklara hur agenten fungerar och hur du bygger vidare
               på din sajt.
             </p>
             {QUICK_REPLIES.map((q) => (
@@ -110,7 +110,7 @@ export function AgentWidget() {
               type="button"
               className="p-1.5 rounded-md bg-foreground text-background disabled:opacity-40"
               disabled={!input.trim()}
-              aria-label="Skicka till Sajtagenten"
+              aria-label="Skicka till Siteagent"
             >
               <Send className="w-3.5 h-3.5" />
             </button>

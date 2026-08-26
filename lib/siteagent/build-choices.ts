@@ -1,4 +1,4 @@
-// Builder v2 — byggval.
+// Siteagent — byggval.
 // Speglar init-build-choices.ts / PreviewPanelInitControls i sajtmaskin.
 // Vid merge: byt ut definitionerna mot importen från src/lib/builder/init-build-choices.ts.
 

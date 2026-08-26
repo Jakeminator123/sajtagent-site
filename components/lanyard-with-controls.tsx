@@ -98,8 +98,8 @@ export default function LanyardWithControls({
 
   // Share message templates
   const shareMessage = appliedName
-    ? `${appliedName} testar nästa webbplats med Sajtmaskin.`
-    : `Från företagsidé till redigerbar webbplats med Sajtmaskin.`;
+    ? `${appliedName} testar nästa webbplats med Siteagent.`
+    : `Från företagsidé till redigerbar webbplats med Siteagent.`;
 
   const handleShareX = useCallback(() => {
     const url = getShareableUrl();

@@ -1,4 +1,4 @@
-// Builder v2 — delade typer.
+// Siteagent — delade typer.
 // Speglar formerna i sajtmaskin (chat/version/preview) så mergen blir enkel.
 
 export type ChatRole = "user" | "assistant"

@@ -17,7 +17,7 @@ export default {
       process.env.DATABASE_URL ||
       "",
   },
-  // Builder-v2 delar dev-databas med sajtmaskin. Utan den här filtreringen
+  // Siteagent delar dev-databas med sajtmaskin. Utan den här filtreringen
   // skulle drizzle-kit se sajtmaskins ~38 tabeller som "främmande" och
   // föreslå DROP på dem.
   tablesFilter: ["workflows", "workflow_executions", "workflow_memory"],

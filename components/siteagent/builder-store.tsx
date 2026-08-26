@@ -1,13 +1,13 @@
 "use client"
 
-// Builder v2 — central klient-state (React context).
+// Siteagent — central klient-state (React context).
 // Vid merge kan denna behållas som den är; adapterfunktionerna i
-// lib/builder-v2/adapter.ts byts mot sajtmaskins riktiga hooks.
+// lib/siteagent/adapter.ts byts mot sajtmaskins riktiga hooks.
 
 import React, { createContext, useCallback, useContext, useMemo, useRef, useState } from "react"
-import { defaultBuildChoices, type BuildChoices } from "@/lib/builder-v2/build-choices"
-import * as adapter from "@/lib/builder-v2/adapter"
-import type { ChatMessage, PreviewStatus, PublishState, SiteVersion } from "@/lib/builder-v2/types"
+import { defaultBuildChoices, type BuildChoices } from "@/lib/siteagent/build-choices"
+import * as adapter from "@/lib/siteagent/adapter"
+import type { ChatMessage, PreviewStatus, PublishState, SiteVersion } from "@/lib/siteagent/types"
 
 interface BuilderStore {
   // Byggval

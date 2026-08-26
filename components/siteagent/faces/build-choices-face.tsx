@@ -4,7 +4,7 @@
 
 import React from "react"
 import { cn } from "@/lib/utils"
-import { CHOICE_GROUPS, PAGE_COUNT } from "@/lib/builder-v2/build-choices"
+import { CHOICE_GROUPS, PAGE_COUNT } from "@/lib/siteagent/build-choices"
 import { useBuilder } from "../builder-store"
 
 function Chip({

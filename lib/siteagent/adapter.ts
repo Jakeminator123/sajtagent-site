@@ -1,4 +1,4 @@
-// Builder v2 — adapterlager.
+// Siteagent — adapterlager.
 // ALLA backend-anrop går genom denna fil. Varje funktion har samma
 // API-vägar som sajtmaskin använder, med en tunn simulering som fallback
 // när endpointen inte finns (t.ex. i v0-förhandsvisningen).
@@ -108,7 +108,7 @@ export async function publish(): Promise<{ ok: boolean; url?: string }> {
  * Ladda ner ZIP för en version. Stub — pekas mot befintlig ZIP-export vid merge.
  */
 export async function downloadZip(versionId: string): Promise<void> {
-  console.log("[builder-v2] downloadZip stub, versionId:", versionId)
+  console.log("[siteagent] downloadZip stub, versionId:", versionId)
 }
 
 // ---------------------------------------------------------------------------

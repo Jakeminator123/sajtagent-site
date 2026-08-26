@@ -22,18 +22,18 @@ export function LandingPage() {
     const value = prompt.trim()
     if (!value) return
     const params = new URLSearchParams({ prompt: value, mode: mode.toLowerCase() })
-    router.push(`/builder?${params.toString()}`)
+    router.push(`/siteagent?${params.toString()}`)
   }
 
   return (
     <main className="min-h-screen bg-background text-foreground">
       <header className="fixed inset-x-0 top-0 z-50 border-b border-border/70 bg-background/80 backdrop-blur-xl">
         <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4 md:px-6">
-          <a href="#top" className="font-mono text-sm font-semibold tracking-tight">SAJTMASKIN</a>
+          <a href="#top" className="font-mono text-sm font-semibold tracking-tight">SITEAGENT</a>
           <nav className="hidden items-center gap-6 font-mono text-xs text-muted-foreground md:flex" aria-label="Huvudnavigation">
             <a href="#studio" className="hover:text-foreground">Studio</a>
             <a href="#sa-funkar-det" className="hover:text-foreground">Så fungerar det</a>
-            <a href="/builder" className="hover:text-foreground">Öppna buildern</a>
+            <a href="/siteagent" className="hover:text-foreground">Öppna Siteagent</a>
           </nav>
           <a href="#studio" className="rounded-md border border-border bg-card px-3 py-1.5 font-mono text-xs hover:bg-muted">Skapa webbplats</a>
         </div>
@@ -50,7 +50,7 @@ export function LandingPage() {
               Beskriv sajten.<br />Se den ta form.
             </h1>
             <p className="max-w-xl text-pretty text-base leading-relaxed text-muted-foreground md:text-lg">
-              Från första idé till en redigerbar webbplats. Sajtmaskin planerar, bygger och visar arbetet medan det händer.
+              Från första idé till en redigerbar webbplats. Siteagent planerar, bygger och visar arbetet medan det händer.
             </p>
           </div>
           <div className="grid max-w-xl grid-cols-3 gap-2 border-t border-border pt-5 font-mono text-xs text-muted-foreground">
@@ -70,7 +70,7 @@ export function LandingPage() {
           <div className="flex flex-col gap-2 text-center">
             <p className="font-mono text-xs uppercase tracking-[0.2em] text-primary">Starta ett bygge</p>
             <h2 className="text-balance text-3xl font-semibold tracking-tight md:text-4xl">Vad vill du skapa?</h2>
-            <p className="text-muted-foreground">Skriv fritt eller välj hur Sajtmaskin ska tolka uppdraget.</p>
+            <p className="text-muted-foreground">Skriv fritt eller välj hur Siteagent ska tolka uppdraget.</p>
           </div>
 
           <div className="overflow-hidden rounded-xl border border-border bg-background shadow-2xl">
@@ -131,7 +131,7 @@ export function LandingPage() {
         <div className="grid gap-px overflow-hidden rounded-xl border border-border bg-border md:grid-cols-3">
           {[
             { icon: MousePointer2, title: 'Beskriv', text: 'Skriv vad sidan ska göra, kännas som och innehålla.' },
-            { icon: Code2, title: 'Följ bygget', text: 'Se resonemang, logg, versioner och preview i buildern.' },
+            { icon: Code2, title: 'Följ bygget', text: 'Se resonemang, logg, versioner och preview i Siteagent.' },
             { icon: Sparkles, title: 'Forma vidare', text: 'Flytta kort, byt modell och iterera utan att börja om.' },
           ].map(({ icon: Icon, title, text }) => (
             <article key={title} className="flex min-h-52 flex-col justify-between gap-8 bg-background p-6">

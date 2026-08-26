@@ -39,7 +39,7 @@ export function BuilderHeader({ showDrawer, onToggleDrawer }: BuilderHeaderProps
   // Merge-notering: menyalternativen nedan pekas mot befintliga dialoger/
   // åtgärder i sajtmaskin (Spara, Byggmodell, Scaffold, Egna instruktioner,
   // Importera, Ladda ner ZIP).
-  const menuStub = (label: string) => () => console.log("[builder-v2] menyval:", label)
+  const menuStub = (label: string) => () => console.log("[siteagent] menyval:", label)
 
   return (
     <header className="h-14 bg-workflow-bg border-b border-workflow-border flex items-center justify-between px-4 transition-colors duration-200">
@@ -48,10 +48,10 @@ export function BuilderHeader({ showDrawer, onToggleDrawer }: BuilderHeaderProps
           S
         </div>
         <span className="font-mono font-semibold text-workflow-text tracking-tight text-sm">
-          Sajtmaskin
+          Siteagent
         </span>
         <span className="font-mono text-[10px] text-workflow-text-subtle border border-workflow-border-subtle rounded px-1.5 py-0.5">
-          builder v2
+          studio
         </span>
       </div>
 

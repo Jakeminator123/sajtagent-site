@@ -1,5 +1,5 @@
 -- Workflow Editor Database Schema
--- Skapar de tre tabellerna builder-v2 behover. Ror INGA befintliga tabeller.
+-- Skapar de tre tabellerna Siteagent behover. Ror INGA befintliga tabeller.
 --
 -- Konventioner harmade fran sajtmaskin (jakembase_dev):
 --   * TEXT-kolumner for id:n och strangar (deras schema anvander text() 294 ggr,

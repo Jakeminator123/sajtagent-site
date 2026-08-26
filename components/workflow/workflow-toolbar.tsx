@@ -119,14 +119,14 @@ export function WorkflowToolbar({
       <div className="flex items-center gap-4">
         <div className="flex items-center gap-3">
           <Image
-            src="/flowforge-logo.png"
-            alt="FlowForge"
+            src="/siteagent-mark.png"
+            alt="Siteagent"
             width={28}
             height={28}
             className="rounded-md"
           />
           <span className="font-mono font-semibold text-workflow-text tracking-tight text-sm">
-            FlowForge
+            Siteagent
           </span>
         </div>
 

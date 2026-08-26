@@ -1,6 +1,6 @@
 /**
  * Connection-string-upplösning, speglad från sajtmaskins `src/lib/db/env.ts`
- * så att builder-v2 läser samma variabler i samma prioritetsordning.
+ * så att Siteagent läser samma variabler i samma prioritetsordning.
  *
  * POSTGRES_URL* kommer från Vercels Supabase-integration. DATABASE_URL ligger
  * sist kvar som fallback för äldre lokala uppsättningar.

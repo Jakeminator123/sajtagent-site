@@ -4,12 +4,13 @@ Siteagent är en Next.js-baserad AI-studio för att planera, bygga och förhands
 
 ## Kom igång
 
-Krav: Node.js 22 och Corepack.
+Krav: Node.js 22 och npm 10. [Volta](https://volta.sh/) rekommenderas och
+projektet låser automatiskt Node.js 22.23.1 samt npm 10.9.8 för den som har
+Volta installerat.
 
 ```bash
-corepack enable
-pnpm install --frozen-lockfile
-pnpm dev
+npm ci
+npm run dev
 ```
 
 Öppna sedan [http://localhost:3000/siteagent](http://localhost:3000/siteagent).
@@ -17,8 +18,8 @@ pnpm dev
 ## Verifiering
 
 ```bash
-pnpm lint
-pnpm build
+npm run lint
+npm run build
 ```
 
 ## Valfri konfiguration

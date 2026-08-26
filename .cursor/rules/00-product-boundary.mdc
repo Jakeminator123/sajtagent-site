@@ -1,0 +1,12 @@
+---
+description: SiteAgent product terminology, routing, and repository boundary
+alwaysApply: true
+---
+
+# SiteAgent web product
+
+- SiteAgent is the whole product; the Builder is one workspace inside it.
+- `/` is home, `/builder` is the Builder, and `/siteagent` redirects there.
+- Keep privileged OpenClaw and Sprite runtime code out of this repository.
+- Never expose Sprite, OpenClaw, model, or signing secrets to browser code.
+- Preserve unrelated working-tree changes and verify real routes and builds.

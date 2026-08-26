@@ -53,8 +53,8 @@ export default function CallToAction() {
                             asChild
                             size="lg"
                             variant="outline">
-                            <Link href="/siteagent">
-                                <span>Öppna studion</span>
+                            <Link href="/builder">
+                                <span>Öppna Buildern</span>
                             </Link>
                         </Button>
                     </AnimatedGroup>

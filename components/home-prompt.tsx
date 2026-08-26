@@ -57,7 +57,7 @@ export function HomePrompt() {
     const value = prompt.trim()
     if (!value) return
     const params = new URLSearchParams({ prompt: value, mode })
-    router.push(`/siteagent?${params.toString()}`)
+    router.push(`/builder?${params.toString()}`)
   }
 
   function handleKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
@@ -75,7 +75,7 @@ export function HomePrompt() {
           <span className="font-mono text-xs font-medium uppercase tracking-wide text-workflow-text-muted">
             Skapa din sida
           </span>
-          <span className="ml-auto font-mono text-[10px] text-workflow-text-subtle">Siteagent studio</span>
+          <span className="ml-auto font-mono text-[10px] text-workflow-text-subtle">SiteAgent Builder</span>
         </div>
 
         <label htmlFor="site-prompt" className="sr-only">

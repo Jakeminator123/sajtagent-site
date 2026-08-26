@@ -22,7 +22,7 @@ export function LandingPage() {
     const value = prompt.trim()
     if (!value) return
     const params = new URLSearchParams({ prompt: value, mode: mode.toLowerCase() })
-    router.push(`/siteagent?${params.toString()}`)
+    router.push(`/builder?${params.toString()}`)
   }
 
   return (
@@ -33,7 +33,7 @@ export function LandingPage() {
           <nav className="hidden items-center gap-6 font-mono text-xs text-muted-foreground md:flex" aria-label="Huvudnavigation">
             <a href="#studio" className="hover:text-foreground">Studio</a>
             <a href="#sa-funkar-det" className="hover:text-foreground">Så fungerar det</a>
-            <a href="/siteagent" className="hover:text-foreground">Öppna Siteagent</a>
+            <a href="/builder" className="hover:text-foreground">Öppna Buildern</a>
           </nav>
           <a href="#studio" className="rounded-md border border-border bg-card px-3 py-1.5 font-mono text-xs hover:bg-muted">Skapa webbplats</a>
         </div>

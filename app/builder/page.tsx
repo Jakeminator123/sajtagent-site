@@ -1,11 +1,12 @@
 import type { Metadata } from "next"
+
 import { BuilderShell } from "@/components/siteagent/builder-shell"
 
 export const metadata: Metadata = {
-  title: "Siteagent — AI-studio",
-  description: "AI-driven webbplatsbyggare i canvas-läge",
+  title: "SiteAgent — Builder",
+  description: "Bygg och förhandsgranska webbplatser i SiteAgents Builder.",
 }
 
-export default function SiteagentPage() {
+export default function BuilderPage() {
   return <BuilderShell />
 }

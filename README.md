@@ -2,6 +2,10 @@
 
 Siteagent är en Next.js-baserad AI-studio för att planera, bygga och förhandsgranska webbplatser.
 
+SiteAgent är hela webbprodukten. Buildern är produktens byggyta, inte ett annat
+namn för SiteAgent. Privilegierad OpenClaw- och Sprite-runtime ligger i det
+separata systerrepot `sajtagent-sprites`.
+
 ## Kom igång
 
 Krav: Node.js 22 och npm 10. [Volta](https://volta.sh/) rekommenderas och
@@ -13,7 +17,9 @@ npm ci
 npm run dev
 ```
 
-Öppna sedan [http://localhost:3000/siteagent](http://localhost:3000/siteagent).
+Öppna SiteAgents förstasida på [http://localhost:3000](http://localhost:3000).
+Buildern finns på [http://localhost:3000/builder](http://localhost:3000/builder).
+Gamla länkar till `/siteagent` skickas vidare till `/builder`.
 
 ## Verifiering
 

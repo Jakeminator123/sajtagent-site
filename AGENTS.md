@@ -26,3 +26,16 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - End every final response with this repository's live branch and absolute
   worktree path. If several repositories were touched, report each one.
 - Never remove dirty, locked, unpushed, active-PR, or unique worktrees.
+
+## Current verification baseline
+
+- `next.config.mjs` temporarily ignores build-time TypeScript errors inherited
+  by the current prototype. A green `next build` is therefore not a typecheck.
+- Read `docs/quality-baseline.md`, run focused checks for touched code, and do
+  not add new suppressions or describe this waiver as full verification.
+- Read `docs/runtime-baseline.md`. Simulated preview, prompt assist, publish,
+  and download behavior are prototype paths and must never be presented as a
+  working backend, deployment, or export.
+- SiteAgent may normalize free text, analyzed documents, templates, and audits
+  into a typed build request. The privileged model/tool loop belongs in the
+  separate `sajtagent-sprites` repository.

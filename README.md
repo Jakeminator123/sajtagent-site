@@ -8,8 +8,8 @@ separata systerrepot `sajtagent-sprites`.
 
 ## Kom igång
 
-Krav: Node.js 22 och npm 10. [Volta](https://volta.sh/) rekommenderas och
-projektet låser automatiskt Node.js 22.23.1 samt npm 10.9.8 för den som har
+Krav: Node.js 24 och npm 11. [Volta](https://volta.sh/) rekommenderas och
+projektet låser automatiskt Node.js 24.20.0 samt npm 11.19.0 för den som har
 Volta installerat.
 
 ```bash
@@ -27,6 +27,14 @@ Gamla länkar till `/siteagent` skickas vidare till `/builder`.
 npm run lint
 npm run build
 ```
+
+`next build` har för närvarande ett dokumenterat, tillfälligt undantag för
+befintliga TypeScript-fel. Se [quality baseline](docs/quality-baseline.md) innan
+du tolkar ett grönt buildsteg som full typverifiering.
+
+Builderns backend-, preview- och publiceringsintegrationer är fortfarande en
+prototyp med simulerade reservvägar. Se [runtime baseline](docs/runtime-baseline.md)
+innan du ändrar Builder-flödet.
 
 ## Valfri konfiguration
 

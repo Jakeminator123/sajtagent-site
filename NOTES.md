@@ -1,0 +1,1 @@
+Jag vill gärna ha en tydlig uppdelning för att förstå förstasidan, buildern och eventuella andra sidor. Det är otydligt just nu.

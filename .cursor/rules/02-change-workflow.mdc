@@ -1,0 +1,17 @@
+---
+description: Site changes, verification baseline, and LLM boundary
+alwaysApply: true
+---
+
+# Change workflow
+
+- Treat `NOTES.md` and planning folders as proposals, not contracts.
+- Keep intake and UI in this repo; privileged LLM/tool execution belongs in
+  `sajtagent-sprites`.
+- Prefer one real browser-to-result slice over parallel mock and production paths.
+- `next build` currently ignores existing TypeScript errors; read
+  `docs/quality-baseline.md` and never report it as full type verification.
+- Read `docs/runtime-baseline.md`; prototype fallbacks must be visibly labeled
+  and can never count as backend, preview, publish, or export success.
+- When replacing a mock or legacy route, remove it or document its authority,
+  owner, and measurable removal trigger.

@@ -1,0 +1,3 @@
+Vi ska lägga in LLM-flödet, vilket liknar en klassisk Scikit-learn-pipeline. Jag är osäker på hur mycket vi ska göra eller bevara av det. Ge gärna råd.
+
+Det finns undermappar här. I denna mapp ska hela LLM-flödet finnas, men åtkomsten till Buildern och vilket material som används kan variera, beroende på om det är en textad prompt eller ett analyserat dokument. Det finns fyra sätt att komma in. Försök gärna strukturera detta.

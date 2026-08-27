@@ -1,0 +1,15 @@
+---
+description: Windows development and Linux site-runtime portability
+alwaysApply: true
+---
+
+# Environment boundary
+
+- Default local instructions to Windows PowerShell 7 and label them clearly.
+- Use Git Bash only when a command is explicitly intended as Bash/POSIX syntax.
+- Treat Git Bash as compatibility, not proof of a Linux or Vercel build.
+- Keep source portable: no hard-coded drive paths, `.cmd` assumptions, or
+  case-insensitive imports in application/runtime code.
+- Use UTF-8 without BOM and LF for shared source and Linux/runtime files.
+- Use CRLF only for Windows-only `.ps1`, `.cmd`, and `.bat` entrypoints.
+- Verify relevant changes locally on Windows and in Linux CI.

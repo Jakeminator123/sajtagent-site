@@ -39,3 +39,13 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - SiteAgent may normalize free text, analyzed documents, templates, and audits
   into a typed build request. The privileged model/tool loop belongs in the
   separate `sajtagent-sprites` repository.
+
+## Development and deployment environments
+
+- The developer host is Windows with PowerShell 7 by default. Label Git Bash
+  commands explicitly; Git Bash is optional and does not prove Linux behavior.
+- Vercel and Linux CI must receive portable code with exact filename casing,
+  no hard-coded Windows paths, UTF-8 without BOM, and LF line endings.
+- Use CRLF only for Windows-only `.ps1`, `.cmd`, and `.bat` entrypoints.
+- Codex/Cursor subagents are development helpers. Product OpenAI/Anthropic
+  clients and credentials belong server-side in `sajtagent-sprites`.

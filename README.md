@@ -38,7 +38,12 @@ innan du ändrar Builder-flödet.
 
 ## Valfri konfiguration
 
+Kopiera variabelnamnen från `.env.example` till den Git-ignorerade
+`.env.local`. Lägg aldrig `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, Sprite-token
+eller OpenClaw-token i detta webb-repo; de hör hemma i runtime-repot.
+
 Databasfunktioner använder i första hand `POSTGRES_URL` eller
 `POSTGRES_URL_NON_POOLING`, med `DATABASE_URL` som fallback. GitHub-noden kan
 använda `GITHUB_TOKEN`, och `NEXT_PUBLIC_URL` kan ange applikationens publika
-basadress.
+basadress. `GITHUB_TOKEN` är endast ett valfritt prototyphjälpmedel och ska
+ersättas av den framtida, avgränsade SiteAgent GitHub App-integrationen.

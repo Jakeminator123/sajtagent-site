@@ -6,6 +6,19 @@ SiteAgent är hela webbprodukten. Buildern är produktens byggyta, inte ett anna
 namn för SiteAgent. Privilegierad OpenClaw- och Sprite-runtime ligger i det
 separata systerrepot `sajtagent-sprites`.
 
+## Canonical repository family
+
+- This repository is the only active SiteAgent web-product repository.
+- GitHub: [`Jakeminator123/sajtagent-site`](https://github.com/Jakeminator123/sajtagent-site), branch `main`.
+- Vercel: project `sajtagent-site` (project ID `prj_hMs2VN2gnj9YU42ZDcEv9U8fOpKf`).
+- Cross-repository decisions live in [`sajtagent-platform`](https://github.com/Jakeminator123/sajtagent-platform).
+- Privileged OpenClaw and Sprite execution live in [`sajtagent-sprites`](https://github.com/Jakeminator123/sajtagent-sprites).
+
+The earlier `builder-v2` repository and Vercel project are legacy prototypes.
+Do not send new commits, environment variables, deployments, or runtime
+credentials there. Sajtmaskin remains a reference implementation, not a
+runtime dependency.
+
 ## Kom igång
 
 Krav: Node.js 24 och npm 11. [Volta](https://volta.sh/) rekommenderas och

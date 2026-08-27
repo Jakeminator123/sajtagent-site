@@ -42,6 +42,13 @@ Kopiera variabelnamnen från `.env.example` till den Git-ignorerade
 `.env.local`. Lägg aldrig `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, Sprite-token
 eller OpenClaw-token i detta webb-repo; de hör hemma i runtime-repot.
 
+Webbrepot använder det separata Supabase-projektet `sajtagent`
+(`ywoltuegeemqznbcgokg`, `eu-north-1`). Projektets URL och moderna
+publishable-nyckel ligger lokalt i `.env.local` som
+`NEXT_PUBLIC_SUPABASE_URL` och `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`.
+Publishable-nyckeln är inte en serverhemlighet, men all åtkomst till exponerade
+tabeller måste ändå skyddas med RLS.
+
 Databasfunktioner använder i första hand `POSTGRES_URL` eller
 `POSTGRES_URL_NON_POOLING`, med `DATABASE_URL` som fallback. GitHub-noden kan
 använda `GITHUB_TOKEN`, och `NEXT_PUBLIC_URL` kan ange applikationens publika

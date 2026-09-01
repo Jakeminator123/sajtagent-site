@@ -27,7 +27,7 @@ export const ReadyAgentTurnRuntimeHealthV1Schema = z
     agentTurnStreamTransport: z.literal("sse"),
     agentTurnStreamEnabled: z.literal(true),
     agentTurnCapabilities: z.tuple([z.literal("conversation.respond")]),
-    artifactReadEnabled: z.literal(false),
+    artifactReadEnabled: z.boolean(),
   })
   .passthrough()
 
@@ -59,7 +59,7 @@ function isAllowedRuntimeUrl(url: URL): boolean {
   if (url.protocol === "https:") return true
   return (
     url.protocol === "http:" &&
-    ["127.0.0.1", "localhost", "::1"].includes(url.hostname)
+    ["127.0.0.1", "localhost", "::1", "[::1]"].includes(url.hostname)
   )
 }
 

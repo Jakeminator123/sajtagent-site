@@ -1,6 +1,6 @@
 # Build-job server join V1
 
-Status: Site dependencies wired, runtime dispatch guarded, 2026-09-01.
+Status: ArtifactReadV1 adapter wired, runtime dispatch health-gated, 2026-09-01.
 
 The build-job route now assembles one Site-owned server dependency graph:
 
@@ -21,28 +21,40 @@ one transaction.
 
 ## Dispatch capability gate
 
-Dispatch requires both capabilities:
+Dispatch requires all of these server-side facts:
 
-1. the configured signed runtime client; and
-2. an explicitly injected, reviewed `CandidateArtifactReaderV1` which returns
-   the exact candidate bytes.
+1. `SITEAGENT_RUNTIME_URL` and the non-public signing key are configured as a
+   pair, with an HTTPS or loopback HTTP endpoint and a key of at least 32
+   characters;
+2. strict, non-cacheable `GET /health` advertises the ready signed-job runtime,
+   `artifactReadContractVersion: 1` and `artifactReadEnabled: true`; and
+3. the resulting server-only `CandidateArtifactReaderV1` is injected into the
+   acceptance core.
 
-The current shared runtime protocol documents only:
+The mirrored Runtime contract now documents:
 
 - `GET /health`; and
-- signed `POST /v1/build-jobs` returning `WorkerReportV1`.
+- signed `POST /v1/build-jobs` returning `WorkerReportV1`; and
+- signed `POST /v1/artifacts/read` returning exact candidate bytes.
 
-It does not document or implement artifact-byte retrieval. The report's opaque
-artifact ref is evidence, not a URL. Therefore the production route explicitly
-uses `RUNTIME_ARTIFACT_TRANSFER_UNAVAILABLE_V1`. The join sets runtime to `null`
-before the controller can dispatch, records `runtime_unavailable`, and explains
-that the artifact-byte protocol is missing. It never starts the configured
-runtime, creates a staged preview, or reports success in this state.
+`SignedRuntimeArtifactReaderV1` signs the exact compact JSON body with the same
+canonical HMAC payload as build jobs. It disables redirects, owns bounded
+health/read timeouts, caps the request at 32 KiB and the raw response at
+1,572,864 bytes, and independently validates strict JSON, the complete
+binding, ref, path, media type, decoded size, 1 MiB content limit, SHA-256,
+fatal UTF-8 and an HTML document marker. Both health and read responses must be
+private JSON with `cache-control: no-store`; the reader is never imported by a
+client surface.
 
-No artifact URL, route, environment variable, workspace-ref parser, or health
-flag is inferred. A future runtime change must first ratify and test the actual
-private transfer protocol in both repositories, then replace the unavailable
-capability with its server-only reader.
+The opaque report ref remains evidence, not a URL or Site-parsed workspace
+path. When configuration is absent, health is unavailable, the capability is
+disabled or its exact version/shape drifts, the route injects
+`RUNTIME_ARTIFACT_CAPABILITY_UNAVAILABLE_V1`. The join sets runtime to `null`
+before the controller can dispatch, so there are zero build-job dispatch calls
+and no staged preview or success. The health probe is the read-only call that
+establishes the unavailable capability.
 
-Focused verification lives in `scripts/verify-build-job-server-join.mts` and is
-part of `npm run check:build-jobs`.
+Focused contract and adapter verification lives in
+`scripts/verify-artifact-read-contract.mts` and
+`scripts/verify-runtime-artifact-reader.mts`; the route/join regression remains
+in `scripts/verify-build-job-server-join.mts`. They are part of `npm run check`.

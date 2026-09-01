@@ -45,8 +45,10 @@ policy, baseSequence }` and signs the exact UTF-8 bytes with the shared
 non-loopback endpoint must use HTTPS.
 
 Before dispatch, Site requires `/health` to advertise AgentSession contract 1,
-SSE transport, enabled streaming, exactly `conversation.respond`, and disabled
-artifact reads. The response must be non-cacheable
+SSE transport, enabled streaming and exactly `conversation.respond`.
+`artifactReadEnabled` may be false or true because the conversation ingress
+validates its own capability independently from the subordinate build path.
+The turn response must be non-cacheable
 `text/event-stream; charset=utf-8`. Site verifies every `id`, event name and
 full `AgentEventV1`, the 32 KiB frame / 4,096 event / 4 MiB stream bounds,
 consecutive session-global sequence, first `turn.accepted`, policy binding and

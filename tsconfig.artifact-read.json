@@ -1,0 +1,21 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "incremental": false,
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "target": "ES2022",
+    "types": ["node"]
+  },
+  "include": [
+    "contracts/artifact-read-v1.ts",
+    "contracts/builder-v1.ts",
+    "lib/siteagent/server/build-job-input.ts",
+    "lib/siteagent/server/candidate-acceptance.ts",
+    "lib/siteagent/server/runtime-artifact-reader.ts",
+    "lib/siteagent/server/runtime-client.ts",
+    "lib/siteagent/server/runtime-protocol-v1.ts",
+    "scripts/verify-artifact-read-contract.mts",
+    "scripts/verify-runtime-artifact-reader.mts"
+  ]
+}

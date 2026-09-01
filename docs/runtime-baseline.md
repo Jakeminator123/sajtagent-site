@@ -18,18 +18,19 @@ The Builder now uses Sajtagent-owned product routes:
 - the old `/api/engine/chats/stream` request and simulated HTML fallback no
   longer exist in production code.
 
-The current local runtime remains deliberately disconnected. A missing
-runtime or an unverified worker candidate ends as `job.failed`. The browser
+The current local environment remains deliberately disconnected unless its
+server-only runtime URL and signing key are configured and strict Runtime
+health advertises both signed jobs and ArtifactReadV1. A missing or unhealthy
+runtime and an unverified worker candidate end as `job.failed`. The browser
 cannot convert that state into a preview or ready version.
 
 The deterministic Site-owned candidate gate is implemented and documented in
 [`candidate-acceptance-v1.md`](candidate-acceptance-v1.md). It verifies stable
 receipt semantics, exact preview bytes and metadata, active revision, staged
 Site preview health, and exposes one atomic success-commit seam. The product
-route still fails closed until private artifact transfer, candidate acceptance
-is available. Candidate acceptance, staged Site preview health and the
-transactional version repository are now assembled behind the explicit
-dispatch guard documented in
+route now has a server-only ArtifactReadV1 adapter, while candidate acceptance,
+staged Site preview health and the transactional version repository are
+assembled behind the explicit dispatch guard documented in
 [`build-job-server-join-v1.md`](build-job-server-join-v1.md). The local
 repository and owner-bound routes exist and are documented in
 [`site-version-preview-v1.md`](site-version-preview-v1.md); they are not proof
@@ -65,7 +66,8 @@ invokes an approved build tool.
 
 ## Still unavailable
 
-- the ratified runtime artifact-byte transfer needed to open dispatch;
+- live Runtime/Site configuration and end-to-end proof of the private
+  artifact-byte transfer;
 - applied database migration and live use of the local version/preview routes;
 - prompt assist, publish, ZIP export, import, and save actions.
 
@@ -80,7 +82,8 @@ Magic-link login uses only `NEXT_PUBLIC_SUPABASE_URL` and
 separate server-only Postgres connection and the reviewed local migration.
 No cloud migration is applied by this checkpoint.
 
-The next implementation target is the shared private artifact-byte protocol;
-the Site-owned acceptance, persistence and authenticated preview boundaries are
-already wired behind that fail-closed capability. The accepted end-to-end contract remains
+The shared private artifact-byte protocol and Site adapter are implemented and
+covered locally. Live enablement still requires the server-only environment,
+strict healthy Runtime capability, applied Site persistence, and an end-to-end
+proof. The accepted end-to-end contract remains
 [`first-vertical-slice.md`](first-vertical-slice.md).

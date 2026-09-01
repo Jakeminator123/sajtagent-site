@@ -3,13 +3,14 @@ import { ZodError } from "zod"
 import { createBuildJobV1 } from "../../../../lib/siteagent/server/build-job-controller.ts"
 import { CreateBuildJobRequestV1Schema } from "../../../../lib/siteagent/server/build-job-input.ts"
 import {
-  RUNTIME_ARTIFACT_TRANSFER_UNAVAILABLE_V1,
+  RUNTIME_ARTIFACT_CAPABILITY_UNAVAILABLE_V1,
   createBuildJobServerJoinV1,
 } from "../../../../lib/siteagent/server/build-job-server-join.ts"
 import { InlineSiteCandidatePreviewStoreV1 } from "../../../../lib/siteagent/server/candidate-preview-store.ts"
 import { PostgresBuildJobRepositoryV1 } from "../../../../lib/siteagent/server/postgres-build-job-repository.ts"
 import { resolveBuildPrincipalV1 } from "../../../../lib/siteagent/server/principal.ts"
 import { isSameOriginMutation, readBoundedJsonV1 } from "../../../../lib/siteagent/server/request-security.ts"
+import { createRuntimeArtifactReaderFromEnvV1 } from "../../../../lib/siteagent/server/runtime-artifact-reader.ts"
 import { createRuntimeClientFromEnvV1 } from "../../../../lib/siteagent/server/runtime-client.ts"
 import { PostgresSiteVersionRepositoryV1 } from "../../../../lib/siteagent/server/version-repository.ts"
 
@@ -63,10 +64,16 @@ export async function POST(request: Request): Promise<Response> {
       )
     }
     const repository = new PostgresBuildJobRepositoryV1(pool)
+    const runtimeClient = createRuntimeClientFromEnvV1()
+    const artifactReader = createRuntimeArtifactReaderFromEnvV1()
+    const artifactTransfer =
+      runtimeClient && artifactReader && await artifactReader.isRuntimeReady()
+        ? { kind: "available" as const, reader: artifactReader }
+        : RUNTIME_ARTIFACT_CAPABILITY_UNAVAILABLE_V1
     const join = createBuildJobServerJoinV1({
       repository,
-      runtime: createRuntimeClientFromEnvV1(),
-      artifactTransfer: RUNTIME_ARTIFACT_TRANSFER_UNAVAILABLE_V1,
+      runtime: runtimeClient,
+      artifactTransfer,
       previewStore: new InlineSiteCandidatePreviewStoreV1(),
       successCommitter: new PostgresSiteVersionRepositoryV1(pool),
     })

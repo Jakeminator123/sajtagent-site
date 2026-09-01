@@ -453,6 +453,18 @@ check(
   "the adapter signs the exact UTF-8 body with the ratified canonical payload",
 )
 check(
+  [false, true].every((artifactReadEnabled) =>
+    ReadyAgentTurnRuntimeHealthV1Schema.safeParse({
+      agentSessionContractVersion: 1,
+      agentTurnStreamTransport: "sse",
+      agentTurnStreamEnabled: true,
+      agentTurnCapabilities: ["conversation.respond"],
+      artifactReadEnabled,
+    }).success,
+  ),
+  "conversation ingress remains valid with ArtifactReadV1 disabled or enabled",
+)
+check(
   !ReadyAgentTurnRuntimeHealthV1Schema.safeParse({
     agentSessionContractVersion: 1,
     agentTurnStreamTransport: "sse",

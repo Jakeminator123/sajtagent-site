@@ -15,21 +15,42 @@ import {
 
 const RUNTIME_PATH = "/v1/build-jobs"
 const HEALTH_PATH = "/health"
+type FetchV1 = typeof globalThis.fetch
 
 function isAllowedRuntimeUrl(url: URL): boolean {
   if (url.protocol === "https:") return true
   return (
     url.protocol === "http:" &&
-    ["127.0.0.1", "localhost", "::1"].includes(url.hostname)
+    ["127.0.0.1", "localhost", "::1", "[::1]"].includes(url.hostname)
   )
+}
+
+function assertExactRuntimeEndpoint(response: Response, endpoint: URL): void {
+  if (
+    response.redirected ||
+    (response.url !== "" && response.url !== endpoint.href)
+  ) {
+    throw new Error("Runtime redirects are forbidden")
+  }
 }
 
 export class SignedBuildRuntimeClientV1 implements BuildRuntimeClientV1 {
   private readonly endpoint: URL
   private readonly healthEndpoint: URL
   private readonly signingKey: string
+  private readonly fetchImpl: FetchV1
+  private readonly now: () => Date
+  private readonly createNonce: () => string
 
-  constructor(baseUrl: string, signingKey: string) {
+  constructor(
+    baseUrl: string,
+    signingKey: string,
+    options: {
+      fetch?: FetchV1
+      now?: () => Date
+      createNonce?: () => string
+    } = {},
+  ) {
     const endpoint = new URL(RUNTIME_PATH, baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`)
     if (!isAllowedRuntimeUrl(endpoint)) {
       throw new Error("Runtime URL must use HTTPS or loopback HTTP")
@@ -40,15 +61,20 @@ export class SignedBuildRuntimeClientV1 implements BuildRuntimeClientV1 {
     this.endpoint = endpoint
     this.healthEndpoint = new URL(HEALTH_PATH, endpoint)
     this.signingKey = signingKey
+    this.fetchImpl = options.fetch ?? fetch
+    this.now = options.now ?? (() => new Date())
+    this.createNonce = options.createNonce ?? randomUUID
   }
 
   async run(job: BuildJobV1): Promise<WorkerReportV1> {
-    const healthResponse = await fetch(this.healthEndpoint, {
+    const healthResponse = await this.fetchImpl(this.healthEndpoint, {
       method: "GET",
+      redirect: "error",
       cache: "no-store",
       signal: AbortSignal.timeout(5_000),
     })
-    if (!healthResponse.ok) {
+    assertExactRuntimeEndpoint(healthResponse, this.healthEndpoint)
+    if (healthResponse.status !== 200) {
       throw new Error(`Runtime health check failed (HTTP ${healthResponse.status})`)
     }
     const health = ReadyRuntimeHealthV1Schema.safeParse(
@@ -59,14 +85,14 @@ export class SignedBuildRuntimeClientV1 implements BuildRuntimeClientV1 {
     }
 
     const body = JSON.stringify(job)
-    const timestamp = new Date().toISOString()
-    const nonce = randomUUID()
+    const timestamp = this.now().toISOString()
+    const nonce = this.createNonce()
     const signature = createHmac("sha256", this.signingKey)
       .update(runtimeSignaturePayloadV1("POST", this.endpoint.pathname, timestamp, nonce, body))
       .digest("hex")
-    const remainingMs = Date.parse(job.executionPolicy.deadlineAt) - Date.now()
+    const remainingMs = Date.parse(job.executionPolicy.deadlineAt) - this.now().getTime()
     if (remainingMs <= 0) throw new Error("Build job deadline has expired")
-    const response = await fetch(this.endpoint, {
+    const response = await this.fetchImpl(this.endpoint, {
       method: "POST",
       headers: {
         "content-type": "application/json",
@@ -75,9 +101,14 @@ export class SignedBuildRuntimeClientV1 implements BuildRuntimeClientV1 {
         "x-siteagent-signature": signature,
       },
       body,
+      redirect: "error",
       cache: "no-store",
       signal: AbortSignal.timeout(Math.min(remainingMs, 30_000)),
     })
+    assertExactRuntimeEndpoint(response, this.endpoint)
+    if (response.status !== 200) {
+      throw new Error(`Runtime build job failed (HTTP ${response.status})`)
+    }
     const value = await response.json() as unknown
     const parsed = WorkerReportV1Schema.safeParse(value)
     if (!parsed.success) {

@@ -1,0 +1,18 @@
+[mcp_servers.sajtagent_supabase]
+url = "https://mcp.supabase.com/mcp?project_ref=ywoltuegeemqznbcgokg&read_only=true&features=database%2Cdebugging%2Cdocs"
+auth = "oauth"
+scopes = ["projects:read", "database:read", "analytics:read"]
+enabled = true
+required = false
+enabled_tools = [
+  "list_tables",
+  "list_extensions",
+  "list_migrations",
+  "execute_sql",
+  "query_logs",
+  "get_advisors",
+  "search_docs",
+]
+default_tools_approval_mode = "prompt"
+startup_timeout_sec = 20
+tool_timeout_sec = 60

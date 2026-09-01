@@ -1,0 +1,17 @@
+---
+description: Scope Supabase and developer MCP access to Sajtagent
+alwaysApply: true
+---
+
+# Supabase and MCP
+
+- The accepted database is Supabase project `sajtagent`
+  (`ywoltuegeemqznbcgokg`, `eu-north-1`). Verify it before every write.
+- Never use a Sajtmaskin, Spelsajt, or other project's database by convenience.
+- Project MCP access starts read-only, project-scoped, OAuth-authenticated, and
+  limited to the tools listed in `.codex/config.toml`.
+- MCP and plugins are developer tooling. Product code uses bounded server-side
+  APIs and never depends on a developer's login.
+- A database write, migration, auth change, Edge Function, Supabase branch, or
+  cloud lifecycle operation requires explicit scope in the active task.
+- Every exposed table needs explicit grants, RLS, and negative access tests.

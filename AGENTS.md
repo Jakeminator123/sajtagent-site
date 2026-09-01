@@ -27,6 +27,32 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
   worktree path. If several repositories were touched, report each one.
 - Never remove dirty, locked, unpushed, active-PR, or unique worktrees.
 
+## Relation to Sajtmaskin
+
+- Sajtagent is a new, thinner version of ideas proven in Sajtmaskin, not a
+  fork, deployment target, shared runtime, or continuation of its repositories.
+- Treat every Sajtmaskin repository, local checkout, database, auth setup,
+  Vercel project, environment, and MCP connection as out of scope and read-only
+  reference unless the user explicitly names the resource and asks to inspect
+  or change it.
+- When comparison is useful, prefer GitHub evidence. Ask before opening a local
+  Sajtmaskin checkout, and never modify it as part of Sajtagent work.
+- Reuse only selected behavior or assets after documenting their assumptions
+  and adapting them to a Sajtagent-owned contract. Never raw-merge or link the
+  products at runtime.
+
+## Supabase and developer integrations
+
+- This repository owns the independent Supabase project `sajtagent`
+  (`ywoltuegeemqznbcgokg`, `eu-north-1`). Never substitute a Sajtmaskin,
+  Spelsajt, or otherwise convenient project.
+- Read `docs/integration-baseline.md` before changing Supabase, MCP, GitHub, or
+  Vercel configuration. Developer plugins and MCP logins are tooling, not
+  product runtime dependencies.
+- Keep the project MCP read-only by default. Database writes, migrations, auth
+  changes, Edge Functions, Supabase branches, deployments, and cloud resource
+  lifecycle operations require explicit scope in the active task.
+
 ## Current verification baseline
 
 - `next.config.mjs` temporarily ignores build-time TypeScript errors inherited

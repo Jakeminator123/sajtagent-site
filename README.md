@@ -67,3 +67,8 @@ Databasfunktioner använder i första hand `POSTGRES_URL` eller
 använda `GITHUB_TOKEN`, och `NEXT_PUBLIC_URL` kan ange applikationens publika
 basadress. `GITHUB_TOKEN` är endast ett valfritt prototyphjälpmedel och ska
 ersättas av den framtida, avgränsade SiteAgent GitHub App-integrationen.
+
+Projektets regler för Supabase, MCP, GitHub, Vercel och Sajtmaskin-separation
+finns i [integration baseline](docs/integration-baseline.md). Den repoägda
+Codex-konfigurationen är projektavgränsad och hemlighetsfri; OAuth-inloggningen
+stannar lokalt hos utvecklaren.

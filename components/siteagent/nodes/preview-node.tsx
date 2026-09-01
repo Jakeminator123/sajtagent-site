@@ -90,7 +90,7 @@ export function PreviewNode() {
             <Monitor className="w-8 h-8 text-workflow-text-subtle" />
             <p className="font-mono text-sm text-workflow-text-muted">Ingen preview ännu</p>
             <p className="text-xs text-workflow-text-subtle leading-relaxed">
-              Skriv till Sajtagent för att starta. Första versionen visas här.
+              Skriv till OpenClaw för att starta. Första versionen visas här.
             </p>
           </div>
         )}

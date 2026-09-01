@@ -79,9 +79,13 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - `system-model/card-flow-v1.json` is the canonical model for current card
   registry, target card responsibilities, typed inputs/outputs and failure
   propagation. `docs/card-flow.md` is generated and must not be hand-edited.
-- The current six-card prototype remains visible in the model while the target
-  is five cards: Build choices, Blocks, Versions, Map and SiteAgent. Chat is
-  retired only after its input is actually merged into SiteAgent.
+- V1 has six cards: Build choices, Chat, Blocks, Versions, Map and SiteAgent.
+  Chat is the primary user-to-OpenClaw conversation surface. Build choices may
+  remain beside it or be folded down; SiteAgent presents identity, product
+  state and the security boundary rather than absorbing the conversation.
+- The browser must still submit typed product intent through the SiteAgent
+  controller. A visible OpenClaw conversation never authorizes a direct
+  browser-to-OpenClaw, browser-to-Sprite, MCP or model-tool connection.
 - Run `npm run cards:docs` after an intentional model change and
   `npm run cards:check` before reporting PR or push verification.
 

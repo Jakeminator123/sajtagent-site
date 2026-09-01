@@ -7,7 +7,7 @@ import { useBuilder } from './builder-store'
 /**
  * Bryggan mellan förstasidans promptdock och buildern.
  * URL-parametern konsumeras exakt en gång per sidladdning och skickas därefter
- * genom samma sendMessage-flöde som Sajtagent-kortet använder.
+ * genom samma sendMessage-flöde som OpenClaw-chattkortet använder.
  *
  * useSearchParams() kräver en Suspense-gräns vid prerendering, därför ligger
  * själva läsningen i en inre komponent som wrappas nedan.

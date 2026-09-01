@@ -114,16 +114,16 @@ const registryIds = model.registryCards.map((card) => card.id).sort()
 if (JSON.stringify(modeledRegistryIds) !== JSON.stringify(registryIds)) {
   failures.push("every registry card must have exactly one card node")
 }
-const expectedTargetCardIds = ["agent", "blocks", "choices", "map", "versions"]
+const expectedTargetCardIds = ["agent", "blocks", "chat", "choices", "map", "versions"]
 const actualTargetCardIds = [...(model.targetCardIds ?? [])].sort()
 if (JSON.stringify(actualTargetCardIds) !== JSON.stringify(expectedTargetCardIds)) {
-  failures.push("target must contain exactly Byggval, Blocks, Versioner, Karta and Sajtagent")
+  failures.push("V1 target must contain exactly Byggval, Chat, Blocks, Versioner, Karta and Sajtagent")
 }
-if (JSON.stringify(model.retiredCardIds) !== JSON.stringify(["chat"])) {
-  failures.push("chat must be the only explicitly retired standalone card")
+if (!Array.isArray(model.retiredCardIds) || model.retiredCardIds.length !== 0) {
+  failures.push("V1 must not retire any of its six cards")
 }
-if (registryIds.includes("chat") || nodeById.has("card.chat")) {
-  failures.push("retired Chat must not remain in the executable registry or card graph")
+if (!registryIds.includes("chat") || !nodeById.has("card.chat")) {
+  failures.push("V1 Chat must remain in both the executable registry and card graph")
 }
 if (model.edges.some((edge) => edge.channel === "migration")) {
   failures.push("completed card migration must not remain as an active edge")
@@ -179,8 +179,9 @@ const renderDocs = () => {
     "",
     "## Beslut som tester låser",
     "",
-    "- Det körbara registret har fem kort: Byggval, Blocks, Versioner, Karta och Sajtagent.",
-    "- Chat är det enda pensionerade fristående kortet; byggdialogen ägs nu av Sajtagent.",
+    "- Det körbara V1-registret har sex kort: Byggval, Chat, Blocks, Versioner, Karta och Sajtagent.",
+    "- Chat är den primära användar-till-OpenClaw-dialogen; Byggval kan ligga bredvid eller vikas ned.",
+    "- Sajtagent visar identitet, produktstate och säkerhetsgräns utan att absorbera Chat.",
     "- Browserkort skapar endast `BuilderIntentV1`; inga OpenClaw-, MCP- eller verktygsnamn får läcka in i kortkontraktet.",
     "- Versioner och Karta projicerar verifierad produktstate och får inte deklarera framgång från råa modell- eller OpenClaw-events.",
     "",

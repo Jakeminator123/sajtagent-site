@@ -1,18 +1,19 @@
 "use client"
 
-// Registret över målbildens fem kort.
+// Registret över V1-målbildens sex kort.
 // column: vilken sida av scenen ytan öppnas på.
 
 import type React from "react"
-import { Blocks, Bot, Clock, Map, SlidersHorizontal } from "lucide-react"
+import { Blocks, Bot, Clock, Map, MessageSquare, SlidersHorizontal } from "lucide-react"
 import { BuildChoicesFace } from "./build-choices-face"
 import { VersionsFace } from "./versions-face"
 import { BlocksFace } from "./blocks-face"
 import { AgentFace } from "./agent-face"
+import { ChatFace } from "./chat-face"
 import { SitemapFace } from "./sitemap-face"
 import { BlankBack, EngineBack, LogBack } from "./back-faces"
 
-export type FaceId = "choices" | "versions" | "blocks" | "map" | "agent"
+export type FaceId = "choices" | "chat" | "versions" | "blocks" | "map" | "agent"
 
 export interface FaceDef {
   id: FaceId
@@ -41,6 +42,18 @@ export const FACES: FaceDef[] = [
     Component: BuildChoicesFace,
     Back: EngineBack,
     backLabel: "Motorn",
+  },
+  {
+    id: "chat",
+    label: "Chatt",
+    icon: MessageSquare,
+    accent: "text-sky-600 dark:text-sky-400",
+    edge: "border-sky-500/50",
+    column: "right",
+    height: 520,
+    Component: ChatFace,
+    Back: LogBack,
+    backLabel: "Körlogg",
   },
   {
     id: "versions",
@@ -81,9 +94,7 @@ export const FACES: FaceDef[] = [
     accent: "text-rose-600 dark:text-rose-400",
     edge: "border-rose-500/50",
     column: "left",
-    height: 520,
+    height: 300,
     Component: AgentFace,
-    Back: LogBack,
-    backLabel: "Logg",
   },
 ]

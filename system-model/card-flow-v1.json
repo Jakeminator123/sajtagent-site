@@ -20,13 +20,14 @@
   ],
   "registryCards": [
     { "id": "choices", "label": "Byggval" },
+    { "id": "chat", "label": "Chatt" },
     { "id": "versions", "label": "Versioner" },
     { "id": "blocks", "label": "Blocks" },
     { "id": "map", "label": "Karta" },
     { "id": "agent", "label": "Sajtagent" }
   ],
-  "targetCardIds": ["choices", "versions", "blocks", "map", "agent"],
-  "retiredCardIds": ["chat"],
+  "targetCardIds": ["choices", "chat", "versions", "blocks", "map", "agent"],
+  "retiredCardIds": [],
   "nodes": [
     {
       "id": "product.controller",
@@ -120,23 +121,44 @@
       }
     },
     {
+      "id": "card.chat",
+      "label": "Chatt",
+      "kind": "card",
+      "layer": 2,
+      "owner": "builder-ui",
+      "status": "implemented",
+      "summary": "V1:s primära dialog mellan användaren och OpenClaw; skickar produktavsikt via Site-controllern och visar controllerstyrd progress eller fel.",
+      "card": {
+        "registryId": "chat",
+        "current": "separate controller-bound conversation",
+        "target": "primary user-to-OpenClaw conversation",
+        "produces": ["site.create", "site.change"],
+        "consumes": ["job.accepted", "job.running", "message.delta", "job.failed"]
+      },
+      "failure": {
+        "code": "card.chat-unavailable",
+        "symptom": "Nya byggavsikter blockeras men befintliga versioner förblir läsbara.",
+        "detectedBy": "builder-ui"
+      }
+    },
+    {
       "id": "card.agent",
       "label": "Sajtagent",
       "kind": "card",
       "layer": 2,
       "owner": "builder-ui",
-      "status": "implemented",
-      "summary": "Den enda primära byggdialogen; skapar produktavsikt och visar controllerstyrd progress eller fel.",
+      "status": "prototype",
+      "summary": "Presenterar produktagentens identitet, status och säkerhetsgräns utan att duplicera OpenClaw-dialogen.",
       "card": {
         "registryId": "agent",
-        "current": "primary controller-bound conversation",
-        "target": "primary builder conversation",
-        "produces": ["site.create", "site.change"],
-        "consumes": ["job.accepted", "job.running", "message.delta", "job.failed"]
+        "current": "agent identity and status prototype",
+        "target": "verified agent and runtime status",
+        "produces": [],
+        "consumes": ["agent.profile", "job.running", "job.failed"]
       },
       "failure": {
         "code": "card.agent-unavailable",
-        "symptom": "Nya byggavsikter blockeras men befintliga versioner förblir läsbara.",
+        "symptom": "Agentstatus visas som okänd utan att chatt eller versioner felaktigt deklareras otillgängliga.",
         "detectedBy": "builder-ui"
       }
     },
@@ -219,9 +241,9 @@
     }
   ],
   "edges": [
-    { "id": "intent.user-to-agent", "from": "user.intent", "to": "card.agent", "channel": "intent", "contract": "free prompt" },
-    { "id": "context.choices-to-agent", "from": "card.choices", "to": "card.agent", "channel": "context", "contract": "buildChoices" },
-    { "id": "intent.agent-to-adapter", "from": "card.agent", "to": "ui.intent-adapter", "channel": "intent", "contract": "site.create | site.change" },
+    { "id": "intent.user-to-chat", "from": "user.intent", "to": "card.chat", "channel": "intent", "contract": "free prompt" },
+    { "id": "context.choices-to-chat", "from": "card.choices", "to": "card.chat", "channel": "context", "contract": "buildChoices" },
+    { "id": "intent.chat-to-adapter", "from": "card.chat", "to": "ui.intent-adapter", "channel": "intent", "contract": "site.create | site.change" },
     { "id": "intent.blocks-to-adapter", "from": "card.blocks", "to": "ui.intent-adapter", "channel": "intent", "contract": "site.block.*" },
     { "id": "intent.adapter-to-controller", "from": "ui.intent-adapter", "to": "product.controller", "channel": "intent", "contract": "BuilderIntentV1" },
     { "id": "projection.controller-to-version", "from": "product.controller", "to": "product.version", "channel": "projection", "contract": "BuildResultV1" },
@@ -229,7 +251,8 @@
     { "id": "projection.controller-to-reducer", "from": "product.controller", "to": "ui.event-reducer", "channel": "projection", "contract": "BuildEventV1" },
     { "id": "projection.version-to-reducer", "from": "product.version", "to": "ui.event-reducer", "channel": "projection", "contract": "canonical version refs" },
     { "id": "projection.sitemap-to-reducer", "from": "product.sitemap", "to": "ui.event-reducer", "channel": "projection", "contract": "canonical sitemap ref" },
-    { "id": "projection.reducer-to-agent", "from": "ui.event-reducer", "to": "card.agent", "channel": "projection", "contract": "progress and failure state" },
+    { "id": "projection.reducer-to-chat", "from": "ui.event-reducer", "to": "card.chat", "channel": "projection", "contract": "progress and failure state" },
+    { "id": "projection.reducer-to-agent", "from": "ui.event-reducer", "to": "card.agent", "channel": "projection", "contract": "agent and runtime status" },
     { "id": "projection.reducer-to-versions", "from": "ui.event-reducer", "to": "card.versions", "channel": "projection", "contract": "terminal version state" },
     { "id": "projection.reducer-to-map", "from": "ui.event-reducer", "to": "card.map", "channel": "projection", "contract": "verified sitemap state" }
   ],
@@ -239,9 +262,9 @@
       "label": "Mål: kommando nedåt",
       "orientation": "TB",
       "edgeIds": [
-        "intent.user-to-agent",
-        "context.choices-to-agent",
-        "intent.agent-to-adapter",
+        "intent.user-to-chat",
+        "context.choices-to-chat",
+        "intent.chat-to-adapter",
         "intent.blocks-to-adapter",
         "intent.adapter-to-controller"
       ]
@@ -256,6 +279,7 @@
         "projection.controller-to-reducer",
         "projection.version-to-reducer",
         "projection.sitemap-to-reducer",
+        "projection.reducer-to-chat",
         "projection.reducer-to-agent",
         "projection.reducer-to-versions",
         "projection.reducer-to-map"

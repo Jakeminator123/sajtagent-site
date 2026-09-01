@@ -1,6 +1,7 @@
 "use client"
 
-// Sajtagentens byggdialog. Komponenten monteras inne i Sajtagent-kortet.
+// V1-dialogen mellan användaren och OpenClaw. Browsern skickar fortfarande
+// endast produktavsikt via Site-controllern; inga runtimehemligheter finns här.
 
 import React, { useEffect, useRef, useState } from "react"
 import { FileText, ImageIcon, Loader2, Mic, Send, Square, Type } from "lucide-react"
@@ -46,9 +47,12 @@ export function ChatFace() {
       <div ref={listRef} className="flex-1 min-h-0 overflow-y-auto p-3 flex flex-col gap-2">
         {messages.length === 0 ? (
           <div className="flex-1 flex flex-col items-center justify-center gap-2 text-center px-4">
-            <p className="font-mono text-sm text-workflow-text">Vad vill du bygga?</p>
+            <p className="font-mono text-sm text-workflow-text">Du ↔ OpenClaw</p>
             <p className="text-xs text-workflow-text-muted leading-relaxed">
-              Beskriv din sajt här. Byggvalen styr första versionen.
+              Beskriv vad du vill bygga. Byggvalen bredvid kompletterar ditt uppdrag.
+            </p>
+            <p className="font-mono text-[10px] text-workflow-text-subtle">
+              Anslutningen går via Sajtagents servercontroller och stänger vid overifierat resultat.
             </p>
           </div>
         ) : (
@@ -85,7 +89,7 @@ export function ChatFace() {
             Plan
           </button>
           <span className="font-mono text-[10px] text-workflow-text-subtle">
-            Agentpolicyn styr modell och verktyg
+            OpenClaws agentpolicy styr modell och verktyg
           </span>
           <div className="ml-auto flex items-center gap-1">
             <button
@@ -137,7 +141,7 @@ export function ChatFace() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Beskriv vad du vill bygga… (Enter för att skicka)"
+            placeholder="Skriv till OpenClaw… (Enter för att skicka)"
             rows={2}
             className="flex-1 resize-none rounded-md bg-workflow-node-input border border-workflow-border-subtle px-2.5 py-2 text-xs text-workflow-text placeholder:text-workflow-text-subtle focus:outline-none focus:ring-1 focus:ring-workflow-border"
           />
@@ -146,7 +150,7 @@ export function ChatFace() {
             onClick={submit}
             disabled={isStreaming || !input.trim()}
             className="p-2 rounded-md bg-foreground text-background disabled:opacity-40 transition-opacity duration-150"
-            aria-label="Skicka"
+            aria-label="Skicka till OpenClaw"
           >
             <Send className="w-4 h-4" />
           </button>

@@ -9,12 +9,12 @@ Den maskinläsbara modellen skiljer på dagens prototyp och målarkitekturen. `f
 ```mermaid
 flowchart TB
     n_user_intent["Användare<br/>user · implemented"]
-    n_card_agent["Sajtagent<br/>builder-ui · implemented"]
-    n_user_intent -->|"free prompt"| n_card_agent
+    n_card_chat["Chatt<br/>builder-ui · implemented"]
+    n_user_intent -->|"free prompt"| n_card_chat
     n_card_choices["Byggval<br/>builder-ui · prototype"]
-    n_card_choices -->|"buildChoices"| n_card_agent
+    n_card_choices -->|"buildChoices"| n_card_chat
     n_ui_intent_adapter["Tunn intent-adapter<br/>builder-ui · implemented"]
-    n_card_agent -->|"site.create | site.change"| n_ui_intent_adapter
+    n_card_chat -->|"site.create | site.change"| n_ui_intent_adapter
     n_card_blocks["Blocks<br/>builder-ui · prototype"]
     n_card_blocks -->|"site.block.*"| n_ui_intent_adapter
     n_product_controller["SiteAgent controller<br/>sajtagent-site · implemented"]
@@ -34,8 +34,10 @@ flowchart BT
     n_product_controller -->|"BuildEventV1"| n_ui_event_reducer
     n_product_version -->|"canonical version refs"| n_ui_event_reducer
     n_product_sitemap -->|"canonical sitemap ref"| n_ui_event_reducer
-    n_card_agent["Sajtagent<br/>builder-ui · implemented"]
-    n_ui_event_reducer -->|"progress and failure state"| n_card_agent
+    n_card_chat["Chatt<br/>builder-ui · implemented"]
+    n_ui_event_reducer -->|"progress and failure state"| n_card_chat
+    n_card_agent["Sajtagent<br/>builder-ui · prototype"]
+    n_ui_event_reducer -->|"agent and runtime status"| n_card_agent
     n_card_versions["Versioner<br/>builder-ui · prototype"]
     n_ui_event_reducer -->|"terminal version state"| n_card_versions
     n_card_map["Karta<br/>builder-ui · prototype"]
@@ -47,15 +49,17 @@ flowchart BT
 | Kort | Nu | Mål | Producerar | Konsumerar | Felkod |
 | --- | --- | --- | --- | --- | --- |
 | Byggval | separate prototype card | keep until first verified version | `BuilderIntentV1.context.buildChoices` | - | `card.choices-invalid` |
-| Sajtagent | primary controller-bound conversation | primary builder conversation | `site.create`<br/>`site.change` | `job.accepted`<br/>`job.running`<br/>`message.delta`<br/>`job.failed` | `card.agent-unavailable` |
+| Chatt | separate controller-bound conversation | primary user-to-OpenClaw conversation | `site.create`<br/>`site.change` | `job.accepted`<br/>`job.running`<br/>`message.delta`<br/>`job.failed` | `card.chat-unavailable` |
+| Sajtagent | agent identity and status prototype | verified agent and runtime status | - | `agent.profile`<br/>`job.running`<br/>`job.failed` | `card.agent-unavailable` |
 | Blocks | free-text follow-up prototype | typed block intent | `site.block.add`<br/>`site.block.replace`<br/>`site.block.remove` | `job.failed` | `card.blocks-stale-ref` |
 | Versioner | prototype projection | verified read model | - | `job.succeeded`<br/>`job.failed` | `card.versions-gap` |
 | Karta | preview-pages prototype | verified sitemap read model | - | `job.succeeded` | `card.map-missing` |
 
 ## Beslut som tester låser
 
-- Det körbara registret har fem kort: Byggval, Blocks, Versioner, Karta och Sajtagent.
-- Chat är det enda pensionerade fristående kortet; byggdialogen ägs nu av Sajtagent.
+- Det körbara V1-registret har sex kort: Byggval, Chat, Blocks, Versioner, Karta och Sajtagent.
+- Chat är den primära användar-till-OpenClaw-dialogen; Byggval kan ligga bredvid eller vikas ned.
+- Sajtagent visar identitet, produktstate och säkerhetsgräns utan att absorbera Chat.
 - Browserkort skapar endast `BuilderIntentV1`; inga OpenClaw-, MCP- eller verktygsnamn får läcka in i kortkontraktet.
 - Versioner och Karta projicerar verifierad produktstate och får inte deklarera framgång från råa modell- eller OpenClaw-events.
 

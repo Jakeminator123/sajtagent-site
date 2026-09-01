@@ -1,6 +1,6 @@
 import "server-only"
 
-import { createHash, createHmac, randomUUID } from "node:crypto"
+import { createHmac, randomUUID } from "node:crypto"
 
 import {
   WorkerReportV1Schema,
@@ -8,8 +8,13 @@ import {
   type WorkerReportV1,
 } from "../../../contracts/builder-v1.ts"
 import type { BuildRuntimeClientV1 } from "./build-job-controller.ts"
+import {
+  ReadyRuntimeHealthV1Schema,
+  runtimeSignaturePayloadV1,
+} from "./runtime-protocol-v1.ts"
 
 const RUNTIME_PATH = "/v1/build-jobs"
+const HEALTH_PATH = "/health"
 
 function isAllowedRuntimeUrl(url: URL): boolean {
   if (url.protocol === "https:") return true
@@ -19,26 +24,9 @@ function isAllowedRuntimeUrl(url: URL): boolean {
   )
 }
 
-function signaturePayload(
-  method: string,
-  pathname: string,
-  timestamp: string,
-  nonce: string,
-  body: string,
-): string {
-  const bodyDigest = createHash("sha256").update(body).digest("hex")
-  return [
-    "siteagent-runtime-v1",
-    timestamp,
-    nonce,
-    method.toUpperCase(),
-    pathname,
-    bodyDigest,
-  ].join("\n")
-}
-
 export class SignedBuildRuntimeClientV1 implements BuildRuntimeClientV1 {
   private readonly endpoint: URL
+  private readonly healthEndpoint: URL
   private readonly signingKey: string
 
   constructor(baseUrl: string, signingKey: string) {
@@ -50,15 +38,31 @@ export class SignedBuildRuntimeClientV1 implements BuildRuntimeClientV1 {
       throw new Error("Runtime signing key must contain at least 32 characters")
     }
     this.endpoint = endpoint
+    this.healthEndpoint = new URL(HEALTH_PATH, endpoint)
     this.signingKey = signingKey
   }
 
   async run(job: BuildJobV1): Promise<WorkerReportV1> {
+    const healthResponse = await fetch(this.healthEndpoint, {
+      method: "GET",
+      cache: "no-store",
+      signal: AbortSignal.timeout(5_000),
+    })
+    if (!healthResponse.ok) {
+      throw new Error(`Runtime health check failed (HTTP ${healthResponse.status})`)
+    }
+    const health = ReadyRuntimeHealthV1Schema.safeParse(
+      await healthResponse.json() as unknown,
+    )
+    if (!health.success) {
+      throw new Error("Runtime is not ready for signed OpenClaw jobs")
+    }
+
     const body = JSON.stringify(job)
     const timestamp = new Date().toISOString()
     const nonce = randomUUID()
     const signature = createHmac("sha256", this.signingKey)
-      .update(signaturePayload("POST", this.endpoint.pathname, timestamp, nonce, body))
+      .update(runtimeSignaturePayloadV1("POST", this.endpoint.pathname, timestamp, nonce, body))
       .digest("hex")
     const remainingMs = Date.parse(job.executionPolicy.deadlineAt) - Date.now()
     if (remainingMs <= 0) throw new Error("Build job deadline has expired")

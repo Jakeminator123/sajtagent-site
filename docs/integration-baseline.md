@@ -53,7 +53,8 @@ shipped SiteAgent dependency.
 
 1. Keep instructions, ownership, and security boundaries executable and small.
 2. Verify project-scoped developer integrations without introducing secrets.
-3. Replace the first simulated Builder path with one real, typed vertical slice.
+3. Replace the first simulated Builder path using the accepted
+   [`first-vertical-slice.md`](first-vertical-slice.md) contract.
 4. Introduce the Sprite agent through the separate runtime contract only after
    creation, network, exposure, credentials, budget, and cleanup are explicitly
    authorized.

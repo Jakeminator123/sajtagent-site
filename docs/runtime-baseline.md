@@ -30,7 +30,8 @@ The `/siteagent` to `/builder` compatibility redirect is real and is defined in
 Replace chat/build first: one validated SiteAgent request, one server-owned job,
 one bounded call into `sajtagent-sprites`, and one real preview result with
 failure evidence. Publish and export stay visibly unavailable until their own
-real paths exist.
+real paths exist. The accepted delivery contract is
+[`first-vertical-slice.md`](first-vertical-slice.md).
 
 This file can be removed when no production code path reports simulated or
 stubbed work as successful and the corresponding end-to-end checks exist.

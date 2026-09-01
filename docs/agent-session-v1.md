@@ -95,3 +95,6 @@ npm run check:agent-session
 
 The digest printed by this command must match the mirrored Sprites contract
 before either side enables the transport.
+
+The Site-owned persistence, route and fail-closed runtime seam are documented
+in [`agent-session-server-v1.md`](agent-session-server-v1.md).

@@ -35,6 +35,9 @@ jobs:
       - name: Check card flow model and generated documentation
         run: npm run cards:check
 
+      - name: Check V1 surface and transcription boundary
+        run: npm run check:v1-cleanup
+
       - name: Lint
         run: npm run lint
 

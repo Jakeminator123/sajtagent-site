@@ -12,7 +12,6 @@
     "contracts/builder-v1.ts",
     "lib/db/client.ts",
     "lib/db/env.ts",
-    "lib/db/schema.ts",
     "lib/siteagent/server/**/*.ts",
     "lib/supabase/**/*.ts",
     "app/api/siteagent/build-jobs/route.ts",

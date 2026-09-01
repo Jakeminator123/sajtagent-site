@@ -5,7 +5,6 @@ import { fileURLToPath } from "node:url"
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..")
 const proxySource = readFileSync(resolve(root, "lib/supabase/proxy.ts"), "utf8")
-const executeSource = readFileSync(resolve(root, "app/api/execute/route.ts"), "utf8")
 const envExample = readFileSync(resolve(root, ".env.example"), "utf8")
 const chatFaceSource = readFileSync(resolve(root, "components/siteagent/faces/chat-face.tsx"), "utf8")
 const agentFaceSource = readFileSync(resolve(root, "components/siteagent/faces/agent-face.tsx"), "utf8")
@@ -20,11 +19,6 @@ assert.doesNotMatch(
   proxySource,
   /NextResponse\.next\(\{\s*request\s*\}\)/,
   "passing the full NextRequest to NextResponse.next makes non-root routes return 404",
-)
-assert.doesNotMatch(
-  executeSource,
-  /process\.env\.NEXT_PUBLIC_URL/,
-  "internal server requests must derive their origin from the incoming request",
 )
 assert.doesNotMatch(
   envExample,
@@ -47,4 +41,4 @@ assert.match(
   "Chat and Sajtagent must be the two open default cards",
 )
 
-console.log("Site UI boundary: PASS (proxy routing, environment origin, and split conversation cards)")
+console.log("Site UI boundary: PASS (proxy routing, public environment, and split conversation cards)")

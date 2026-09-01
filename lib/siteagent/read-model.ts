@@ -1,7 +1,13 @@
 import { z } from "zod"
 
+import type { AgentEventV1 } from "../../contracts/agent-session-v1.ts"
 import type { BuildResultV1 } from "../../contracts/builder-v1.ts"
 import type { SiteVersion } from "./types"
+
+type AgentPreviewResultV1 = Extract<
+  AgentEventV1,
+  { type: "preview.ready" }
+>["payload"]["result"]
 
 const TimestampV1Schema = z.string().datetime({ offset: true })
 
@@ -136,6 +142,28 @@ export function reconcileBuildSuccessV1(
     listedVersion.workspaceRevisionId !== result.workspaceRevisionId ||
     listedVersion.previewRef !== result.previewRef ||
     listedVersion.sitemapRevision !== result.sitemapRevision
+  ) {
+    return null
+  }
+  return listedVersion
+}
+
+export function reconcileAgentPreviewV1(
+  result: AgentPreviewResultV1,
+  readModel: CanonicalProjectReadModelV1,
+): CanonicalVersionV1 | null {
+  const activeVersion = readModel.project.activeVersion
+  const listedVersion = readModel.versions.find(
+    (version) => version.versionId === result.versionId,
+  )
+  if (!activeVersion || !listedVersion) return null
+  if (!canonicalVersionEquals(activeVersion, listedVersion)) return null
+  if (readModel.project.activeRevisionId !== result.workspaceRevisionId) return null
+  if (
+    listedVersion.workspaceRevisionId !== result.workspaceRevisionId ||
+    listedVersion.previewRef !== result.previewRef ||
+    listedVersion.sitemapRevision !== result.sitemapRevision ||
+    listedVersion.verifiedAt !== result.verifiedAt
   ) {
     return null
   }

@@ -8,6 +8,7 @@ import {
   type BuildJobV1,
 } from "../contracts/builder-v1.ts"
 import {
+  RUNTIME_ARTIFACT_CAPABILITY_UNAVAILABLE_V1,
   RUNTIME_ARTIFACT_TRANSFER_UNAVAILABLE_V1,
   createBuildJobServerJoinV1,
 } from "../lib/siteagent/server/build-job-server-join.ts"
@@ -255,6 +256,46 @@ function passed(name: string): void {
 {
   const repository = new MemoryBuildJobRepositoryV1()
   repository.addProjectRevision(principal, "project:one", "revision:base")
+  let runtimeCalls = 0
+  const join = createBuildJobServerJoinV1({
+    repository,
+    runtime: {
+      run: async (job) => {
+        runtimeCalls += 1
+        return candidateReport(job)
+      },
+    },
+    artifactTransfer: RUNTIME_ARTIFACT_CAPABILITY_UNAVAILABLE_V1,
+    previewStore: new InlineSiteCandidatePreviewStoreV1(),
+    successCommitter: new MemoryAcceptedCandidateCommitterV1(repository),
+    now,
+  })
+  assert.deepEqual(join.capability, {
+    runtimeConfigured: true,
+    artifactTransferConfigured: false,
+    dispatchReady: false,
+    blockedReason: "runtime_artifact_capability_unavailable",
+  })
+  const response = await createBuildJobV1(
+    request("artifact-capability-unavailable"),
+    principal,
+    { ...join.dependencies, createId: () => "artifact-capability-unavailable" },
+  )
+  assert.equal(runtimeCalls, 0)
+  assert.equal(response.httpStatus, 503)
+  assert.equal(response.record?.result?.status, "failed")
+  assert.match(
+    response.record?.result?.status === "failed"
+      ? response.record.result.message
+      : "",
+    /ArtifactReadV1 inte annonserades som aktivt/,
+  )
+  passed("unhealthy or unadvertised ArtifactReadV1 blocks runtime dispatch")
+}
+
+{
+  const repository = new MemoryBuildJobRepositoryV1()
+  repository.addProjectRevision(principal, "project:one", "revision:base")
   let artifactReads = 0
   const artifactReader: CandidateArtifactReaderV1 = {
     readPreviewArtifact: async ({ sourceRef }) => {
@@ -326,9 +367,12 @@ function passed(name: string): void {
   assert.match(route, /createBuildJobServerJoinV1/)
   assert.match(route, /PostgresSiteVersionRepositoryV1/)
   assert.match(route, /InlineSiteCandidatePreviewStoreV1/)
-  assert.match(route, /RUNTIME_ARTIFACT_TRANSFER_UNAVAILABLE_V1/)
-  assert.doesNotMatch(route, /artifacts?\//iu)
-  passed("production route declares the missing protocol instead of inventing an endpoint")
+  assert.match(route, /createRuntimeArtifactReaderFromEnvV1/)
+  assert.match(route, /await artifactReader\.isRuntimeReady\(\)/)
+  assert.match(route, /RUNTIME_ARTIFACT_CAPABILITY_UNAVAILABLE_V1/)
+  assert.doesNotMatch(route, /RUNTIME_ARTIFACT_TRANSFER_UNAVAILABLE_V1/)
+  assert.doesNotMatch(route, /NEXT_PUBLIC_.*RUNTIME/)
+  passed("production route opens the server-only reader only after strict runtime health")
 }
 
 console.log(`Build-job server join: PASS (${assertions.length} assertions)`)

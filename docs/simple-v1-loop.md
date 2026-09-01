@@ -96,6 +96,7 @@ The executable checks are intentionally split by responsibility:
 
 ```text
 npm run check:contracts
+npm run check:agent-session-ui
 npm run check:build-jobs
 npm run check:builder-adapter
 npm run check:site-ui

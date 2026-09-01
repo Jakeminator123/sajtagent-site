@@ -42,10 +42,12 @@ ref. Persistence repeats the deterministic media type, size,
 digest, receipt-status, job, base-revision, tenant, owner, and project checks.
 Public receipts retain deterministic status and timestamps but drop both
 free-text summaries and runtime evidence refs.
-The repository does not fetch Sprite artifacts and does not know runtime ingress.
-The build-job route injects this repository as the atomic success committer,
-but runtime dispatch remains disabled until a reviewed artifact-byte reader is
-available. See [`build-job-server-join-v1.md`](build-job-server-join-v1.md).
+This repository fetches only the ratified private preview response through its
+server-only ArtifactReadV1 adapter; persistence still does not know Runtime
+ingress or parse Sprite refs. The build-job route injects this repository as
+the atomic success committer and enables dispatch only after strict Runtime
+health proves the reviewed artifact-byte reader is available. See
+[`build-job-server-join-v1.md`](build-job-server-join-v1.md).
 No revision, version, preview, active pointer, success result, or terminal event
 becomes visible unless all six writes commit. A failure rolls the entire unit
 back. Materialized bytes before this call are staging data, not a product

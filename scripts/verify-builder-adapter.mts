@@ -224,12 +224,12 @@ for (const source of [adapterSource, storeSource, previewSource]) {
     assert.equal(source.includes(forbidden), false, `product projection must not contain ${forbidden}`)
   }
 }
-assert.match(adapterSource, /submitBuildIntent/)
-assert.match(adapterSource, /\/api\/siteagent\/build-jobs/)
-assert.match(adapterSource, /AgentSession\/AgentEvent/)
-assert.match(storeSource, /reconcileBuildSuccessV1/)
-assert.match(storeSource, /projection\.result\?\.status === "succeeded"/)
-assert.doesNotMatch(storeSource, /status:\s*"building"/)
+assert.doesNotMatch(adapterSource, /submitBuildIntent/)
+assert.doesNotMatch(adapterSource, /\/api\/siteagent\/build-jobs/)
+assert.match(adapterSource, /AgentTurnRequestV1/)
+assert.match(adapterSource, /\/events\?afterSequence=/)
+assert.match(storeSource, /reconcileAgentPreviewV1/)
+assert.match(storeSource, /canonicalPreviewCandidate/)
 assert.match(versionListSource, /Ingen version skapas före verifierad framgång/)
 assert.match(previewSource, /previewStatus === "ready" && Boolean\(previewUrl\)/)
 

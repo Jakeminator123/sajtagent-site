@@ -78,13 +78,13 @@ independently when a transaction never commits.
 - a Site-owned staged preview store with a health check.
 
 It contains no Sprite URL, local workspace path, runtime signing key, provider
-credential, Supabase mutation, or browser-facing runtime call. External
-ingress and artifact transfer remain separate integration decisions.
+credential, Supabase mutation, or browser-facing runtime call. The concrete
+server-only ArtifactReadV1 adapter remains outside this deterministic core.
 
 Focused verification lives in `scripts/verify-candidate-acceptance.mts` and is
 part of `npm run check:build-jobs`.
 
 The concrete route assembly is documented in
 [`build-job-server-join-v1.md`](build-job-server-join-v1.md). It keeps runtime
-dispatch disabled until the separate runtime repository supplies a ratified
-artifact-byte reader.
+dispatch disabled unless the separate runtime repository advertises the
+ratified ArtifactReadV1 capability through strict health.

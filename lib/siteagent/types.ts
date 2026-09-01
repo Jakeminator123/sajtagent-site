@@ -8,6 +8,7 @@ export interface ChatMessage {
   role: ChatRole
   content: string
   createdAt: number
+  turnId?: string
 }
 
 export interface SiteVersion {

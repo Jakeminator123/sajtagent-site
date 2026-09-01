@@ -13,12 +13,12 @@ flowchart TB
     n_user_intent -->|"free prompt"| n_card_chat
     n_card_choices["Byggval<br/>builder-ui · prototype"]
     n_card_choices -->|"buildChoices"| n_card_chat
-    n_ui_intent_adapter["Tunn intent-adapter<br/>builder-ui · implemented"]
-    n_card_chat -->|"site.create | site.change"| n_ui_intent_adapter
+    n_ui_intent_adapter["Tunn sessionadapter<br/>builder-ui · implemented"]
+    n_card_chat -->|"AgentTurnRequestV1"| n_ui_intent_adapter
     n_card_blocks["Blocks<br/>builder-ui · prototype"]
-    n_card_blocks -->|"site.block.*"| n_ui_intent_adapter
+    n_card_blocks -->|"AgentTurnRequestV1"| n_ui_intent_adapter
     n_product_controller["SiteAgent controller<br/>sajtagent-site · implemented"]
-    n_ui_intent_adapter -->|"BuilderIntentV1"| n_product_controller
+    n_ui_intent_adapter -->|"AgentTurnRequestV1"| n_product_controller
 ```
 
 ## Mål: bevis upp till korten
@@ -31,7 +31,7 @@ flowchart BT
     n_product_sitemap["Canonical sitemap-projektion<br/>sajtagent-site · prototype"]
     n_product_controller -->|"BuildResultV1.sitemapRevision"| n_product_sitemap
     n_ui_event_reducer["Sekvensordnad kort-reducer<br/>builder-ui · implemented"]
-    n_product_controller -->|"BuildEventV1"| n_ui_event_reducer
+    n_product_controller -->|"AgentEventV1 SSE + resume"| n_ui_event_reducer
     n_product_version -->|"canonical version refs"| n_ui_event_reducer
     n_product_sitemap -->|"canonical sitemap ref"| n_ui_event_reducer
     n_card_agent["Sajtagent<br/>builder-ui · implemented"]
@@ -46,12 +46,12 @@ flowchart BT
 
 | Kort | Nu | Mål | Producerar | Konsumerar | Felkod |
 | --- | --- | --- | --- | --- | --- |
-| Byggval | separate prototype card | keep until first verified version | `BuilderIntentV1.context.buildChoices` | - | `card.choices-invalid` |
-| Chatt | separate controller-bound user input | user input to Sajtagent | `site.create`<br/>`site.change` | - | `card.chat-unavailable` |
-| Sajtagent | controller-bound agent response | Sajtagent response and verified runtime status | - | `agent.profile`<br/>`job.running`<br/>`message.delta`<br/>`job.failed` | `card.agent-unavailable` |
-| Blocks | free-text follow-up prototype | typed block intent | `site.block.add`<br/>`site.block.replace`<br/>`site.block.remove` | `job.failed` | `card.blocks-stale-ref` |
-| Versioner | prototype projection | verified read model | - | `job.succeeded`<br/>`job.failed` | `card.versions-gap` |
-| Karta | preview-pages prototype | verified sitemap read model | - | `job.succeeded` | `card.map-missing` |
+| Byggval | separate prototype card | keep until first verified version | `AgentTurnRequestV1.uiContext.buildChoices` | - | `card.choices-invalid` |
+| Chatt | Site AgentSession user input | continuous user input to Sajtagent | `AgentTurnRequestV1` | - | `card.chat-unavailable` |
+| Sajtagent | AgentEventV1 response projection | Sajtagent response, question and verified runtime status | `AgentTurnRequestV1.replyToQuestionId`<br/>`AgentTurnRequestV1.answerSelections` | `agent.status`<br/>`message.delta`<br/>`question.requested`<br/>`tool.started`<br/>`tool.completed`<br/>`turn.failed` | `card.agent-unavailable` |
+| Blocks | free-text follow-up prototype | typed block context in an agent turn | `AgentTurnRequestV1` | `turn.failed` | `card.blocks-stale-ref` |
+| Versioner | prototype projection | verified read model | - | `preview.ready`<br/>`turn.failed` | `card.versions-gap` |
+| Karta | preview-pages prototype | verified sitemap read model | - | `preview.ready` | `card.map-missing` |
 
 ## Beslut som tester låser
 

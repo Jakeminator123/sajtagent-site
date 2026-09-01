@@ -15,15 +15,25 @@ export const RUNTIME_ARTIFACT_TRANSFER_UNAVAILABLE_V1 = {
   reason: "runtime_artifact_protocol_missing",
 } as const
 
+export const RUNTIME_ARTIFACT_CAPABILITY_UNAVAILABLE_V1 = {
+  kind: "unavailable",
+  reason: "runtime_artifact_capability_unavailable",
+} as const
+
 export type RuntimeArtifactTransferV1 =
   | typeof RUNTIME_ARTIFACT_TRANSFER_UNAVAILABLE_V1
+  | typeof RUNTIME_ARTIFACT_CAPABILITY_UNAVAILABLE_V1
   | { kind: "available"; reader: CandidateArtifactReaderV1 }
 
 export type BuildJobServerCapabilityV1 = {
   runtimeConfigured: boolean
   artifactTransferConfigured: boolean
   dispatchReady: boolean
-  blockedReason: "runtime_unconfigured" | "runtime_artifact_protocol_missing" | null
+  blockedReason:
+    | "runtime_unconfigured"
+    | "runtime_artifact_protocol_missing"
+    | "runtime_artifact_capability_unavailable"
+    | null
 }
 
 type BuildJobServerJoinInputV1 = {
@@ -83,6 +93,8 @@ export function createBuildJobServerJoinV1(
       runtimeUnavailableMessage:
         blockedReason === "runtime_artifact_protocol_missing"
           ? "Runtime-dispatch är blockerad eftersom ett verifierat protokoll för artefaktbytes saknas. Ingen runtime anropades och ingen preview skapades."
+          : blockedReason === "runtime_artifact_capability_unavailable"
+            ? "Runtime-dispatch är blockerad eftersom ArtifactReadV1 inte annonserades som aktivt av en strikt runtime-hälsokontroll. Ingen runtime anropades och ingen preview skapades."
           : undefined,
       now: input.now,
     },

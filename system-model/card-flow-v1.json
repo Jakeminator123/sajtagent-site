@@ -1,0 +1,294 @@
+{
+  "schemaVersion": 1,
+  "modelId": "sajtagent-card-flow-v1",
+  "title": "Builderkortens målflöde",
+  "description": "Kortens aktuella prototypstatus, målansvar, intentvägar, verifierade projektioner och felpåverkan.",
+  "sourceRegistry": "components/siteagent/faces/face-defs.tsx",
+  "owners": ["user", "builder-ui", "sajtagent-site"],
+  "statuses": ["planned", "prototype", "contracted", "implemented", "verified"],
+  "channels": {
+    "intent": "Kortet skapar eller kompletterar en BuilderIntentV1.",
+    "context": "Lokal vydata blir strukturerad kontext men skapar inget jobb ensam.",
+    "projection": "Kortet visar endast sekvensordnad eller canonical produktstate.",
+    "migration": "Ett nuvarande kort absorberas av ett annat målansvar."
+  },
+  "layers": [
+    { "id": 0, "label": "Produktcontroller och persistens" },
+    { "id": 1, "label": "Intent- och eventadapter" },
+    { "id": 2, "label": "Builderkort" },
+    { "id": 3, "label": "Användare" }
+  ],
+  "registryCards": [
+    { "id": "choices", "label": "Byggval" },
+    { "id": "chat", "label": "Chat" },
+    { "id": "versions", "label": "Versioner" },
+    { "id": "blocks", "label": "Blocks" },
+    { "id": "map", "label": "Karta" },
+    { "id": "agent", "label": "Siteagent" }
+  ],
+  "targetCardIds": ["choices", "versions", "blocks", "map", "agent"],
+  "retiredCardIds": ["chat"],
+  "nodes": [
+    {
+      "id": "product.controller",
+      "label": "SiteAgent controller",
+      "kind": "product",
+      "layer": 0,
+      "owner": "sajtagent-site",
+      "status": "contracted",
+      "summary": "Auktoriserar BuilderIntentV1, skapar jobb och verifierar terminalt BuildResultV1.",
+      "failure": {
+        "code": "cards.controller-rejected",
+        "symptom": "Inget kort får visa en lyckad version.",
+        "detectedBy": "sajtagent-site"
+      }
+    },
+    {
+      "id": "product.version",
+      "label": "Canonical version och preview",
+      "kind": "projection",
+      "layer": 0,
+      "owner": "sajtagent-site",
+      "status": "prototype",
+      "summary": "Verifierade revisions-, versions- och previewreferenser.",
+      "failure": {
+        "code": "cards.version-unavailable",
+        "symptom": "Versioner stannar i fel- eller väntläge och preview blir inte ready.",
+        "detectedBy": "sajtagent-site"
+      }
+    },
+    {
+      "id": "product.sitemap",
+      "label": "Canonical sitemap-projektion",
+      "kind": "projection",
+      "layer": 0,
+      "owner": "sajtagent-site",
+      "status": "prototype",
+      "summary": "Sitemap härleds från den verifierade versionen, aldrig från ett pågående modellutkast.",
+      "failure": {
+        "code": "cards.sitemap-stale",
+        "symptom": "Karta visar väntläge eller markerad stale state.",
+        "detectedBy": "sajtagent-site"
+      }
+    },
+    {
+      "id": "ui.intent-adapter",
+      "label": "Tunn intent-adapter",
+      "kind": "adapter",
+      "layer": 1,
+      "owner": "builder-ui",
+      "status": "contracted",
+      "summary": "Översätter användarhandlingar till BuilderIntentV1 utan tool- eller MCP-namn.",
+      "failure": {
+        "code": "cards.intent-invalid",
+        "symptom": "Avsikten stoppas lokalt eller av servervalidering innan ett jobb skapas.",
+        "detectedBy": "sajtagent-site"
+      }
+    },
+    {
+      "id": "ui.event-reducer",
+      "label": "Sekvensordnad kort-reducer",
+      "kind": "adapter",
+      "layer": 1,
+      "owner": "builder-ui",
+      "status": "contracted",
+      "summary": "Tar emot BuildEventV1 i ordning och återhämtar canonical state vid sequence-gap.",
+      "failure": {
+        "code": "cards.sequence-gap",
+        "symptom": "Berörda kort pausas och state hämtas om; inget event hoppas över tyst.",
+        "detectedBy": "builder-ui"
+      }
+    },
+    {
+      "id": "card.choices",
+      "label": "Byggval",
+      "kind": "card",
+      "layer": 2,
+      "owner": "builder-ui",
+      "status": "prototype",
+      "summary": "Valfri strukturerad startkontext. Tom scaffold är tillåten och Auto är standard.",
+      "card": {
+        "registryId": "choices",
+        "current": "separate prototype card",
+        "target": "keep until first verified version",
+        "produces": ["BuilderIntentV1.context.buildChoices"],
+        "consumes": []
+      },
+      "failure": {
+        "code": "card.choices-invalid",
+        "symptom": "Ogiltigt val ignoreras inte utan avsikten avvisas tydligt.",
+        "detectedBy": "builder-ui"
+      }
+    },
+    {
+      "id": "card.chat",
+      "label": "Chat",
+      "kind": "card",
+      "layer": 2,
+      "owner": "builder-ui",
+      "status": "prototype",
+      "summary": "Nuvarande primära promptkort. Målet är att dess byggdialog absorberas av Sajtagent.",
+      "card": {
+        "registryId": "chat",
+        "current": "primary prototype build input",
+        "target": "merge into agent",
+        "produces": ["site.create", "site.change"],
+        "consumes": ["message.delta", "job.failed"]
+      },
+      "failure": {
+        "code": "card.chat-merge-drift",
+        "symptom": "Två konkurrerande byggdialoger finns kvar efter att Sajtagent blivit primär.",
+        "detectedBy": "builder-ui"
+      }
+    },
+    {
+      "id": "card.agent",
+      "label": "Sajtagent",
+      "kind": "card",
+      "layer": 2,
+      "owner": "builder-ui",
+      "status": "prototype",
+      "summary": "Målbildens enda primära byggdialog samt progress- och felkommunikation.",
+      "card": {
+        "registryId": "agent",
+        "current": "informational prototype",
+        "target": "primary builder conversation",
+        "produces": ["site.create", "site.change"],
+        "consumes": ["job.accepted", "job.running", "message.delta", "job.failed"]
+      },
+      "failure": {
+        "code": "card.agent-unavailable",
+        "symptom": "Nya byggavsikter blockeras men befintliga versioner förblir läsbara.",
+        "detectedBy": "builder-ui"
+      }
+    },
+    {
+      "id": "card.blocks",
+      "label": "Blocks",
+      "kind": "card",
+      "layer": 2,
+      "owner": "builder-ui",
+      "status": "prototype",
+      "summary": "Skapar typade blockavsikter med vald route, elementreferens och basrevision.",
+      "card": {
+        "registryId": "blocks",
+        "current": "free-text follow-up prototype",
+        "target": "typed block intent",
+        "produces": ["site.block.add", "site.block.replace", "site.block.remove"],
+        "consumes": ["job.failed"]
+      },
+      "failure": {
+        "code": "card.blocks-stale-ref",
+        "symptom": "Kommandot avvisas mot en stale revision i stället för att ändra fel element.",
+        "detectedBy": "sajtagent-site"
+      }
+    },
+    {
+      "id": "card.versions",
+      "label": "Versioner",
+      "kind": "card",
+      "layer": 2,
+      "owner": "builder-ui",
+      "status": "prototype",
+      "summary": "Läs- och återställningsvy över verifierade produktversioner.",
+      "card": {
+        "registryId": "versions",
+        "current": "prototype projection",
+        "target": "verified read model",
+        "produces": [],
+        "consumes": ["job.succeeded", "job.failed"]
+      },
+      "failure": {
+        "code": "card.versions-gap",
+        "symptom": "Listan återhämtas från canonical state och visar inte en saknad version som klar.",
+        "detectedBy": "builder-ui"
+      }
+    },
+    {
+      "id": "card.map",
+      "label": "Karta",
+      "kind": "card",
+      "layer": 2,
+      "owner": "builder-ui",
+      "status": "prototype",
+      "summary": "En enkel sitemap-trädvy över den senaste verifierade versionen.",
+      "card": {
+        "registryId": "map",
+        "current": "preview-pages prototype",
+        "target": "verified sitemap read model",
+        "produces": [],
+        "consumes": ["job.succeeded"]
+      },
+      "failure": {
+        "code": "card.map-missing",
+        "symptom": "Kortet visar att sitemap saknas och behåller inte en gammal karta omärkt.",
+        "detectedBy": "builder-ui"
+      }
+    },
+    {
+      "id": "user.intent",
+      "label": "Användare",
+      "kind": "actor",
+      "layer": 3,
+      "owner": "user",
+      "status": "implemented",
+      "summary": "Ger en första beskrivning och därefter uppföljningar mot vald basversion.",
+      "failure": {
+        "code": "card.user-input-invalid",
+        "symptom": "Ingen muterande avsikt skickas.",
+        "detectedBy": "builder-ui"
+      }
+    }
+  ],
+  "edges": [
+    { "id": "intent.user-to-agent", "from": "user.intent", "to": "card.agent", "channel": "intent", "contract": "free prompt" },
+    { "id": "context.choices-to-agent", "from": "card.choices", "to": "card.agent", "channel": "context", "contract": "buildChoices" },
+    { "id": "intent.agent-to-adapter", "from": "card.agent", "to": "ui.intent-adapter", "channel": "intent", "contract": "site.create | site.change" },
+    { "id": "intent.blocks-to-adapter", "from": "card.blocks", "to": "ui.intent-adapter", "channel": "intent", "contract": "site.block.*" },
+    { "id": "intent.adapter-to-controller", "from": "ui.intent-adapter", "to": "product.controller", "channel": "intent", "contract": "BuilderIntentV1" },
+    { "id": "projection.controller-to-version", "from": "product.controller", "to": "product.version", "channel": "projection", "contract": "BuildResultV1" },
+    { "id": "projection.controller-to-sitemap", "from": "product.controller", "to": "product.sitemap", "channel": "projection", "contract": "BuildResultV1.sitemapRevision" },
+    { "id": "projection.controller-to-reducer", "from": "product.controller", "to": "ui.event-reducer", "channel": "projection", "contract": "BuildEventV1" },
+    { "id": "projection.version-to-reducer", "from": "product.version", "to": "ui.event-reducer", "channel": "projection", "contract": "canonical version refs" },
+    { "id": "projection.sitemap-to-reducer", "from": "product.sitemap", "to": "ui.event-reducer", "channel": "projection", "contract": "canonical sitemap ref" },
+    { "id": "projection.reducer-to-agent", "from": "ui.event-reducer", "to": "card.agent", "channel": "projection", "contract": "progress and failure state" },
+    { "id": "projection.reducer-to-versions", "from": "ui.event-reducer", "to": "card.versions", "channel": "projection", "contract": "terminal version state" },
+    { "id": "projection.reducer-to-map", "from": "ui.event-reducer", "to": "card.map", "channel": "projection", "contract": "verified sitemap state" },
+    { "id": "migration.chat-to-agent", "from": "card.chat", "to": "card.agent", "channel": "migration", "contract": "single conversation owner" }
+  ],
+  "views": [
+    {
+      "id": "target-command",
+      "label": "Mål: kommando nedåt",
+      "orientation": "TB",
+      "edgeIds": [
+        "intent.user-to-agent",
+        "context.choices-to-agent",
+        "intent.agent-to-adapter",
+        "intent.blocks-to-adapter",
+        "intent.adapter-to-controller"
+      ]
+    },
+    {
+      "id": "target-projection",
+      "label": "Mål: bevis upp till korten",
+      "orientation": "BT",
+      "edgeIds": [
+        "projection.controller-to-version",
+        "projection.controller-to-sitemap",
+        "projection.controller-to-reducer",
+        "projection.version-to-reducer",
+        "projection.sitemap-to-reducer",
+        "projection.reducer-to-agent",
+        "projection.reducer-to-versions",
+        "projection.reducer-to-map"
+      ]
+    },
+    {
+      "id": "chat-merge",
+      "label": "Beslut: Chat går in i Sajtagent",
+      "orientation": "LR",
+      "edgeIds": ["migration.chat-to-agent"]
+    }
+  ]
+}

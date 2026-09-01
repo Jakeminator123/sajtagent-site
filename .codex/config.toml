@@ -16,3 +16,36 @@ enabled_tools = [
 default_tools_approval_mode = "prompt"
 startup_timeout_sec = 20
 tool_timeout_sec = 60
+
+[mcp_servers."openai-docs"]
+url = "https://developers.openai.com/mcp"
+enabled = true
+required = false
+enabled_tools = [
+  "search_openai_docs",
+  "list_openai_docs",
+  "fetch_openai_doc",
+  "list_api_endpoints",
+  "get_openapi_spec",
+]
+default_tools_approval_mode = "prompt"
+startup_timeout_sec = 20
+tool_timeout_sec = 60
+
+[mcp_servers."openclaw-docs"]
+url = "https://docs.openclaw.ai/mcp"
+enabled = true
+required = false
+enabled_tools = ["search_open_claw"]
+default_tools_approval_mode = "prompt"
+startup_timeout_sec = 20
+tool_timeout_sec = 60
+
+[mcp_servers.context7]
+url = "https://mcp.context7.com/mcp"
+enabled = true
+required = false
+enabled_tools = ["resolve-library-id", "get-library-docs"]
+default_tools_approval_mode = "prompt"
+startup_timeout_sec = 20
+tool_timeout_sec = 60

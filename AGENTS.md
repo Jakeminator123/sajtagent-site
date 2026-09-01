@@ -70,6 +70,20 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
   resource, ask Jakob before proceeding.
 - Never overwrite, discard, stage, commit, or rewrite another agent's changes
   without agreement. Recheck status and diff immediately before staging.
+- `/kom <agent-or-task> <message>` contacts an existing agent through the
+  available direct channel. It never creates a new agent and uses a secret-free
+  local coordination note only when live delivery is unavailable.
+
+## Executable card map
+
+- `system-model/card-flow-v1.json` is the canonical model for current card
+  registry, target card responsibilities, typed inputs/outputs and failure
+  propagation. `docs/card-flow.md` is generated and must not be hand-edited.
+- The current six-card prototype remains visible in the model while the target
+  is five cards: Build choices, Blocks, Versions, Map and SiteAgent. Chat is
+  retired only after its input is actually merged into SiteAgent.
+- Run `npm run cards:docs` after an intentional model change and
+  `npm run cards:check` before reporting PR or push verification.
 
 ## Current verification baseline
 

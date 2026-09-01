@@ -2,12 +2,12 @@
   "schemaVersion": 1,
   "modelId": "sajtagent-card-flow-v1",
   "title": "Builderkortens målflöde",
-  "description": "Kortens aktuella prototypstatus, målansvar, intentvägar, verifierade projektioner och felpåverkan.",
+  "description": "Kortens kontinuerliga AgentSession-flöde, verifierade projektioner och felpåverkan.",
   "sourceRegistry": "components/siteagent/faces/face-defs.tsx",
   "owners": ["user", "builder-ui", "sajtagent-site"],
   "statuses": ["planned", "prototype", "contracted", "implemented", "verified"],
   "channels": {
-    "intent": "Kortet skapar eller kompletterar en BuilderIntentV1.",
+    "intent": "Kortet skapar ett browser-säkert AgentTurnRequestV1 utan tool- eller runtimeval.",
     "context": "Lokal vydata blir strukturerad kontext men skapar inget jobb ensam.",
     "projection": "Kortet visar endast sekvensordnad eller canonical produktstate.",
     "migration": "Ett nuvarande kort absorberas av ett annat målansvar."
@@ -36,7 +36,7 @@
       "layer": 0,
       "owner": "sajtagent-site",
       "status": "implemented",
-      "summary": "Auktoriserar BuilderIntentV1, skapar jobb och verifierar terminalt BuildResultV1.",
+      "summary": "Binder användare, projekt och AgentSession, skapar turnpolicy och sekvenserar AgentEventV1. BuildJobV1 skapas bara server-side när agenten godkänt begär mutation.",
       "failure": {
         "code": "cards.controller-rejected",
         "symptom": "Inget kort får visa en lyckad version.",
@@ -73,12 +73,12 @@
     },
     {
       "id": "ui.intent-adapter",
-      "label": "Tunn intent-adapter",
+      "label": "Tunn sessionadapter",
       "kind": "adapter",
       "layer": 1,
       "owner": "builder-ui",
       "status": "implemented",
-      "summary": "Översätter användarhandlingar till BuilderIntentV1 utan tool- eller MCP-namn.",
+      "summary": "Öppnar Site-owned AgentSession, skickar AgentTurnRequestV1 och återupptar Site-SSE utan tool-, OpenClaw- eller MCP-namn.",
       "failure": {
         "code": "cards.intent-invalid",
         "symptom": "Avsikten stoppas lokalt eller av servervalidering innan ett jobb skapas.",
@@ -92,7 +92,7 @@
       "layer": 1,
       "owner": "builder-ui",
       "status": "implemented",
-      "summary": "Deduplicerar BuildEventV1, låser terminal status, stoppar felsäkert vid sequence-gap och återhämtar verifierade vyer från canonical read models.",
+      "summary": "Deduplicerar AgentEventV1 med session-global sequence, låser terminal status per turn och återhämtar verifierade vyer från canonical read models.",
       "failure": {
         "code": "cards.sequence-gap",
         "symptom": "Berörda kort pausas och state hämtas om; inget event hoppas över tyst.",
@@ -111,7 +111,7 @@
         "registryId": "choices",
         "current": "separate prototype card",
         "target": "keep until first verified version",
-        "produces": ["BuilderIntentV1.context.buildChoices"],
+        "produces": ["AgentTurnRequestV1.uiContext.buildChoices"],
         "consumes": []
       },
       "failure": {
@@ -127,12 +127,12 @@
       "layer": 2,
       "owner": "builder-ui",
       "status": "implemented",
-      "summary": "Användarens inmatningskort; skickar produktavsikt via Site-controllern till Sajtagent utan att exponera runtimeverktyg.",
+      "summary": "Användarens inmatningskort; skickar vanliga frågor eller byggönskemål som AgentTurnRequestV1 utan att välja runtimeverktyg.",
       "card": {
         "registryId": "chat",
-        "current": "separate controller-bound user input",
-        "target": "user input to Sajtagent",
-        "produces": ["site.create", "site.change"],
+        "current": "Site AgentSession user input",
+        "target": "continuous user input to Sajtagent",
+        "produces": ["AgentTurnRequestV1"],
         "consumes": []
       },
       "failure": {
@@ -148,13 +148,13 @@
       "layer": 2,
       "owner": "builder-ui",
       "status": "implemented",
-      "summary": "Sajtagent är den OpenClaw-backade agenten; kortet visar dess svar, progress och felsäkra runtimefel.",
+      "summary": "Sajtagent är den OpenClaw-backade agenten; kortet visar message.delta, safe tool labels, explicit ask_user och felsäkra fel.",
       "card": {
         "registryId": "agent",
-        "current": "controller-bound agent response",
-        "target": "Sajtagent response and verified runtime status",
-        "produces": [],
-        "consumes": ["agent.profile", "job.running", "message.delta", "job.failed"]
+        "current": "AgentEventV1 response projection",
+        "target": "Sajtagent response, question and verified runtime status",
+        "produces": ["AgentTurnRequestV1.replyToQuestionId", "AgentTurnRequestV1.answerSelections"],
+        "consumes": ["agent.status", "message.delta", "question.requested", "tool.started", "tool.completed", "turn.failed"]
       },
       "failure": {
         "code": "card.agent-unavailable",
@@ -169,13 +169,13 @@
       "layer": 2,
       "owner": "builder-ui",
       "status": "prototype",
-      "summary": "Skapar typade blockavsikter med vald route, elementreferens och basrevision.",
+      "summary": "Skickar ett blockönskemål som AgentTurnRequestV1 med vald route, elementreferens och basrevision.",
       "card": {
         "registryId": "blocks",
         "current": "free-text follow-up prototype",
-        "target": "typed block intent",
-        "produces": ["site.block.add", "site.block.replace", "site.block.remove"],
-        "consumes": ["job.failed"]
+        "target": "typed block context in an agent turn",
+        "produces": ["AgentTurnRequestV1"],
+        "consumes": ["turn.failed"]
       },
       "failure": {
         "code": "card.blocks-stale-ref",
@@ -196,7 +196,7 @@
         "current": "prototype projection",
         "target": "verified read model",
         "produces": [],
-        "consumes": ["job.succeeded", "job.failed"]
+        "consumes": ["preview.ready", "turn.failed"]
       },
       "failure": {
         "code": "card.versions-gap",
@@ -217,7 +217,7 @@
         "current": "preview-pages prototype",
         "target": "verified sitemap read model",
         "produces": [],
-        "consumes": ["job.succeeded"]
+        "consumes": ["preview.ready"]
       },
       "failure": {
         "code": "card.map-missing",
@@ -243,12 +243,12 @@
   "edges": [
     { "id": "intent.user-to-chat", "from": "user.intent", "to": "card.chat", "channel": "intent", "contract": "free prompt" },
     { "id": "context.choices-to-chat", "from": "card.choices", "to": "card.chat", "channel": "context", "contract": "buildChoices" },
-    { "id": "intent.chat-to-adapter", "from": "card.chat", "to": "ui.intent-adapter", "channel": "intent", "contract": "site.create | site.change" },
-    { "id": "intent.blocks-to-adapter", "from": "card.blocks", "to": "ui.intent-adapter", "channel": "intent", "contract": "site.block.*" },
-    { "id": "intent.adapter-to-controller", "from": "ui.intent-adapter", "to": "product.controller", "channel": "intent", "contract": "BuilderIntentV1" },
+    { "id": "intent.chat-to-adapter", "from": "card.chat", "to": "ui.intent-adapter", "channel": "intent", "contract": "AgentTurnRequestV1" },
+    { "id": "intent.blocks-to-adapter", "from": "card.blocks", "to": "ui.intent-adapter", "channel": "intent", "contract": "AgentTurnRequestV1" },
+    { "id": "intent.adapter-to-controller", "from": "ui.intent-adapter", "to": "product.controller", "channel": "intent", "contract": "AgentTurnRequestV1" },
     { "id": "projection.controller-to-version", "from": "product.controller", "to": "product.version", "channel": "projection", "contract": "BuildResultV1" },
     { "id": "projection.controller-to-sitemap", "from": "product.controller", "to": "product.sitemap", "channel": "projection", "contract": "BuildResultV1.sitemapRevision" },
-    { "id": "projection.controller-to-reducer", "from": "product.controller", "to": "ui.event-reducer", "channel": "projection", "contract": "BuildEventV1" },
+    { "id": "projection.controller-to-reducer", "from": "product.controller", "to": "ui.event-reducer", "channel": "projection", "contract": "AgentEventV1 SSE + resume" },
     { "id": "projection.version-to-reducer", "from": "product.version", "to": "ui.event-reducer", "channel": "projection", "contract": "canonical version refs" },
     { "id": "projection.sitemap-to-reducer", "from": "product.sitemap", "to": "ui.event-reducer", "channel": "projection", "contract": "canonical sitemap ref" },
     { "id": "projection.reducer-to-agent", "from": "ui.event-reducer", "to": "card.agent", "channel": "projection", "contract": "assistant response, progress and failure state" },

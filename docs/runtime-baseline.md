@@ -6,8 +6,10 @@ The Builder now uses Sajtagent-owned product routes:
 
 - `POST /api/siteagent/projects/default` opens one deterministic, owner-bound
   starter project and base revision;
-- `POST /api/siteagent/build-jobs` validates `BuilderIntentV1`, persists the
-  job, and returns ordered `BuildEventV1` records;
+- project/session routes open a Site-owned `AgentSessionV1`, turn POST streams
+  `AgentEventV1`, and events GET resumes after the last verified sequence;
+- `POST /api/siteagent/build-jobs` remains a server-side mutation boundary. It
+  is not called by Chat or any browser adapter;
 - Supabase SSR cookies and verified claims resolve the server principal;
 - V1 exposes the user's input in a separate Chat card;
 - replies, progress and fail-closed errors appear in the Sajtagent card, which
@@ -55,11 +57,11 @@ owner-bound project state and versions read models. Reload restores Versioner,
 Karta, and Preview from those read models. The preview iframe uses only the
 authenticated Site route; inline `srcDoc` is not part of the product flow.
 
-Chat is ultimately one continuous Sajtagent `AgentSession`. The current
-`submitBuildIntent` call is an isolated compatibility seam while the shared
-AgentSession/AgentEvent SSE contract is ratified. It must not be treated as a
-final one-message/one-BuildJob chat architecture: `BuildJobV1` remains a
-subordinate mutation envelope when Sajtagent invokes an approved build tool.
+Chat now uses one continuous Sajtagent `AgentSession`. The browser opens a
+Site-owned session, POSTs strict `AgentTurnRequestV1`, consumes Site SSE and
+resumes from its last verified global sequence. It never creates `BuildJobV1`:
+that remains a subordinate server-owned mutation envelope when Sajtagent
+invokes an approved build tool.
 
 ## Still unavailable
 

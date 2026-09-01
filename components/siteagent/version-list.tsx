@@ -4,34 +4,37 @@ import { Download, Loader2, Pin, RotateCcw, ShieldCheck, TriangleAlert } from "l
 import { cn } from "@/lib/utils"
 import { useBuilder } from "./builder-store"
 
-const PENDING_STATUSES = new Set(["submitting", "accepted", "running"])
-
 export function VersionList() {
-  const { activeJob, versions, activeVersionId, restoreVersion, togglePin } = useBuilder()
-  const pending = activeJob ? PENDING_STATUSES.has(activeJob.status) : false
-  const failed = activeJob?.status === "failed" || activeJob?.status === "invalid"
+  const { agentProjection, versions, activeVersionId, restoreVersion, togglePin } = useBuilder()
+  const activeTurn = agentProjection.activeTurnId
+    ? agentProjection.turns[agentProjection.activeTurnId]
+    : null
+  const pending = Boolean(activeTurn?.buildJobId && !activeTurn.terminal)
+  const failed =
+    Boolean(activeTurn?.buildJobId) &&
+    (agentProjection.status === "failed" || agentProjection.status === "invalid")
 
   return (
     <div className="flex flex-col gap-2">
-      {pending && activeJob ? (
+      {pending ? (
         <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-2.5">
           <Loader2 className="mt-0.5 h-3.5 w-3.5 shrink-0 animate-spin text-amber-600 dark:text-amber-400" />
           <div>
             <p className="font-mono text-[11px] text-workflow-text">Byggjobb pågår</p>
             <p className="mt-0.5 text-[10px] leading-relaxed text-workflow-text-muted">
-              {activeJob.progressLabel} Ingen version skapas före verifierad framgång.
+              {agentProjection.statusLabel} Ingen version skapas före verifierad framgång.
             </p>
           </div>
         </div>
       ) : null}
 
-      {failed && activeJob ? (
+      {failed ? (
         <div className="flex items-start gap-2 rounded-lg border border-rose-500/30 bg-rose-500/10 p-2.5">
           <TriangleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0 text-rose-600 dark:text-rose-400" />
           <div>
             <p className="font-mono text-[11px] text-workflow-text">Inget resultat skapades</p>
             <p className="mt-0.5 text-[10px] leading-relaxed text-workflow-text-muted">
-              {activeJob.error ?? "Byggjobbet stoppades felsäkert."}
+              {agentProjection.error ?? "Byggjobbet stoppades felsäkert."}
             </p>
           </div>
         </div>

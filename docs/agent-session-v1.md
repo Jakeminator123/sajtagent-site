@@ -1,8 +1,7 @@
 # AgentSession V1
 
-Status: authoritative shared contract. Site transport and persistence are the
-next implementation layer; the raw OpenClaw Gateway protocol is not a browser
-API.
+Status: authoritative shared contract with a fail-closed browser projection.
+The raw OpenClaw Gateway protocol is not a browser API.
 
 ## Product rule
 
@@ -25,9 +24,12 @@ OpenClaw, Sprite or model tools directly.
 
 ## Transport touchdown
 
-- `POST /sessions/{sessionId}/turns` starts a turn and fetch-streams its first
-  events.
-- `GET /sessions/{sessionId}/events?afterSequence=N` resumes persisted events.
+- `POST /api/siteagent/projects/{projectId}/sessions` opens the Site-owned
+  product session.
+- `POST /api/siteagent/sessions/{sessionId}/turns` starts a turn and
+  fetch-streams its first events.
+- `GET /api/siteagent/sessions/{sessionId}/events?afterSequence=N` resumes
+  persisted events.
 - Site owns one strictly increasing sequence for the whole product session.
   Gateway sequence numbers are adapter input only.
 - A POST turn stream always starts with `turn.accepted` even when its base
@@ -87,10 +89,28 @@ Site-accepted product result, never a runtime candidate URL.
 This matrix prevents optimistic or contradictory UI states. A worker candidate
 can never make the session or preview ready by itself.
 
+## Client projection
+
+The browser reducer validates every `AgentEventV1`, deduplicates exact replay,
+requires gap-free session-global sequence and locks each turn after its
+terminal event. Changed replay, reused event IDs, mixed sessions or turns,
+unmatched tools and incomplete streams invalidate the projection visibly.
+
+Only `safeLabel` is rendered for tools. A `question.requested` becomes an
+explicit option form; its answer is a new turn carrying both
+`replyToQuestionId` and `answerSelections`. Ordinary Chat messages never create
+`BuildJobV1` in the browser.
+
+Even `preview.ready` is not enough to change Preview, Versioner or Karta. The
+client re-fetches the owner-bound project state and versions read models and
+requires their revision, version, preview and sitemap references to match
+before projecting ready state. No inline HTML or optimistic version exists.
+
 ## Executable evidence
 
 ```powershell
 npm run check:agent-session
+npm run check:agent-session-ui
 ```
 
 The digest printed by this command must match the mirrored Sprites contract

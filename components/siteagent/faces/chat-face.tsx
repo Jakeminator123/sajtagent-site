@@ -4,18 +4,23 @@
 // Browsern skickar endast produktavsikt via Site-controllern.
 
 import React, { useEffect, useRef, useState } from "react"
-import { FileText, ImageIcon, Loader2, Mic, Send, Square, Type } from "lucide-react"
+import { ImageIcon, Loader2, Mic, Send, Square, Type } from "lucide-react"
 import { useAudioTranscription } from "@/lib/use-audio-transcription"
 import { cn } from "@/lib/utils"
 import { useBuilder } from "../builder-store"
 
 export function ChatFace() {
-  const { messages, isStreaming, sendMessage } = useBuilder()
+  const { agentProjection, messages, isStreaming, sendMessage, sessionStatus } = useBuilder()
   const userMessages = messages.filter((message) => message.role === "user")
 
   const [input, setInput] = useState("")
-  const [planMode, setPlanMode] = useState(false)
   const listRef = useRef<HTMLDivElement>(null)
+  const hasPendingQuestion = Boolean(agentProjection.pendingQuestion)
+  const inputDisabled =
+    isStreaming ||
+    sessionStatus !== "ready" ||
+    hasPendingQuestion ||
+    agentProjection.status === "invalid"
 
   // Diktering: transkriberad text läggs till i fältet i stället för att skickas direkt,
   // så användaren kan justera innan den skickas.
@@ -31,8 +36,8 @@ export function ChatFace() {
   }, [messages])
 
   const submit = () => {
-    if (!input.trim() || isStreaming) return
-    void sendMessage(input, { planMode })
+    if (!input.trim() || inputDisabled) return
+    void sendMessage(input)
     setInput("")
   }
 
@@ -50,7 +55,7 @@ export function ChatFace() {
           <div className="flex-1 flex flex-col items-center justify-center gap-2 text-center px-4">
             <p className="font-mono text-sm text-workflow-text">Ditt meddelande</p>
             <p className="text-xs text-workflow-text-muted leading-relaxed">
-              Skriv vad du vill bygga eller ändra. Sajtagent svarar i sitt kort.
+              Fråga vad som helst eller beskriv vad du vill bygga. Sajtagent svarar i sitt kort.
             </p>
             <p className="font-mono text-[10px] text-workflow-text-subtle">
               Byggval kan öppnas när du vill komplettera uppdraget.
@@ -70,22 +75,14 @@ export function ChatFace() {
 
       <div className="border-t border-workflow-border-subtle p-2 flex flex-col gap-2">
         <div className="flex items-center gap-1.5">
-          <button
-            type="button"
-            onClick={() => setPlanMode((v) => !v)}
-            className={cn(
-              "flex items-center gap-1 px-2 py-1 rounded text-[11px] font-mono border transition-colors duration-150",
-              planMode
-                ? "bg-foreground text-background border-transparent"
-                : "text-workflow-text-muted border-workflow-border-subtle hover:text-workflow-text"
-            )}
-            title="Planläge"
-          >
-            <FileText className="w-3 h-3" />
-            Plan
-          </button>
           <span className="font-mono text-[10px] text-workflow-text-subtle">
-            Sajtagentens policy styr modell och verktyg
+            {hasPendingQuestion
+              ? "Svara på frågan i Sajtagent-kortet"
+              : agentProjection.status === "invalid"
+                ? "Starta en ny chatt efter integritetsfelet"
+              : sessionStatus === "ready"
+                ? "Sajtagentens policy styr modell och verktyg"
+                : "Öppnar Sajtagent-session…"}
           </span>
           <div className="ml-auto flex items-center gap-1">
             <button
@@ -137,14 +134,20 @@ export function ChatFace() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Skriv till Sajtagent… (Enter för att skicka)"
+            disabled={inputDisabled}
+            aria-label="Meddelande till Sajtagent"
+            placeholder={
+              hasPendingQuestion
+                ? "Svara i Sajtagent-kortet…"
+                : "Skriv till Sajtagent… (Enter för att skicka)"
+            }
             rows={2}
             className="flex-1 resize-none rounded-md bg-workflow-node-input border border-workflow-border-subtle px-2.5 py-2 text-xs text-workflow-text placeholder:text-workflow-text-subtle focus:outline-none focus:ring-1 focus:ring-workflow-border"
           />
           <button
             type="button"
             onClick={submit}
-            disabled={isStreaming || !input.trim()}
+            disabled={inputDisabled || !input.trim()}
             className="p-2 rounded-md bg-foreground text-background disabled:opacity-40 transition-opacity duration-150"
             aria-label="Skicka till Sajtagent"
           >

@@ -74,7 +74,9 @@ Builder chat connection to the continuous conversation path.
 
 ## Active closeout work
 
-The Site coordination task owns these isolated worktrees:
+At the final checkpoint no child implementation agent is still live. The Site
+coordination task preserves these isolated worktrees; inspect them before
+claiming a new exclusive write lock:
 
 1. Agent Studio proxy
    - Branch: `codex/site-v1-agent-studio-proxy`
@@ -98,14 +100,17 @@ The Site coordination task owns these isolated worktrees:
      tool, and keep current chat turns at `conversation.respond` /
      `maxToolCalls: 0`.
 
-Do not discard, stage, rewrite, or merge either worktree without receiving its
-owner's checkpoint. The integration worktree is:
+Do not discard, stage, rewrite, or merge either worktree without first
+inventorying its branch, diff, processes and unique commits. The integration
+worktree is:
 `C:\Users\jakob\.codex\visualizations\2026\09\01\01a05dd3-afdd-74c1-ac21-6c62a3db2e92\sajtagent-site-integration`.
 
 ## Recommended takeover sequence
 
-1. Contact the two active Site agents through direct Codex task messaging and
-   request branch, diff, commit, focused checks, and blockers.
+1. Check whether either closeout task has become live again. If so, contact it
+   through direct Codex task messaging and request branch, diff, commit,
+   focused checks, and blockers. If not, claim exactly one preserved worktree
+   after a read-only inventory; never run two writers in the Site repo.
 2. Review each diff against the product decision above. Integrate one commit at
    a time into `codex/site-v1-vertical-slice`; never copy uncommitted files
    between worktrees.

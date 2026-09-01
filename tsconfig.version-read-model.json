@@ -1,0 +1,26 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "incremental": false,
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "target": "ES2022",
+    "types": ["node"]
+  },
+  "include": [
+    "contracts/builder-v1.ts",
+    "lib/db/client.ts",
+    "lib/db/env.ts",
+    "lib/db/schema.ts",
+    "lib/siteagent/server/build-job-input.ts",
+    "lib/siteagent/server/principal.ts",
+    "lib/siteagent/server/principal-claims.ts",
+    "lib/siteagent/server/version-model.ts",
+    "lib/siteagent/server/version-repository.ts",
+    "lib/supabase/**/*.ts",
+    "app/api/siteagent/projects/[projectId]/state/route.ts",
+    "app/api/siteagent/projects/[projectId]/versions/route.ts",
+    "app/api/siteagent/previews/[previewRef]/route.ts",
+    "scripts/verify-version-read-model.mts"
+  ]
+}

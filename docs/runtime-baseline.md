@@ -24,8 +24,11 @@ The deterministic Site-owned candidate gate is implemented and documented in
 [`candidate-acceptance-v1.md`](candidate-acceptance-v1.md). It verifies stable
 receipt semantics, exact preview bytes and metadata, active revision, staged
 Site preview health, and exposes one atomic success-commit seam. The product
-route still fails closed until private artifact transfer and the matching
-transactional version repository are injected together.
+route still fails closed until private artifact transfer, candidate acceptance
+and the transactional version repository are wired together. The local
+repository and owner-bound routes now exist and are documented in
+[`site-version-preview-v1.md`](site-version-preview-v1.md); they are not proof
+that the migration has been applied or the controller join is live.
 
 This build gate is subordinate to the mutating tool path. It does not define
 the ordinary Chat-to-Sajtagent conversation protocol, and conversation alone
@@ -38,8 +41,10 @@ signing keys or calls OpenClaw directly.
 
 ## Still unavailable
 
-- authenticated preview serving and canonical success projection;
-- the private artifact-transfer adapter and atomic revision/version committer;
+- the controller dependency join that turns an accepted candidate into
+  canonical success;
+- runtime artifact transfer into Site-owned preview bytes;
+- applied database migration and live use of the local version/preview routes;
 - prompt assist, publish, ZIP export, import, and save actions.
 
 These controls are disabled or return failure. They do not report simulated

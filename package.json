@@ -18,6 +18,7 @@
     "check:agent-session": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/verify-agent-session-contract.mts && tsc -p tsconfig.agent-session.json",
     "check:agent-profile": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/verify-agent-profile.mts && tsc -p tsconfig.agent-studio.json",
     "check:build-jobs": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/verify-build-jobs.mts && node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/verify-runtime-protocol.mts && node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/verify-candidate-acceptance.mts && tsc -p tsconfig.build-jobs.json",
+    "check:version-read-model": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/verify-version-read-model.mts && tsc -p tsconfig.version-read-model.json",
     "check:builder-adapter": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/verify-builder-adapter.mts && tsc -p tsconfig.builder-adapter.json",
     "check:site-ui": "node scripts/verify-site-ui.mjs && tsc -p tsconfig.site-ui.json",
     "cards:docs": "node scripts/verify-card-flow.mjs --write",

@@ -32,35 +32,53 @@ evidence for this slice.
 | --- | --- | --- |
 | Browser and Builder state | `sajtagent-site` | Collect input, render progress, show authenticated preview, and render real failure. |
 | Build-job API and persistence | `sajtagent-site` | Authenticate, bind tenant/project/revision, enforce idempotency, persist status, and call the runtime server to server. |
-| Runtime/controller | `sajtagent-sprites` | Authorize the job, enforce limits, assign one isolated workspace, run one bounded agent loop, verify the result, and return receipts. |
-| Worker Sprite | isolated development resource | Edit only the assigned workspace and expose only its private preview service. |
+| Product controller | `sajtagent-site` | Authorize the request, create the job and execution policy, verify worker evidence, persist the result, and publish the product event stream. |
+| Runtime integration | `sajtagent-sprites` | Host the Sajtagent OpenClaw profile, compile an authorized job into fail-closed session policy, normalize the upstream run, and return worker evidence. |
+| Upstream agent runtime | OpenClaw Gateway | Own the serialized agent loop, session queue, run lifecycle, sandbox, native tools, and upstream tool policy. |
+| Worker Sprite | isolated development resource | Hold one secret-free project workspace and expose only its private preview service. |
 
-Development MCP and plugin logins are not part of this path. The browser never
-receives a Supabase secret, provider key, runtime credential, Sprite token, or
-raw preview-organization token.
+Development MCP and plugin logins are not part of this product path. The
+browser never receives a Supabase secret, provider key, OpenClaw credential,
+Sprite token, or raw preview-organization token.
 
 ## Small versioned contract
 
 The two repositories freeze matching schemas and valid/invalid fixtures for
-`BuildJobV1` and `BuildResultV1` before connecting runtime code.
+five contracts before connecting runtime code.
 
 ```text
+BuilderIntentV1
+  untrusted browser intent: action, message, selected context
+
 BuildJobV1
   jobId, tenantId, projectId, baseRevisionId, idempotencyKey
-  request: message, buildChoices, mode, planMode
-  limits: deadline, maxSteps, maxToolCalls
+  intent: BuilderIntentV1
+  executionPolicy: semantic capabilities, budget, deadline,
+                   network allowlist, package allowlist
+
+WorkerReportV1
+  candidate: sourceRunId, candidateRevisionId, changed paths,
+             artifacts, checks, receipts, diagnostics
+  failure: sourceRunId, status, receipts, diagnostics
+  never contains a versionId or authoritative success
 
 BuildResultV1
-  success: jobId, baseRevisionId, workspaceRevisionId,
-           privatePreviewUrl, checks[], receipts[]
-  failure: jobId, baseRevisionId, code, message, retryable, receipts[]
+  success: canonical workspaceRevisionId, versionId,
+           previewRef, sitemapRevision, verification receipts
+  failure: code, message, retryable, receipts
+
+BuildEventV1
+  jobId, sequence, type, payload, optional sourceRunId
+  exactly one final job.succeeded or job.failed
 ```
 
-All identifiers are server-issued. The runtime rejects an expired job, a stale
-base revision, an unknown tenant/project binding, an exceeded limit, and a
-replayed job whose payload differs from the original idempotent request.
-Receipts describe tool, check, and preview evidence without containing secrets
-or unrestricted command output.
+The browser may request behavior but can never raise capabilities. The product
+controller issues identifiers and `executionPolicy`; it rejects expired jobs,
+stale revisions, unknown tenant/project bindings, exceeded limits, and changed
+idempotent replays. The runtime adapter compiles semantic policy into OpenClaw
+session, sandbox, and tool settings without exposing upstream configuration in
+the shared job contract. Receipts contain sanitized evidence, never secrets or
+unrestricted command output.
 
 ## One request flow
 
@@ -68,22 +86,28 @@ or unrestricted command output.
    `POST /api/siteagent/build-jobs`.
 2. The site authenticates the user, resolves tenant/project/base revision, and
    creates one idempotent job. Invalid ownership fails before a runtime call.
-3. The site sends the signed `BuildJobV1` to the runtime through a narrow
-   server-to-server endpoint.
-4. The runtime binds the job to one private workspace and gives one agent only
-   project-scoped read, edit, check, and preview tools with fixed limits.
-5. Deterministic checks decide whether the workspace revision and preview are
-   acceptable. Model text never decides success or authorization.
-6. The runtime returns `BuildResultV1`. Success requires a healthy private
-   preview plus check and tool receipts.
-7. The site persists the terminal state and version, then exposes the preview
-   through an authenticated SiteAgent route for the Builder iframe.
-8. Cancellation, timeout, stale revision, runtime error, failed check, or
-   unhealthy preview produces `failure`; no `srcDoc` simulation is generated.
+3. The site sends the signed `BuildJobV1` to the runtime adapter through a
+   narrow server-to-server endpoint.
+4. The adapter binds the job to one OpenClaw session and private workspace,
+   then compiles its semantic execution policy into fail-closed sandbox and
+   tool policy. It does not implement another agent loop.
+5. OpenClaw Gateway runs the Sajtagent profile with native file, patch, command,
+   check, browser, and preview tools that the compiled policy authorizes.
+6. The adapter normalizes the upstream run into `WorkerReportV1`. A candidate
+   is evidence, not authoritative success.
+7. The site runs deterministic acceptance checks and persists either a
+   canonical `BuildResultV1` or failure. Model text never decides success.
+8. The site appends the terminal `BuildEventV1`, then exposes the referenced
+   preview through an authenticated SiteAgent route for the Builder iframe.
+9. Cancellation, timeout, stale revision, runtime error, failed check, or
+   unhealthy preview produces `job.failed`; no `srcDoc` simulation is
+   generated.
 
 Progress is advisory and separate from the terminal result. A minimal stream
-may expose `job.accepted`, `job.running`, `message.delta`, `preview.ready`, and
-exactly one of `job.succeeded` or `job.failed`.
+may expose `job.accepted`, `job.running`, and `message.delta`, followed by
+exactly one terminal `job.succeeded` or `job.failed`. The terminal event is
+always the final sequence. Success contains every canonical revision, version,
+preview, and sitemap reference; no later ready events are allowed.
 
 ## Minimum persistence
 
@@ -106,7 +130,8 @@ credentials, Sprite tokens, and unrestricted logs never belong in these rows.
 - Invalid input, unauthenticated access, cross-tenant access, stale revision,
   changed idempotent replay, cancellation, timeout, failed check, runtime
   failure, and unhealthy preview all have focused failure tests.
-- Matching contract fixtures pass in both owning repositories.
+- Matching Intent, Job, WorkerReport, Result, Event, and terminal-order fixtures
+  pass in both owning repositories with the same contract-fixture digest.
 - Database reset/migration checks, RLS/grant tests, lint, build, and focused
   tests pass. Build success remains separate from the known typecheck waiver.
 - A browser smoke test submits one request, observes progress, renders the real
@@ -115,13 +140,15 @@ credentials, Sprite tokens, and unrestricted logs never belong in these rows.
 
 ## Delivery checkpoints
 
-1. **Contract:** freeze schemas, fixtures, error codes, idempotency, and receipt
-   rules without creating a cloud resource.
+1. **Contract:** freeze the five schemas, fixtures, error codes, idempotency,
+   terminal ordering, execution policy, and receipt rules without creating a
+   cloud resource.
 2. **Site boundary:** add the migration and API route, initially failing closed
    when no runtime is configured; remove no fallback until the real join exists.
-3. **Runtime boundary:** implement the bounded controller and a local contract
-   harness in `sajtagent-sprites`; a harness may test contracts but may never
-   become a product success fallback.
+3. **Runtime boundary:** configure the Sajtagent OpenClaw profile and implement
+   only the thin signed adapter and Job Policy Compiler in
+   `sajtagent-sprites`; OpenClaw remains the upstream agent loop. A local
+   harness may test contracts but may never become a product success fallback.
 4. **Private integration:** after explicit cloud authorization, prove one real
    job in one disposable development Sprite with private preview and cleanup.
 5. **Replacement:** connect the Builder, remove the old Sajtmaskin route and

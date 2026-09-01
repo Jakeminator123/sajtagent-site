@@ -208,8 +208,12 @@ check(
 )
 if (refreshed.kind !== "opened") throw new Error("session_refresh_failed")
 
+let answerRuntimeCalls = 0
+const observedAnswerPolicies: RuntimeAgentTurnIngressV1["policy"][] = []
 const answerRuntime: AgentSessionRuntimeClientV1 = {
   async *streamTurn(input) {
+    answerRuntimeCalls += 1
+    observedAnswerPolicies.push(input.policy)
     yield {
       schemaVersion: 1,
       sessionId: input.session.sessionId,
@@ -258,6 +262,20 @@ check(
   answered.events.slice(-2).map((event) => event.type).join(",") ===
     "message.delta,turn.completed",
   "only sanitized runtime drafts become Site-owned events",
+)
+check(
+  answerRuntimeCalls === 1 &&
+    observedAnswerPolicies[0]?.capabilities.join(",") === "conversation.respond" &&
+    observedAnswerPolicies[0]?.maxToolCalls === 0,
+  "a normal AgentSession turn dispatches only conversation.respond with zero tool calls",
+)
+check(
+  answered.events.every(
+    (event) =>
+      event.type !== "tool.started" &&
+      !event.type.startsWith("build."),
+  ),
+  "a normal AgentSession answer produces zero build dispatch events",
 )
 
 const invalidRuntime: AgentSessionRuntimeClientV1 = {

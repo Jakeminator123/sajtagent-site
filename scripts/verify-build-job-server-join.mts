@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import { createHash } from "node:crypto"
-import { readFileSync } from "node:fs"
+import { existsSync } from "node:fs"
 
 import {
   BuildEventV1Schema,
@@ -359,21 +359,11 @@ function passed(name: string): void {
   passed("artifact capability alone cannot bypass missing signed runtime")
 }
 
-{
-  const route = readFileSync(
-    new URL("../app/api/siteagent/build-jobs/route.ts", import.meta.url),
-    "utf8",
-  )
-  assert.match(route, /createBuildJobServerJoinV1/)
-  assert.match(route, /PostgresSiteVersionRepositoryV1/)
-  assert.match(route, /InlineSiteCandidatePreviewStoreV1/)
-  assert.match(route, /createRuntimeArtifactReaderFromEnvV1/)
-  assert.match(route, /await artifactReader\.isRuntimeReady\(\)/)
-  assert.match(route, /RUNTIME_ARTIFACT_CAPABILITY_UNAVAILABLE_V1/)
-  assert.doesNotMatch(route, /RUNTIME_ARTIFACT_TRANSFER_UNAVAILABLE_V1/)
-  assert.doesNotMatch(route, /NEXT_PUBLIC_.*RUNTIME/)
-  passed("production route opens the server-only reader only after strict runtime health")
-}
+assert.equal(
+  existsSync(new URL("../app/api/siteagent/build-jobs/route.ts", import.meta.url)),
+  false,
+)
+passed("the internal server join has no browser-callable build-job route")
 
 console.log(`Build-job server join: PASS (${assertions.length} assertions)`)
 for (const name of assertions) console.log(`- ${name}`)

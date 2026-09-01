@@ -1,20 +1,21 @@
 # V1: one continuous agent, one verified truth
 
-Status: accepted product loop. The site implementation is local until the
-private runtime ingress and artifact-transfer boundary are ratified.
+Status: accepted target loop. Current Site conversation is local and answer-only;
+the mutation join remains deliberately unavailable.
 
 ## The simple rule
 
 The chat card talks to one continuous SiteAgent. A normal answer stays a normal
-answer. A site mutation becomes one bounded build only after the SiteAgent
-controller grants it. Only deterministic SiteAgent checks may turn a worker
+answer. The browser cannot start a build. A future site mutation becomes one
+bounded build only after explicit approval and a Site-authorized tool join in
+the same session. Only deterministic SiteAgent checks may turn a worker
 candidate into a version.
 
 ```text
-Chat -> Site session -> private OpenClaw session -> answer / question / tool
-                                              \-> authorized BuildJobV1
-                                                  -> candidate -> acceptance
-                                                  -> version + preview
+Chat -> Site session -> private OpenClaw session -> answer / question
+                                              \-> [planned approval + tool join]
+                                                  -> BuildJobV1 -> candidate
+                                                  -> acceptance -> version + preview
 ```
 
 There is no second agent loop, browser-to-Sprite request or simulated success.
@@ -53,9 +54,11 @@ deployment, runtime and orchestration are not dependencies of this loop.
 1. The browser opens its authenticated starter project and Site-owned session.
 2. Chat sends an `AgentTurnRequestV1`; Site binds user, tenant, project, base
    revision and idempotency and creates `AgentTurnPolicyV1`.
-3. OpenClaw may answer or use a read-only tool without creating a build.
-4. If OpenClaw requests mutation, Site validates mandate, credits and revision,
-   then sends one HMAC-signed `BuildJobV1` to a healthy private runtime.
+3. Current OpenClaw turns can answer or ask a question with
+   `conversation.respond` and `maxToolCalls: 0`; they cannot create a build.
+4. A future explicit user approval and Site-authorized tool join in this same
+   session must validate mandate, credits and revision before Site may send one
+   HMAC-signed `BuildJobV1`. Until that join is ratified, execution stops here.
 5. The runtime returns one Zod-validated `WorkerReportV1` synchronously.
 6. A candidate must be bound to the same job and base revision. It must have
    exactly one HTML preview artifact with SHA-256, a passed preview receipt

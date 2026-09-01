@@ -40,22 +40,23 @@ job or create a cloud Sprite.
 
 ## Product build boundary
 
-`POST /api/siteagent/build-jobs` accepts one strict, idempotent typed intent.
-It requires a server-resolved principal, verifies ownership of the project and
-base revision, persists an accepted event, and invokes the signed runtime
-adapter only after persistence. Supabase SSR validates the session claims and
-derives a personal tenant server-side; anonymous or invalid claims return 401.
-Local header identity is disabled unless an explicit development-only loopback
-mode is selected.
+There is no browser-callable build-job route. The strict BuildJob controller,
+server-resolved principal checks, candidate acceptance and signed runtime
+adapter remain internal seams. Product dispatch stays fail-closed until an
+explicit user approval and a Site-authorized build tool join are ratified in
+the same AgentSession turn chain. Local header identity remains disabled unless
+an explicit development-only loopback mode is selected.
 
 The runtime worker report is non-authoritative. A candidate deliberately ends
 as a failure until the implemented deterministic acceptance core, private
 artifact reader, preview health, and atomic workspace revision/version commit
-have all been injected into the product route together. The acceptance rules
+have all been injected into the internal join together. The acceptance rules
 are documented in
 [`candidate-acceptance-v1.md`](candidate-acceptance-v1.md).
 Missing persistence, missing runtime, transport errors, or an unconnected
-OpenClaw Gateway never produce a preview or successful version.
+OpenClaw Gateway never produce a preview or successful version. A normal
+conversation turn has only `conversation.respond`, `maxToolCalls: 0`, and
+cannot dispatch that join.
 
 ## Database boundary
 

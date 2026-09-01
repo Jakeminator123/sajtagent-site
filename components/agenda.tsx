@@ -46,21 +46,21 @@ export default function Agenda() {
                                 <span className='text-muted-foreground font-mono '>02</span>
                                 <span>Granska planen</span>
                             </div>
-                            <p className="text-muted-foreground mt-4">Siteagent föreslår struktur och byggval innan den första generationen börjar.</p>
+                            <p className="text-muted-foreground mt-4">I betan föreslår Sajtagent struktur och byggval utan att starta ett bygge.</p>
                         </div>
                         <div className="py-6">
                             <div className="font-medium space-x-2">
                                 <span className='text-muted-foreground font-mono '>03</span>
-                                <span>Se sidan ta form</span>
+                                <span>Förbered ett verifierat bygge</span>
                             </div>
-                            <p className="text-muted-foreground mt-4">Följ bygget i realtid och ge återkoppling direkt i arbetsytan.</p>
+                            <p className="text-muted-foreground mt-4">Byggstarten förblir stängd tills du uttryckligen har godkänt den i samma chatt.</p>
                         </div>
                         <div className="py-6">
                             <div className="font-medium space-x-2">
                                 <span className='text-muted-foreground font-mono '>04</span>
-                                <span>Forma och publicera</span>
+                                <span>Forma och godkänn</span>
                             </div>
-                            <p className="text-muted-foreground mt-4">Justera innehåll och layout tills sidan är redo att möta kunderna.</p>
+                            <p className="text-muted-foreground mt-4">Justera innehåll och layout. Publicering kommer efter en separat verifierad kontroll.</p>
                         </div>
                     </AnimatedGroup>
                 </div>

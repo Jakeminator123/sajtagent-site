@@ -14,6 +14,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "check": "npm run check:contracts && npm run check:agent-profile && npm run check:build-jobs && npm run check:version-read-model && npm run check:builder-adapter && npm run check:agent-session-server && npm run check:site-ui && npm run cards:check",
     "check:contracts": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/verify-builder-contracts.mts && node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/verify-agent-session-contract.mts && tsc -p tsconfig.contracts.json",
     "check:agent-session": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/verify-agent-session-contract.mts && tsc -p tsconfig.agent-session.json",
     "check:agent-session-server": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/verify-agent-session-server.mts && tsc -p tsconfig.agent-session-server.json",

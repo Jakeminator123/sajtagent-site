@@ -7,9 +7,11 @@
     "next-env.d.ts",
     "app/agent-studio/**/*.ts",
     "app/agent-studio/**/*.tsx",
+    "app/api/siteagent/agent-profiles/**/*.ts",
     "components/agent-studio/**/*.ts",
     "components/agent-studio/**/*.tsx",
-    "contracts/**/*.ts"
+    "contracts/**/*.ts",
+    "lib/siteagent/server/agent-profile-runtime-client.ts"
   ],
   "exclude": ["node_modules"]
 }

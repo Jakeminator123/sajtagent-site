@@ -1,6 +1,6 @@
 # Agent Studio and local build runtime
 
-Status: local, fail-closed vertical slice, 2026-09-01.
+Status: authenticated Site proxy, fail-closed vertical slice, 2026-09-02.
 
 ## What Jakob can use now
 
@@ -34,9 +34,12 @@ npm ci
 npm run dev:runtime
 ```
 
-Open `http://127.0.0.1:3147/agent-studio`, select **Export**, and use
-**Kontrollera** or **Prova profil**. Profile compilation does not start a build
-job or create a cloud Sprite.
+Configure `SITEAGENT_RUNTIME_URL` and `SITEAGENT_RUNTIME_SIGNING_KEY` only on
+the Site server. Open `http://127.0.0.1:3147/agent-studio`, select **Export**,
+or use **Prova profil**. The browser calls an authenticated same-origin Site
+route; Site signs the private Runtime request and returns only a narrow compile
+health projection. Profile compilation does not start a build job or create a
+cloud Sprite.
 
 ## Product build boundary
 

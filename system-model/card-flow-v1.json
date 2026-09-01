@@ -26,7 +26,16 @@
     { "id": "map", "label": "Karta" },
     { "id": "agent", "label": "Sajtagent" }
   ],
-  "targetCardIds": ["choices", "chat", "versions", "blocks", "map", "agent"],
+  "currentV1CardIds": ["choices", "chat", "versions", "blocks", "map", "agent"],
+  "targetCardIds": ["choices", "blocks", "versions", "map", "agent"],
+  "targetAbsorptions": [
+    {
+      "from": "chat",
+      "into": "agent",
+      "status": "planned",
+      "summary": "Efter V1 absorberar Sajtagent användarens inmatning; dagens separata Chat-kort ligger kvar tills dess."
+    }
+  ],
   "retiredCardIds": [],
   "nodes": [
     {
@@ -36,7 +45,7 @@
       "layer": 0,
       "owner": "sajtagent-site",
       "status": "implemented",
-      "summary": "Binder användare, projekt och AgentSession, skapar turnpolicy och sekvenserar AgentEventV1. BuildJobV1 skapas bara server-side när agenten godkänt begär mutation.",
+      "summary": "Binder användare, projekt och AgentSession, skapar svarspolicy och sekvenserar AgentEventV1. BuildJobV1 förblir stängt tills samma session har ett ratificerat godkännande- och tool-join.",
       "failure": {
         "code": "cards.controller-rejected",
         "symptom": "Inget kort får visa en lyckad version.",
@@ -131,7 +140,7 @@
       "card": {
         "registryId": "chat",
         "current": "Site AgentSession user input",
-        "target": "continuous user input to Sajtagent",
+        "target": "absorbed as user input in Sajtagent after V1",
         "produces": ["AgentTurnRequestV1"],
         "consumes": []
       },
@@ -152,7 +161,7 @@
       "card": {
         "registryId": "agent",
         "current": "AgentEventV1 response projection",
-        "target": "Sajtagent response, question and verified runtime status",
+        "target": "Sajtagent user input, response, question and verified runtime status",
         "produces": ["AgentTurnRequestV1.replyToQuestionId", "AgentTurnRequestV1.answerSelections"],
         "consumes": ["agent.status", "message.delta", "question.requested", "tool.started", "tool.completed", "turn.failed"]
       },

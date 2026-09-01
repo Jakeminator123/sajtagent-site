@@ -1,6 +1,6 @@
 "use client"
 
-// Registret över V1-målbildens sex kort.
+// Det körbara V1-registret har sex kort. Femkortsmålet absorberar Chatt i Sajtagent senare.
 // column: vilken sida av scenen ytan öppnas på.
 
 import type React from "react"
@@ -41,7 +41,7 @@ export const FACES: FaceDef[] = [
     height: 380,
     Component: BuildChoicesFace,
     Back: EngineBack,
-    backLabel: "Motorn",
+    backLabel: "Byggstatus",
   },
   {
     id: "chat",

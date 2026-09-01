@@ -25,8 +25,11 @@ The deterministic Site-owned candidate gate is implemented and documented in
 receipt semantics, exact preview bytes and metadata, active revision, staged
 Site preview health, and exposes one atomic success-commit seam. The product
 route still fails closed until private artifact transfer, candidate acceptance
-and the transactional version repository are wired together. The local
-repository and owner-bound routes now exist and are documented in
+is available. Candidate acceptance, staged Site preview health and the
+transactional version repository are now assembled behind the explicit
+dispatch guard documented in
+[`build-job-server-join-v1.md`](build-job-server-join-v1.md). The local
+repository and owner-bound routes exist and are documented in
 [`site-version-preview-v1.md`](site-version-preview-v1.md); they are not proof
 that the migration has been applied or the controller join is live.
 
@@ -60,9 +63,7 @@ subordinate mutation envelope when Sajtagent invokes an approved build tool.
 
 ## Still unavailable
 
-- the controller dependency join that turns an accepted candidate into
-  canonical success;
-- runtime artifact transfer into Site-owned preview bytes;
+- the ratified runtime artifact-byte transfer needed to open dispatch;
 - applied database migration and live use of the local version/preview routes;
 - prompt assist, publish, ZIP export, import, and save actions.
 
@@ -77,7 +78,7 @@ Magic-link login uses only `NEXT_PUBLIC_SUPABASE_URL` and
 separate server-only Postgres connection and the reviewed local migration.
 No cloud migration is applied by this checkpoint.
 
-The next implementation target is the server-to-server runtime join followed
-by deterministic candidate verification, canonical version persistence, and
-authenticated preview health. The accepted end-to-end contract remains
+The next implementation target is the shared private artifact-byte protocol;
+the Site-owned acceptance, persistence and authenticated preview boundaries are
+already wired behind that fail-closed capability. The accepted end-to-end contract remains
 [`first-vertical-slice.md`](first-vertical-slice.md).

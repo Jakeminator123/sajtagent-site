@@ -20,6 +20,7 @@
     "proxy.ts",
     "scripts/verify-build-jobs.mts",
     "scripts/verify-runtime-protocol.mts",
-    "scripts/verify-candidate-acceptance.mts"
+    "scripts/verify-candidate-acceptance.mts",
+    "scripts/verify-build-job-server-join.mts"
   ]
 }

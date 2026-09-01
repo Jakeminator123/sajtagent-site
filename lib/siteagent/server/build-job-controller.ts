@@ -64,6 +64,7 @@ export type BuildJobControllerDependenciesV1 = {
   runtime: BuildRuntimeClientV1 | null
   acceptance?: CandidateAcceptanceV1 | null
   successCommitter?: AcceptedCandidateCommitterV1 | null
+  runtimeUnavailableMessage?: string
   now?: () => Date
   createId?: () => string
 }
@@ -250,7 +251,8 @@ export async function createBuildJobV1(
     const result = failureResult(
       job,
       "runtime_unavailable",
-      "Sajtagentens runtime är inte konfigurerad. Ingen simulerad preview skapades.",
+      dependencies.runtimeUnavailableMessage ??
+        "Sajtagentens runtime är inte konfigurerad. Ingen simulerad preview skapades.",
       true,
       createdAt,
     )

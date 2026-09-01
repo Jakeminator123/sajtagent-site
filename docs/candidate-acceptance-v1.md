@@ -83,3 +83,8 @@ ingress and artifact transfer remain separate integration decisions.
 
 Focused verification lives in `scripts/verify-candidate-acceptance.mts` and is
 part of `npm run check:build-jobs`.
+
+The concrete route assembly is documented in
+[`build-job-server-join-v1.md`](build-job-server-join-v1.md). It keeps runtime
+dispatch disabled until the separate runtime repository supplies a ratified
+artifact-byte reader.

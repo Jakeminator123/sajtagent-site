@@ -1,6 +1,6 @@
 # Site-owned version and preview V1
 
-Status: local implementation, not cloud-applied or controller-connected, 2026-09-01.
+Status: locally wired behind artifact capability guard, not cloud-applied, 2026-09-01.
 
 ## Purpose
 
@@ -43,6 +43,9 @@ digest, receipt-status, job, base-revision, tenant, owner, and project checks.
 Public receipts retain deterministic status and timestamps but drop both
 free-text summaries and runtime evidence refs.
 The repository does not fetch Sprite artifacts and does not know runtime ingress.
+The build-job route injects this repository as the atomic success committer,
+but runtime dispatch remains disabled until a reviewed artifact-byte reader is
+available. See [`build-job-server-join-v1.md`](build-job-server-join-v1.md).
 No revision, version, preview, active pointer, success result, or terminal event
 becomes visible unless all six writes commit. A failure rolls the entire unit
 back. Materialized bytes before this call are staging data, not a product

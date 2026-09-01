@@ -2,10 +2,16 @@ import { ZodError } from "zod"
 
 import { createBuildJobV1 } from "../../../../lib/siteagent/server/build-job-controller.ts"
 import { CreateBuildJobRequestV1Schema } from "../../../../lib/siteagent/server/build-job-input.ts"
+import {
+  RUNTIME_ARTIFACT_TRANSFER_UNAVAILABLE_V1,
+  createBuildJobServerJoinV1,
+} from "../../../../lib/siteagent/server/build-job-server-join.ts"
+import { InlineSiteCandidatePreviewStoreV1 } from "../../../../lib/siteagent/server/candidate-preview-store.ts"
 import { PostgresBuildJobRepositoryV1 } from "../../../../lib/siteagent/server/postgres-build-job-repository.ts"
 import { resolveBuildPrincipalV1 } from "../../../../lib/siteagent/server/principal.ts"
 import { isSameOriginMutation, readBoundedJsonV1 } from "../../../../lib/siteagent/server/request-security.ts"
 import { createRuntimeClientFromEnvV1 } from "../../../../lib/siteagent/server/runtime-client.ts"
+import { PostgresSiteVersionRepositoryV1 } from "../../../../lib/siteagent/server/version-repository.ts"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -56,10 +62,15 @@ export async function POST(request: Request): Promise<Response> {
         "Sajtagentens fristående databas är inte konfigurerad.",
       )
     }
-    const result = await createBuildJobV1(input, principal, {
-      repository: new PostgresBuildJobRepositoryV1(pool),
+    const repository = new PostgresBuildJobRepositoryV1(pool)
+    const join = createBuildJobServerJoinV1({
+      repository,
       runtime: createRuntimeClientFromEnvV1(),
+      artifactTransfer: RUNTIME_ARTIFACT_TRANSFER_UNAVAILABLE_V1,
+      previewStore: new InlineSiteCandidatePreviewStoreV1(),
+      successCommitter: new PostgresSiteVersionRepositoryV1(pool),
     })
+    const result = await createBuildJobV1(input, principal, join.dependencies)
     return Response.json(
       {
         schemaVersion: 1,

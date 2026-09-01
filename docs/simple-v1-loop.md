@@ -1,22 +1,25 @@
-# V1: one prompt, one verified site
+# V1: one continuous agent, one verified truth
 
 Status: accepted product loop. The site implementation is local until the
 private runtime ingress and artifact-transfer boundary are ratified.
 
 ## The simple rule
 
-The browser submits intent. The SiteAgent controller decides what is true.
-OpenClaw produces a candidate. Only deterministic SiteAgent checks may turn
-that candidate into a version.
+The chat card talks to one continuous SiteAgent. A normal answer stays a normal
+answer. A site mutation becomes one bounded build only after the SiteAgent
+controller grants it. Only deterministic SiteAgent checks may turn a worker
+candidate into a version.
 
 ```text
-Chat -> SiteAgent controller -> private OpenClaw runtime -> candidate
-     -> SiteAgent acceptance -> revision + version -> authenticated preview
+Chat -> Site session -> private OpenClaw session -> answer / question / tool
+                                              \-> authorized BuildJobV1
+                                                  -> candidate -> acceptance
+                                                  -> version + preview
 ```
 
-There is no second agent loop, no browser-to-Sprite request, no simulated
-success and no separate "maybe ready" state. A job is either in progress,
-failed, or backed by one canonical `BuildResultV1` success.
+There is no second agent loop, browser-to-Sprite request or simulated success.
+`BuildJobV1` is a subordinate mutation envelope, never the chat protocol. See
+`docs/agent-session-v1.md` for the session, turn, event and resume contract.
 
 ## One product state machine
 
@@ -34,10 +37,10 @@ those are progress labels rather than additional sources of truth.
 
 | Part | Owner | Responsibility |
 | --- | --- | --- |
-| Chat and cards | Browser UI | Send typed intent and project canonical events. |
-| Product controller | `sajtagent-site` | Auth, ownership, idempotency, policy, acceptance and terminal event. |
-| Runtime client | `sajtagent-site` | Health preflight and one signed server-to-server request. |
-| Agent runtime | `sajtagent-sprites` | OpenClaw session, tools, workspace and non-authoritative report. |
+| Chat and cards | Browser UI | Send browser-safe turns and project canonical events. |
+| Product controller | `sajtagent-site` | Auth, session binding, idempotency, policy, event sequence, acceptance and terminal outcome. |
+| Runtime client | `sajtagent-site` | Map the Site session privately and stream normalized runtime events. |
+| Agent runtime | `sajtagent-sprites` | OpenClaw session, approved tools and non-authoritative reports. |
 | Product persistence | `sajtagent-site` | Atomically persist accepted revision, version, preview and event. |
 | Preview route | `sajtagent-site` | Resolve an opaque owner-bound reference and return isolated HTML. |
 
@@ -47,11 +50,12 @@ deployment, runtime and orchestration are not dependencies of this loop.
 
 ## Request and acceptance
 
-1. The browser opens its authenticated starter project.
-2. Chat sends a `BuilderIntentV1` to `POST /api/siteagent/build-jobs`.
-3. The controller binds user, tenant, project, base revision and idempotency.
-4. The runtime client requires a healthy signed OpenClaw runtime before
-   dispatch and sends one HMAC-signed `BuildJobV1`.
+1. The browser opens its authenticated starter project and Site-owned session.
+2. Chat sends an `AgentTurnRequestV1`; Site binds user, tenant, project, base
+   revision and idempotency and creates `AgentTurnPolicyV1`.
+3. OpenClaw may answer or use a read-only tool without creating a build.
+4. If OpenClaw requests mutation, Site validates mandate, credits and revision,
+   then sends one HMAC-signed `BuildJobV1` to a healthy private runtime.
 5. The runtime returns one Zod-validated `WorkerReportV1` synchronously.
 6. A candidate must be bound to the same job and base revision. It must have
    exactly one HTML preview artifact with SHA-256, a passed preview receipt

@@ -6,14 +6,13 @@ import Link from "next/link"
 import React from "react"
 import {
   Bot,
-  Check,
   ChevronDown,
   Clock,
   Cpu,
   Download,
   FileCog,
   Import,
-  Loader2,
+  LogIn,
   MoreHorizontal,
   Plus,
   Rocket,
@@ -36,12 +35,7 @@ interface BuilderHeaderProps {
 }
 
 export function BuilderHeader({ showDrawer, onToggleDrawer }: BuilderHeaderProps) {
-  const { newChat, publish, publishState } = useBuilder()
-
-  // Merge-notering: menyalternativen nedan pekas mot befintliga dialoger/
-  // åtgärder i sajtmaskin (Spara, Byggmodell, Scaffold, Egna instruktioner,
-  // Importera, Ladda ner ZIP).
-  const menuStub = (label: string) => () => console.log("[siteagent] menyval:", label)
+  const { newChat } = useBuilder()
 
   return (
     <header className="h-14 bg-workflow-bg border-b border-workflow-border flex items-center justify-between px-4 transition-colors duration-200">
@@ -58,6 +52,13 @@ export function BuilderHeader({ showDrawer, onToggleDrawer }: BuilderHeaderProps
       </div>
 
       <div className="flex items-center gap-2">
+        <Link
+          href="/login"
+          className="flex items-center gap-1.5 px-3 py-2 rounded-lg font-mono text-sm bg-workflow-surface border border-workflow-border text-workflow-text-muted hover:text-workflow-text hover:bg-workflow-surface-hover transition-colors duration-200"
+        >
+          <LogIn className="w-4 h-4" />
+          Konto
+        </Link>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button
@@ -70,16 +71,16 @@ export function BuilderHeader({ showDrawer, onToggleDrawer }: BuilderHeaderProps
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="font-mono text-xs">
-            <DropdownMenuItem onClick={menuStub("Spara")}>
+            <DropdownMenuItem disabled>
               <Save className="w-3.5 h-3.5 mr-2" /> Spara
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={menuStub("Byggmodell")}>
+            <DropdownMenuItem disabled>
               <Cpu className="w-3.5 h-3.5 mr-2" /> Byggmodell
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={menuStub("Scaffold")}>
+            <DropdownMenuItem disabled>
               <FileCog className="w-3.5 h-3.5 mr-2" /> Scaffold
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={menuStub("Egna instruktioner")}>
+            <DropdownMenuItem disabled>
               <SlidersHorizontal className="w-3.5 h-3.5 mr-2" /> Egna instruktioner
             </DropdownMenuItem>
             <DropdownMenuItem asChild>
@@ -88,10 +89,10 @@ export function BuilderHeader({ showDrawer, onToggleDrawer }: BuilderHeaderProps
               </Link>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={menuStub("Importera")}>
+            <DropdownMenuItem disabled>
               <Import className="w-3.5 h-3.5 mr-2" /> Importera
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={menuStub("Ladda ner ZIP")}>
+            <DropdownMenuItem disabled>
               <Download className="w-3.5 h-3.5 mr-2" /> Ladda ner ZIP
             </DropdownMenuItem>
           </DropdownMenuContent>
@@ -103,7 +104,7 @@ export function BuilderHeader({ showDrawer, onToggleDrawer }: BuilderHeaderProps
           className="flex items-center gap-1.5 px-3 py-2 rounded-lg font-mono text-sm bg-workflow-surface border border-workflow-border text-workflow-text-muted hover:text-workflow-text hover:bg-workflow-surface-hover transition-colors duration-200"
         >
           <Plus className="w-4 h-4" />
-          Ny chat
+          Nytt bygge
         </button>
 
         <button
@@ -122,25 +123,12 @@ export function BuilderHeader({ showDrawer, onToggleDrawer }: BuilderHeaderProps
 
         <button
           type="button"
-          onClick={() => void publish()}
-          disabled={publishState === "publishing"}
-          className={cn(
-            "flex items-center gap-2 px-4 py-2 rounded-lg font-mono text-sm transition-all duration-200",
-            publishState === "publishing"
-              ? "bg-workflow-surface text-workflow-text-muted cursor-not-allowed"
-              : publishState === "published"
-                ? "bg-accent text-accent-foreground hover:bg-accent/90"
-                : "bg-primary text-primary-foreground hover:bg-primary/90"
-          )}
+          disabled
+          title="Publicering kräver först en verifierad version"
+          className="flex items-center gap-2 px-4 py-2 rounded-lg font-mono text-sm bg-workflow-surface text-workflow-text-muted cursor-not-allowed"
         >
-          {publishState === "publishing" ? (
-            <Loader2 className="w-4 h-4 animate-spin" />
-          ) : publishState === "published" ? (
-            <Check className="w-4 h-4" />
-          ) : (
-            <Rocket className="w-4 h-4" />
-          )}
-          {publishState === "publishing" ? "Bygger…" : publishState === "published" ? "Publicerad" : "Publicera"}
+          <Rocket className="w-4 h-4" />
+          Publicera
         </button>
       </div>
     </header>

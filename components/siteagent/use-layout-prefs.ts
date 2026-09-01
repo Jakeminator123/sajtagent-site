@@ -7,7 +7,7 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { FACES, type FaceId } from "./faces/face-defs"
 
-const STORAGE_KEY = "siteagent:layout:v1"
+const STORAGE_KEY = "siteagent:layout:v2"
 
 export interface FaceSize {
   w: number
@@ -16,7 +16,7 @@ export interface FaceSize {
 
 export const SIZE_LIMITS = { minW: 260, maxW: 680, minH: 180, maxH: 820 }
 
-const DEFAULT_DOCKED: FaceId[] = ["versions", "blocks", "map", "agent"]
+const DEFAULT_DOCKED: FaceId[] = ["versions", "blocks", "map"]
 
 function defaultSizes(): Record<FaceId, FaceSize> {
   const sizes = {} as Record<FaceId, FaceSize>
@@ -55,40 +55,43 @@ export function useLayoutPrefs() {
 
   // Läs sparad layout vid mount (endast klient)
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY)
-      if (raw) {
-        const saved = JSON.parse(raw) as Partial<PersistedLayout>
-        if (Array.isArray(saved.docked)) setDocked(new Set(saved.docked))
-        if (saved.sizes) {
-          const base = defaultSizes()
-          for (const f of FACES) {
-            const s = saved.sizes[f.id]
-            if (s && typeof s.w === "number" && typeof s.h === "number") {
-              base[f.id] = {
-                w: clamp(s.w, SIZE_LIMITS.minW, SIZE_LIMITS.maxW),
-                h: clamp(s.h, SIZE_LIMITS.minH, SIZE_LIMITS.maxH),
+    const timeoutId = window.setTimeout(() => {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY)
+        if (raw) {
+          const saved = JSON.parse(raw) as Partial<PersistedLayout>
+          if (Array.isArray(saved.docked)) setDocked(new Set(saved.docked))
+          if (saved.sizes) {
+            const base = defaultSizes()
+            for (const f of FACES) {
+              const s = saved.sizes[f.id]
+              if (s && typeof s.w === "number" && typeof s.h === "number") {
+                base[f.id] = {
+                  w: clamp(s.w, SIZE_LIMITS.minW, SIZE_LIMITS.maxW),
+                  h: clamp(s.h, SIZE_LIMITS.minH, SIZE_LIMITS.maxH),
+                }
               }
             }
+            setSizes(base)
           }
-          setSizes(base)
-        }
-        if (typeof saved.dockScale === "number") setDockScale(clamp(saved.dockScale, 0.6, 1.6))
-        if (saved.offsets) {
-          const base = defaultOffsets()
-          for (const f of FACES) {
-            const o = saved.offsets[f.id]
-            if (o && typeof o.x === "number" && typeof o.y === "number") {
-              base[f.id] = { x: clamp(o.x, -1200, 1200), y: clamp(o.y, -1200, 1200) }
+          if (typeof saved.dockScale === "number") setDockScale(clamp(saved.dockScale, 0.6, 1.6))
+          if (saved.offsets) {
+            const base = defaultOffsets()
+            for (const f of FACES) {
+              const o = saved.offsets[f.id]
+              if (o && typeof o.x === "number" && typeof o.y === "number") {
+                base[f.id] = { x: clamp(o.x, -1200, 1200), y: clamp(o.y, -1200, 1200) }
+              }
             }
+            setOffsets(base)
           }
-          setOffsets(base)
         }
+      } catch {
+        // korrupt data — ignorera, kör default
       }
-    } catch {
-      // korrupt data — ignorera, kör default
-    }
-    hydratedRef.current = true
+      hydratedRef.current = true
+    }, 0)
+    return () => window.clearTimeout(timeoutId)
   }, [])
 
   // Spara vid ändring (efter hydrering)

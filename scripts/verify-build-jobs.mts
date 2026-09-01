@@ -8,6 +8,15 @@ import {
   MemoryBuildJobRepositoryV1,
 } from "../lib/siteagent/server/build-job-repository.ts"
 import type { BuildPrincipalV1 } from "../lib/siteagent/server/build-job-input.ts"
+import { buildPrincipalFromClaimsV1 } from "../lib/siteagent/server/principal-claims.ts"
+import {
+  MemoryPersonalProjectRepositoryV1,
+  personalStarterIdsV1,
+} from "../lib/siteagent/server/project-repository.ts"
+import {
+  isSameOriginMutation,
+  readBoundedJsonV1,
+} from "../lib/siteagent/server/request-security.ts"
 import type {
   BuildJobV1,
   WorkerReportV1,
@@ -67,6 +76,59 @@ const assertions: string[] = []
 function passed(name: string): void {
   assertions.push(name)
 }
+
+assert.deepEqual(buildPrincipalFromClaimsV1({ sub: principal.userId }), {
+  userId: principal.userId,
+  tenantId: `personal:${principal.userId}`,
+})
+assert.equal(
+  buildPrincipalFromClaimsV1({ sub: principal.userId, is_anonymous: true }),
+  null,
+)
+assert.equal(buildPrincipalFromClaimsV1({ sub: "not-a-uuid" }), null)
+passed("verified Supabase claims derive a server-owned personal tenant")
+
+const projectRepository = new MemoryPersonalProjectRepositoryV1()
+const starter = await projectRepository.ensurePersonalStarterProject(principal)
+assert.deepEqual(starter, personalStarterIdsV1(principal.userId))
+assert.deepEqual(await projectRepository.ensurePersonalStarterProject(principal), starter)
+await assert.rejects(
+  projectRepository.ensurePersonalStarterProject({ ...principal, tenantId: "tenant:changed" }),
+  /starter_project_ownership_conflict/,
+)
+passed("personal starter project is deterministic, idempotent, and owner-bound")
+
+assert.equal(
+  isSameOriginMutation(new Request("https://site.test/api", { method: "POST", headers: { origin: "https://site.test" } })),
+  true,
+)
+assert.equal(
+  isSameOriginMutation(new Request("https://site.test/api", { method: "POST", headers: { origin: "https://evil.test" } })),
+  false,
+)
+assert.equal(
+  isSameOriginMutation(new Request("http://localhost:3000/api", {
+    method: "POST",
+    headers: {
+      origin: "http://127.0.0.1:3147",
+      host: "127.0.0.1:3147",
+      "x-forwarded-proto": "http",
+    },
+  })),
+  true,
+)
+assert.deepEqual(
+  await readBoundedJsonV1(
+    new Request("https://site.test/api", { method: "POST", body: JSON.stringify({ ok: true }) }),
+    64,
+  ),
+  { ok: true },
+)
+await assert.rejects(
+  readBoundedJsonV1(new Request("https://site.test/api", { method: "POST", body: "x".repeat(65) }), 64),
+  /payload_too_large/,
+)
+passed("mutation boundary rejects cross-origin and oversized requests")
 
 const repository = new MemoryBuildJobRepositoryV1()
 repository.addProjectRevision(principal, "project:one", "revision:base")

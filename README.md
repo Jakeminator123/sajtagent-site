@@ -46,8 +46,9 @@ npm run build
 befintliga TypeScript-fel. Se [quality baseline](docs/quality-baseline.md) innan
 du tolkar ett grönt buildsteg som full typverifiering.
 
-Builderns backend-, preview- och publiceringsintegrationer är fortfarande en
-prototyp med simulerade reservvägar. Se [runtime baseline](docs/runtime-baseline.md)
+Buildern går nu via Sajtagents autentiserade projekt- och build-job-controller
+och misslyckas stängt utan verifierad runtime. Preview, publicering och export
+är fortfarande otillgängliga. Se [runtime baseline](docs/runtime-baseline.md)
 innan du ändrar Builder-flödet.
 Den lokala Agent Studio/OpenClaw-kompilatorn och den felsäkra bygggränsen
 beskrivs i [agent-studio-and-build-runtime](docs/agent-studio-and-build-runtime.md).

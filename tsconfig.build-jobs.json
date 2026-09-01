@@ -14,7 +14,10 @@
     "lib/db/env.ts",
     "lib/db/schema.ts",
     "lib/siteagent/server/**/*.ts",
+    "lib/supabase/**/*.ts",
     "app/api/siteagent/build-jobs/route.ts",
+    "app/api/siteagent/projects/default/route.ts",
+    "proxy.ts",
     "scripts/verify-build-jobs.mts"
   ]
 }

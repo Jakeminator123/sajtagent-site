@@ -2,7 +2,7 @@
 
 // Kortscenen: sex kort som flyter över preview-scenen.
 // - Kort kan vikas ner till kortleken (bara främsta syns), resizas och dras runt.
-// - Kort med baksida kan flippas 180°: Chat → logg, Blocks → reserverad,
+// - Kort med baksida kan flippas 180°: Sajtagent → logg, Blocks → reserverad,
 //   Byggval → "Motorn". Byggval låses efter första genereringen och
 //   auto-flippas till motor-strömmen.
 // Layouten (dock, storlek, position) sparas i localStorage.
@@ -205,7 +205,7 @@ function FaceCard({
       style={{ width: size.w, height: size.h, x, y, perspective: 1400 }}
       className={cn(
         "relative pointer-events-auto shrink-0",
-        face.id === "chat" && "mt-auto"
+        face.id === "agent" && "mt-auto"
       )}
     >
       <motion.div

@@ -1,192 +1,182 @@
-// Siteagent — adapterlager.
-// ALLA backend-anrop går genom denna fil. Varje funktion har samma
-// API-vägar som sajtmaskin använder, med en tunn simulering som fallback
-// när endpointen inte finns (t.ex. i v0-förhandsvisningen).
-//
-// Merge-karta (sajtmaskin-hook -> adapterfunktion):
-//   useCreateChat / useSendMessage  -> streamChat()   (POST /api/engine/chats/stream)
-//   prompt-assist-knappen           -> promptAssist() (POST /api/ai/prompt-assist)
-//   useBuilderDeployActions         -> publish()
-//   ZIP-nedladdning                 -> downloadZip()
+// Browser boundary for Sajtagent. The browser sends product intent only; it
+// never calls OpenClaw, Sprite, model tools, or persistence directly.
 
+import { z } from "zod"
+
+import { BuildEventV1Schema, type BuilderIntentV1 } from "../../contracts/builder-v1.ts"
 import type { BuildChoices } from "./build-choices"
 import type { StreamEvent } from "./types"
+
+const DefaultProjectResponseV1Schema = z.object({
+  schemaVersion: z.literal(1),
+  projectId: z.string().min(1),
+  activeRevisionId: z.string().min(1),
+})
+
+const BuildJobResponseV1Schema = z.object({
+  schemaVersion: z.literal(1),
+  events: z.array(z.unknown()).optional(),
+  error: z.object({ code: z.string(), message: z.string() }).optional(),
+})
 
 export interface StreamChatParams {
   chatId: string | null
   message: string
   choices: BuildChoices
   planMode?: boolean
-  /** Modellval från chatkortet (t.ex. "fast" | "standard" | "max") */
-  model?: string
-  /** Promptläge från förstasidans dock: analyserad | audit | template | fritext */
+  /** Promptläge från förstasidan. */
   mode?: string
   onEvent: (event: StreamEvent) => void
   signal?: AbortSignal
 }
 
+function normalizedMode(mode: string | undefined): BuilderIntentV1["context"]["mode"] {
+  if (mode === "analyserad" || mode === "analyzed") return "analyzed"
+  if (mode === "audit") return "audit"
+  if (mode === "template") return "template"
+  if (mode === "fritext" || mode === "freeform") return "freeform"
+  return undefined
+}
+
+async function responsePayload(response: Response): Promise<unknown> {
+  try {
+    return await response.json()
+  } catch {
+    return null
+  }
+}
+
+function apiMessage(payload: unknown, fallback: string): string {
+  if (!payload || typeof payload !== "object") return fallback
+  const error = (payload as { error?: unknown }).error
+  if (!error || typeof error !== "object") return fallback
+  const message = (error as { message?: unknown }).message
+  return typeof message === "string" && message.trim() ? message : fallback
+}
+
+export function reduceBuildEventsV1(
+  eventsInput: unknown,
+  onEvent: (event: StreamEvent) => void,
+): { valid: boolean; terminalSeen: boolean } {
+  const events = BuildEventV1Schema.array().safeParse(eventsInput)
+  if (!events.success) {
+    onEvent({ type: "error", message: "Build-events matchade inte det signerade kontraktet." })
+    return { valid: false, terminalSeen: false }
+  }
+
+  let expectedSequence = 1
+  let terminalSeen = false
+  let jobId: string | null = null
+  for (const event of events.data) {
+    jobId ??= event.jobId
+    if (event.jobId !== jobId || event.sequence !== expectedSequence) {
+      onEvent({ type: "error", message: "Build-eventströmmen hade ett sekvensgap." })
+      return { valid: false, terminalSeen: false }
+    }
+    expectedSequence += 1
+
+    if (event.type === "job.accepted") {
+      onEvent({ type: "progress", message: "Byggjobbet accepterades." })
+    } else if (event.type === "job.running") {
+      onEvent({ type: "progress", message: event.payload.label ?? `Fas: ${event.payload.phase}` })
+    } else if (event.type === "message.delta") {
+      onEvent({ type: "text", delta: event.payload.delta })
+    } else if (event.type === "job.failed") {
+      terminalSeen = true
+      onEvent({ type: "error", message: event.payload.result.message })
+    } else if (event.type === "job.succeeded") {
+      terminalSeen = true
+      onEvent({
+        type: "error",
+        message: "Bygget verifierades, men en autentiserad preview-route är ännu inte ansluten.",
+      })
+    }
+  }
+  return { valid: true, terminalSeen }
+}
+
 /**
- * Init + follow-up mot chat-motorn.
- * Motsvarar useCreateChat/useSendMessage i sajtmaskin.
- * Läser SSE-events (text/preview/done/error) från /api/engine/chats/stream.
+ * Opens the authenticated user's starter project and creates one BuildJobV1.
+ * A missing runtime, rejected candidate, or missing preview route remains an
+ * explicit error; this function never manufactures HTML or a ready version.
  */
 export async function streamChat(params: StreamChatParams): Promise<void> {
-  const { chatId, message, choices, planMode, model, mode, onEvent, signal } = params
-
+  const { chatId, message, choices, planMode, mode, onEvent, signal } = params
   try {
-    const res = await fetch("/api/engine/chats/stream", {
+    const projectResponse = await fetch("/api/siteagent/projects/default", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ chatId, message, meta: { choices, planMode, model, mode } }),
       signal,
     })
-
-    if (!res.ok || !res.body) throw new Error(`stream failed: ${res.status}`)
-
-    const reader = res.body.getReader()
-    const decoder = new TextDecoder()
-    let buffer = ""
-
-    while (true) {
-      const { done, value } = await reader.read()
-      if (done) break
-      buffer += decoder.decode(value, { stream: true })
-
-      // SSE-format: "data: {json}\n\n"
-      const parts = buffer.split("\n\n")
-      buffer = parts.pop() ?? ""
-      for (const part of parts) {
-        const line = part.trim()
-        if (!line.startsWith("data:")) continue
-        const payload = line.slice(5).trim()
-        if (payload === "[DONE]") {
-          onEvent({ type: "done" })
-          continue
-        }
-        try {
-          onEvent(JSON.parse(payload) as StreamEvent)
-        } catch {
-          // ignorera trasiga chunkar
-        }
-      }
+    const projectPayload = await responsePayload(projectResponse)
+    const project = DefaultProjectResponseV1Schema.safeParse(projectPayload)
+    if (!projectResponse.ok || !project.success) {
+      onEvent({
+        type: "error",
+        message: apiMessage(projectPayload, "Projektet kunde inte öppnas."),
+      })
+      return
     }
-  } catch (err) {
-    if (signal?.aborted) return
-    // Fallback: endpointen finns inte här — kör tunn simulering så UI:t går att klicka igenom.
-    await simulateStream(message, choices, onEvent, signal)
-  }
-}
 
-/**
- * Prompt-assist. Motsvarar POST /api/ai/prompt-assist i sajtmaskin.
- */
-export async function promptAssist(text: string): Promise<string> {
-  try {
-    const res = await fetch("/api/ai/prompt-assist", {
+    const intent: BuilderIntentV1 = {
+      schemaVersion: 1,
+      intentType: chatId ? "site.change" : "site.create",
+      message,
+      context: {
+        selectedBaseRevisionId: project.data.activeRevisionId,
+        buildChoices: choices,
+        mode: normalizedMode(mode),
+        planMode,
+      },
+    }
+    const buildResponse = await fetch("/api/siteagent/build-jobs", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ prompt: text }),
+      body: JSON.stringify({
+        schemaVersion: 1,
+        projectId: project.data.projectId,
+        baseRevisionId: project.data.activeRevisionId,
+        idempotencyKey: `browser:${crypto.randomUUID()}`,
+        intent,
+      }),
+      signal,
     })
-    if (!res.ok) throw new Error(`assist failed: ${res.status}`)
-    const data = (await res.json()) as { prompt?: string; text?: string }
-    return data.prompt ?? data.text ?? text
-  } catch {
-    // Tunn fallback så knappen gör något synligt.
-    return `${text}\n\nMålgrupp: småföretag. Ton: professionell men varm. Inkludera hero, tjänster, omdömen och kontaktformulär.`
-  }
-}
+    const buildPayload = await responsePayload(buildResponse)
+    const envelope = BuildJobResponseV1Schema.safeParse(buildPayload)
+    if (!envelope.success) {
+      onEvent({ type: "error", message: "Build-controllern returnerade ett ogiltigt svar." })
+      return
+    }
 
-/**
- * Publicera. Stub — pekas mot useBuilderDeployActions vid merge.
- */
-export async function publish(): Promise<{ ok: boolean; url?: string }> {
-  await delay(1200)
-  return { ok: true }
-}
-
-/**
- * Ladda ner ZIP för en version. Stub — pekas mot befintlig ZIP-export vid merge.
- */
-export async function downloadZip(versionId: string): Promise<void> {
-  console.log("[siteagent] downloadZip stub, versionId:", versionId)
-}
-
-// ---------------------------------------------------------------------------
-// Simulering (endast fallback — tas bort/ignoreras vid merge)
-// ---------------------------------------------------------------------------
-
-function delay(ms: number, signal?: AbortSignal) {
-  return new Promise<void>((resolve) => {
-    const t = setTimeout(resolve, ms)
-    signal?.addEventListener("abort", () => {
-      clearTimeout(t)
-      resolve()
-    })
-  })
-}
-
-const SWATCH_HEX: Record<string, string> = {
-  ocean: "#0284c7",
-  forest: "#059669",
-  amber: "#f59e0b",
-  brick: "#e11d48",
-  flower: "#f472b6",
-  plum: "#9333ea",
-  mustard: "#ca8a04",
-}
-
-async function simulateStream(
-  message: string,
-  choices: BuildChoices,
-  onEvent: (event: StreamEvent) => void,
-  signal?: AbortSignal
-) {
-  const reply =
-    "Jag bygger ett utkast utifrån din beskrivning och dina byggval. " +
-    "En första version med hero, innehållssektioner och kontakt genereras nu…"
-
-  for (const word of reply.split(" ")) {
+    const reduced = reduceBuildEventsV1(envelope.data.events ?? [], onEvent)
+    if (!reduced.valid) return
+    if (!reduced.terminalSeen) {
+      onEvent({
+        type: "error",
+        message: apiMessage(
+          buildPayload,
+          buildResponse.ok ? "Byggjobbet saknar terminal status." : "Byggjobbet kunde inte startas.",
+        ),
+      })
+    }
+  } catch (error) {
     if (signal?.aborted) return
-    onEvent({ type: "text", delta: word + " " })
-    await delay(35, signal)
+    onEvent({
+      type: "error",
+      message: error instanceof Error ? error.message : "Build-anropet kunde inte slutföras.",
+    })
   }
-
-  await delay(500, signal)
-  if (signal?.aborted) return
-
-  const accent = SWATCH_HEX[choices.color] ?? "#0284c7"
-  const dark = choices.colorMode === "dark"
-  const pages = ["Hem", "Om oss", "Kontakt"].slice(
-    0,
-    choices.pageCount > 0 ? choices.pageCount : 3
-  )
-
-  const srcDoc = `<!doctype html><html><head><meta charset="utf-8"><style>
-    body{margin:0;font-family:system-ui,sans-serif;background:${dark ? "#0a0a0a" : "#fafafa"};color:${dark ? "#fafafa" : "#171717"}}
-    header{padding:16px 32px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid ${dark ? "#262626" : "#e5e5e5"}}
-    nav{display:flex;gap:20px;font-size:14px;color:${dark ? "#a3a3a3" : "#525252"}}
-    .hero{padding:96px 32px;text-align:center}
-    .hero h1{font-size:44px;margin:0 0 16px;max-width:640px;margin-inline:auto;line-height:1.15}
-    .hero p{color:${dark ? "#a3a3a3" : "#525252"};max-width:480px;margin:0 auto 32px;line-height:1.5}
-    .cta{background:${accent};color:#fff;border:none;padding:14px 32px;border-radius:8px;font-size:16px;cursor:pointer}
-    .cards{display:flex;gap:16px;padding:0 32px 96px;max-width:960px;margin:0 auto}
-    .card{flex:1;border:1px solid ${dark ? "#262626" : "#e5e5e5"};border-radius:12px;padding:24px}
-    .card h3{margin:0 0 8px;font-size:16px}.card p{margin:0;font-size:14px;color:${dark ? "#a3a3a3" : "#525252"};line-height:1.5}
-  </style></head><body>
-  <header><strong>Din sajt</strong><nav>${pages.map((p) => `<span>${p}</span>`).join("")}</nav></header>
-  <div class="hero"><h1>${escapeHtml(message.slice(0, 80) || "Din nya sajt")}</h1>
-  <p>Genererad förhandsvisning (simulering). Efter merge visas den riktiga preview-sessionen här.</p>
-  <button class="cta">Kom igång</button></div>
-  <div class="cards"><div class="card"><h3>Snabbt</h3><p>Byggd på dina byggval.</p></div>
-  <div class="card"><h3>Flexibelt</h3><p>Fortsätt förbättra via chatten.</p></div>
-  <div class="card"><h3>Redo</h3><p>Publicera när du är nöjd.</p></div></div>
-  </body></html>`
-
-  onEvent({ type: "preview", srcDoc, pages })
-  await delay(400, signal)
-  onEvent({ type: "done" })
 }
 
-function escapeHtml(s: string) {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+export async function promptAssist(): Promise<string> {
+  throw new Error("Prompt-assist är inte ansluten till produktcontrollern ännu.")
+}
+
+export async function publish(): Promise<{ ok: boolean; url?: string }> {
+  return { ok: false }
+}
+
+export async function downloadZip(versionId: string): Promise<void> {
+  void versionId
+  throw new Error("ZIP-export är inte ansluten till en verifierad version ännu.")
 }

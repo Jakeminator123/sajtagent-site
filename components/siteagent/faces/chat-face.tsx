@@ -1,27 +1,18 @@
 "use client"
 
-// Tärningssida: Chat. Samma logik som tidigare chat-noden, utan xyflow.
+// Sajtagentens byggdialog. Komponenten monteras inne i Sajtagent-kortet.
 
 import React, { useEffect, useRef, useState } from "react"
-import { FileText, ImageIcon, Loader2, Mic, Send, Sparkles, Square, Type } from "lucide-react"
+import { FileText, ImageIcon, Loader2, Mic, Send, Square, Type } from "lucide-react"
 import { useAudioTranscription } from "@/lib/use-audio-transcription"
 import { cn } from "@/lib/utils"
 import { useBuilder } from "../builder-store"
 
-// Modellval — chips i samma stil som Byggval-kortet.
-// Vid merge mappas dessa mot sajtmaskins riktiga modell-id:n.
-const MODELS = [
-  { id: "fast", label: "Snabb" },
-  { id: "standard", label: "Standard" },
-  { id: "max", label: "Max" },
-] as const
-
 export function ChatFace() {
-  const { messages, isStreaming, sendMessage, promptAssist, model, setModel } = useBuilder()
+  const { messages, isStreaming, sendMessage } = useBuilder()
 
   const [input, setInput] = useState("")
   const [planMode, setPlanMode] = useState(false)
-  const [assisting, setAssisting] = useState(false)
   const listRef = useRef<HTMLDivElement>(null)
 
   // Diktering: transkriberad text läggs till i fältet i stället för att skickas direkt,
@@ -48,14 +39,6 @@ export function ChatFace() {
       e.preventDefault()
       submit()
     }
-  }
-
-  const handleAssist = async () => {
-    if (!input.trim() || assisting) return
-    setAssisting(true)
-    const improved = await promptAssist(input)
-    setInput(improved)
-    setAssisting(false)
   }
 
   return (
@@ -86,31 +69,6 @@ export function ChatFace() {
       </div>
 
       <div className="border-t border-workflow-border-subtle p-2 flex flex-col gap-2">
-        {/* Modellval — små ytor i samma stil som Byggval-kortet */}
-        <div className="flex items-center gap-1.5">
-          <span className="font-mono text-[10px] uppercase tracking-wide text-workflow-text-subtle">
-            Modell
-          </span>
-          {MODELS.map((m) => (
-            <button
-              key={m.id}
-              type="button"
-              onClick={() => setModel(m.id)}
-              className={cn(
-                "px-2 py-0.5 rounded-full text-[11px] font-mono border transition-colors duration-150",
-                model === m.id
-                  ? "bg-foreground text-background border-transparent"
-                  : "text-workflow-text-muted border-workflow-border-subtle hover:text-workflow-text"
-              )}
-            >
-              {m.label}
-            </button>
-          ))}
-          <span className="ml-auto font-mono text-[10px] text-workflow-text-subtle">
-            Loggen finns på baksidan
-          </span>
-        </div>
-
         <div className="flex items-center gap-1.5">
           <button
             type="button"
@@ -126,16 +84,9 @@ export function ChatFace() {
             <FileText className="w-3 h-3" />
             Plan
           </button>
-          <button
-            type="button"
-            onClick={handleAssist}
-            disabled={assisting || !input.trim()}
-            className="flex items-center gap-1 px-2 py-1 rounded text-[11px] font-mono border border-workflow-border-subtle text-workflow-text-muted hover:text-workflow-text transition-colors duration-150 disabled:opacity-40"
-            title="Prompt-assist"
-          >
-            {assisting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
-            Prompt-assist
-          </button>
+          <span className="font-mono text-[10px] text-workflow-text-subtle">
+            Agentpolicyn styr modell och verktyg
+          </span>
           <div className="ml-auto flex items-center gap-1">
             <button
               type="button"
@@ -164,15 +115,17 @@ export function ChatFace() {
             </button>
             <button
               type="button"
+              disabled
               className="p-1.5 rounded text-workflow-text-subtle hover:text-workflow-text transition-colors duration-150"
-              title="Lägg till media"
+              title="Media är inte anslutet ännu"
             >
               <ImageIcon className="w-3.5 h-3.5" />
             </button>
             <button
               type="button"
+              disabled
               className="p-1.5 rounded text-workflow-text-subtle hover:text-workflow-text transition-colors duration-150"
-              title="Lägg till text"
+              title="Textbilagor är inte anslutna ännu"
             >
               <Type className="w-3.5 h-3.5" />
             </button>

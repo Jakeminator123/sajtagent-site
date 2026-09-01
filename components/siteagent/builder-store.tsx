@@ -1,8 +1,7 @@
 "use client"
 
-// Siteagent — central klient-state (React context).
-// Vid merge kan denna behållas som den är; adapterfunktionerna i
-// lib/siteagent/adapter.ts byts mot sajtmaskins riktiga hooks.
+// Siteagent — central klient-state. Produktavsikter går via den tunna
+// adaptern till Site-controllern; klienten avgör aldrig om ett bygge lyckats.
 
 import React, { createContext, useCallback, useContext, useMemo, useRef, useState } from "react"
 import { defaultBuildChoices, type BuildChoices } from "@/lib/siteagent/build-choices"
@@ -20,8 +19,6 @@ interface BuilderStore {
   isStreaming: boolean
   sendMessage: (text: string, opts?: { planMode?: boolean; mode?: string }) => Promise<void>
   promptAssist: (text: string) => Promise<string>
-  model: string
-  setModel: (m: string) => void
 
   // Logg — strömmande händelser från motorn (visas på chatkortet)
   logs: string[]
@@ -67,7 +64,6 @@ export function BuilderProvider({ children }: { children: React.ReactNode }) {
   const [versions, setVersions] = useState<SiteVersion[]>([])
   const [activeVersionId, setActiveVersionId] = useState<string | null>(null)
   const [publishState, setPublishState] = useState<PublishState>("idle")
-  const [model, setModel] = useState("standard")
   const [logs, setLogs] = useState<string[]>([])
 
   const pushLog = useCallback((line: string) => {
@@ -91,8 +87,6 @@ export function BuilderProvider({ children }: { children: React.ReactNode }) {
       const trimmed = text.trim()
       if (!trimmed || isStreaming) return
 
-      if (!chatIdRef.current) chatIdRef.current = nextId("chat")
-
       const userMsg: ChatMessage = {
         id: nextId("msg"),
         role: "user",
@@ -107,11 +101,10 @@ export function BuilderProvider({ children }: { children: React.ReactNode }) {
       ])
       setIsStreaming(true)
       setPreviewStatus("starting")
-      pushLog(
-        `> skickar prompt (modell: ${model}${opts?.mode ? `, läge: ${opts.mode}` : ""}${
-          opts?.planMode ? ", planläge" : ""
-        })`
-      )
+      const intentDetails = [opts?.mode ? `läge: ${opts.mode}` : null, opts?.planMode ? "planläge" : null]
+        .filter(Boolean)
+        .join(", ")
+      pushLog(`> skickar byggavsikt${intentDetails ? ` (${intentDetails})` : ""}`)
 
       // Ny version i "building"-läge
       const versionId = nextId("v")
@@ -133,50 +126,60 @@ export function BuilderProvider({ children }: { children: React.ReactNode }) {
       const controller = new AbortController()
       abortRef.current = controller
 
-      await adapter.streamChat({
-        chatId: chatIdRef.current,
-        message: trimmed,
-        choices,
-        planMode: opts?.planMode,
-        model,
-        mode: opts?.mode,
-        signal: controller.signal,
-        onEvent: (ev) => {
-          if (ev.type === "text") {
-            setMessages((prev) =>
-              prev.map((m) => (m.id === assistantId ? { ...m, content: m.content + ev.delta } : m))
-            )
-          } else if (ev.type === "preview") {
-            pushLog(`preview klar — ${(ev.pages ?? []).length || 1} sida/sidor`)
-            setPreviewUrl(ev.url ?? null)
-            setPreviewSrcDoc(ev.srcDoc ?? null)
-            setPreviewPages(ev.pages ?? [])
-            setPreviewStatus("ready")
-            setVersions((prev) =>
-              prev.map((v) =>
-                v.id === versionId
-                  ? { ...v, previewUrl: ev.url ?? null, srcDoc: ev.srcDoc ?? null, pages: ev.pages ?? [] }
-                  : v
+      try {
+        await adapter.streamChat({
+          chatId: chatIdRef.current,
+          message: trimmed,
+          choices,
+          planMode: opts?.planMode,
+          mode: opts?.mode,
+          signal: controller.signal,
+          onEvent: (ev) => {
+            if (ev.type === "progress") {
+              pushLog(ev.message)
+            } else if (ev.type === "text") {
+              setMessages((prev) =>
+                prev.map((m) => (m.id === assistantId ? { ...m, content: m.content + ev.delta } : m))
               )
-            )
-          } else if (ev.type === "done") {
-            pushLog("bygget klart")
-            setVersions((prev) =>
-              prev.map((v) => (v.id === versionId ? { ...v, status: "ready" as const } : v))
-            )
-          } else if (ev.type === "error") {
-            pushLog("fel i motorn — se versionslistan")
-            setPreviewStatus("error")
-            setVersions((prev) =>
-              prev.map((v) => (v.id === versionId ? { ...v, status: "error" as const } : v))
-            )
-          }
-        },
-      })
-
-      setIsStreaming(false)
+            } else if (ev.type === "preview") {
+              pushLog(`verifierad preview — ${(ev.pages ?? []).length || 1} sida/sidor`)
+              setPreviewUrl(ev.url ?? null)
+              setPreviewSrcDoc(ev.srcDoc ?? null)
+              setPreviewPages(ev.pages ?? [])
+              setPreviewStatus("ready")
+              setVersions((prev) =>
+                prev.map((v) =>
+                  v.id === versionId
+                    ? { ...v, previewUrl: ev.url ?? null, srcDoc: ev.srcDoc ?? null, pages: ev.pages ?? [] }
+                    : v
+                )
+              )
+            } else if (ev.type === "done") {
+              chatIdRef.current ??= nextId("chat")
+              pushLog("verifierat bygge klart")
+              setVersions((prev) =>
+                prev.map((v) => (v.id === versionId ? { ...v, status: "ready" as const } : v))
+              )
+            } else if (ev.type === "error") {
+              pushLog(`fel: ${ev.message}`)
+              setMessages((prev) =>
+                prev.map((m) =>
+                  m.id === assistantId && !m.content ? { ...m, content: ev.message } : m
+                )
+              )
+              setPreviewStatus("error")
+              setVersions((prev) =>
+                prev.map((v) => (v.id === versionId ? { ...v, status: "error" as const } : v))
+              )
+            }
+          },
+        })
+      } finally {
+        if (abortRef.current === controller) abortRef.current = null
+        setIsStreaming(false)
+      }
     },
-    [choices, isStreaming, model, pushLog]
+    [choices, isStreaming, pushLog]
   )
 
   const restoreVersion = useCallback((id: string) => {
@@ -233,8 +236,6 @@ export function BuilderProvider({ children }: { children: React.ReactNode }) {
       isStreaming,
       sendMessage,
       promptAssist: adapter.promptAssist,
-      model,
-      setModel,
       logs,
       previewStatus,
       previewUrl,
@@ -256,7 +257,6 @@ export function BuilderProvider({ children }: { children: React.ReactNode }) {
       messages,
       isStreaming,
       sendMessage,
-      model,
       logs,
       previewStatus,
       previewUrl,

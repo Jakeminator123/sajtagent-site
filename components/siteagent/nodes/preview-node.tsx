@@ -90,7 +90,7 @@ export function PreviewNode() {
             <Monitor className="w-8 h-8 text-workflow-text-subtle" />
             <p className="font-mono text-sm text-workflow-text-muted">Ingen preview ännu</p>
             <p className="text-xs text-workflow-text-subtle leading-relaxed">
-              Skriv i chatten för att starta. Första versionen visas här.
+              Skriv till Sajtagent för att starta. Första versionen visas här.
             </p>
           </div>
         )}
@@ -103,7 +103,7 @@ export function PreviewNode() {
         {previewStatus === "error" && (
           <div className="w-full h-full flex flex-col items-center justify-center gap-2">
             <TriangleAlert className="w-6 h-6 text-amber-500" />
-            <p className="font-mono text-xs text-workflow-text-muted">Något gick fel — reparerar…</p>
+            <p className="font-mono text-xs text-workflow-text-muted">Bygget stoppades — inget resultat skapades.</p>
           </div>
         )}
         {hasContent && <PreviewFrame />}

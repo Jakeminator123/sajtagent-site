@@ -17,7 +17,7 @@ export interface SiteVersion {
   label: string
   status: VersionStatus
   previewUrl: string | null
-  /** Fallback när ingen riktig preview-URL finns (simuleringsläge) */
+  /** Endast verifierat dokumentinnehåll; sätts aldrig från lokal simulering. */
   srcDoc: string | null
   pages: string[]
   createdAt: number
@@ -27,10 +27,11 @@ export interface SiteVersion {
 export type PreviewStatus = "idle" | "starting" | "ready" | "error"
 
 /**
- * Events från chat-streamen. Motsvarar SSE-eventen från
- * POST /api/engine/chats/stream i sajtmaskin (text / preview / done / error).
+ * UI-events reducerade från BuildEventV1. Preview och done får bara skapas
+ * efter att servern har verifierat kandidat, revision och preview.
  */
 export type StreamEvent =
+  | { type: "progress"; message: string }
   | { type: "text"; delta: string }
   | { type: "preview"; url?: string; srcDoc?: string; pages?: string[] }
   | { type: "done"; versionId?: string }

@@ -64,7 +64,7 @@ export function RightDrawer() {
               <p className="text-xs text-workflow-text-subtle text-center py-8 leading-relaxed">
                 Inga versioner ännu.
                 <br />
-                Skriv i chatten för att skapa den första.
+                Skriv till Sajtagent för att skapa den första.
               </p>
             ) : (
               versions.map((v) => (

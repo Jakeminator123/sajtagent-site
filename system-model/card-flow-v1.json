@@ -20,11 +20,10 @@
   ],
   "registryCards": [
     { "id": "choices", "label": "Byggval" },
-    { "id": "chat", "label": "Chat" },
     { "id": "versions", "label": "Versioner" },
     { "id": "blocks", "label": "Blocks" },
     { "id": "map", "label": "Karta" },
-    { "id": "agent", "label": "Siteagent" }
+    { "id": "agent", "label": "Sajtagent" }
   ],
   "targetCardIds": ["choices", "versions", "blocks", "map", "agent"],
   "retiredCardIds": ["chat"],
@@ -35,7 +34,7 @@
       "kind": "product",
       "layer": 0,
       "owner": "sajtagent-site",
-      "status": "contracted",
+      "status": "implemented",
       "summary": "Auktoriserar BuilderIntentV1, skapar jobb och verifierar terminalt BuildResultV1.",
       "failure": {
         "code": "cards.controller-rejected",
@@ -77,7 +76,7 @@
       "kind": "adapter",
       "layer": 1,
       "owner": "builder-ui",
-      "status": "contracted",
+      "status": "implemented",
       "summary": "Översätter användarhandlingar till BuilderIntentV1 utan tool- eller MCP-namn.",
       "failure": {
         "code": "cards.intent-invalid",
@@ -121,37 +120,16 @@
       }
     },
     {
-      "id": "card.chat",
-      "label": "Chat",
-      "kind": "card",
-      "layer": 2,
-      "owner": "builder-ui",
-      "status": "prototype",
-      "summary": "Nuvarande primära promptkort. Målet är att dess byggdialog absorberas av Sajtagent.",
-      "card": {
-        "registryId": "chat",
-        "current": "primary prototype build input",
-        "target": "merge into agent",
-        "produces": ["site.create", "site.change"],
-        "consumes": ["message.delta", "job.failed"]
-      },
-      "failure": {
-        "code": "card.chat-merge-drift",
-        "symptom": "Två konkurrerande byggdialoger finns kvar efter att Sajtagent blivit primär.",
-        "detectedBy": "builder-ui"
-      }
-    },
-    {
       "id": "card.agent",
       "label": "Sajtagent",
       "kind": "card",
       "layer": 2,
       "owner": "builder-ui",
-      "status": "prototype",
-      "summary": "Målbildens enda primära byggdialog samt progress- och felkommunikation.",
+      "status": "implemented",
+      "summary": "Den enda primära byggdialogen; skapar produktavsikt och visar controllerstyrd progress eller fel.",
       "card": {
         "registryId": "agent",
-        "current": "informational prototype",
+        "current": "primary controller-bound conversation",
         "target": "primary builder conversation",
         "produces": ["site.create", "site.change"],
         "consumes": ["job.accepted", "job.running", "message.delta", "job.failed"]
@@ -253,8 +231,7 @@
     { "id": "projection.sitemap-to-reducer", "from": "product.sitemap", "to": "ui.event-reducer", "channel": "projection", "contract": "canonical sitemap ref" },
     { "id": "projection.reducer-to-agent", "from": "ui.event-reducer", "to": "card.agent", "channel": "projection", "contract": "progress and failure state" },
     { "id": "projection.reducer-to-versions", "from": "ui.event-reducer", "to": "card.versions", "channel": "projection", "contract": "terminal version state" },
-    { "id": "projection.reducer-to-map", "from": "ui.event-reducer", "to": "card.map", "channel": "projection", "contract": "verified sitemap state" },
-    { "id": "migration.chat-to-agent", "from": "card.chat", "to": "card.agent", "channel": "migration", "contract": "single conversation owner" }
+    { "id": "projection.reducer-to-map", "from": "ui.event-reducer", "to": "card.map", "channel": "projection", "contract": "verified sitemap state" }
   ],
   "views": [
     {
@@ -283,12 +260,6 @@
         "projection.reducer-to-versions",
         "projection.reducer-to-map"
       ]
-    },
-    {
-      "id": "chat-merge",
-      "label": "Beslut: Chat går in i Sajtagent",
-      "orientation": "LR",
-      "edgeIds": ["migration.chat-to-agent"]
     }
   ]
 }

@@ -43,9 +43,10 @@ job or create a cloud Sprite.
 `POST /api/siteagent/build-jobs` accepts one strict, idempotent typed intent.
 It requires a server-resolved principal, verifies ownership of the project and
 base revision, persists an accepted event, and invokes the signed runtime
-adapter only after persistence. Production currently returns 401 until
-Supabase Auth is connected. Local header identity is disabled unless an
-explicit development-only loopback mode is selected.
+adapter only after persistence. Supabase SSR validates the session claims and
+derives a personal tenant server-side; anonymous or invalid claims return 401.
+Local header identity is disabled unless an explicit development-only loopback
+mode is selected.
 
 The runtime worker report is non-authoritative. A candidate deliberately ends
 as `verification_failed` until acceptance checks, preview health, immutable
@@ -66,8 +67,8 @@ checkpoint.
 
 1. Persist approved AgentProfile revisions server-side and select one per
    project/build job.
-2. Connect Supabase Auth to the server principal and apply the reviewed
-   migration to the confirmed Sajtagent project.
+2. Apply the reviewed migration to the confirmed Sajtagent project only after
+   explicit cloud scope, then verify RLS and grants there.
 3. Approve Sprite organization, naming, count, expiry, spend, cleanup, network,
    package, and preview-exposure policy.
 4. Connect the runtime adapter to an actual OpenClaw Gateway run.

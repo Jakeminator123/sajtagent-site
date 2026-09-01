@@ -122,9 +122,11 @@ if (JSON.stringify(actualTargetCardIds) !== JSON.stringify(expectedTargetCardIds
 if (JSON.stringify(model.retiredCardIds) !== JSON.stringify(["chat"])) {
   failures.push("chat must be the only explicitly retired standalone card")
 }
-const mergeEdge = edgeById.get("migration.chat-to-agent")
-if (mergeEdge?.from !== "card.chat" || mergeEdge?.to !== "card.agent") {
-  failures.push("chat merge must point from Chat to Sajtagent")
+if (registryIds.includes("chat") || nodeById.has("card.chat")) {
+  failures.push("retired Chat must not remain in the executable registry or card graph")
+}
+if (model.edges.some((edge) => edge.channel === "migration")) {
+  failures.push("completed card migration must not remain as an active edge")
 }
 for (const edge of model.edges.filter((item) => item.channel === "intent")) {
   const source = nodeById.get(edge.from)
@@ -177,9 +179,8 @@ const renderDocs = () => {
     "",
     "## Beslut som tester låser",
     "",
-    "- Det körbara registret har fortfarande sex kort medan migreringen pågår.",
-    "- Målbilden har fem kort: Byggval, Blocks, Versioner, Karta och Sajtagent.",
-    "- Chat är det enda fristående kortet som ska absorberas, och målet är Sajtagent.",
+    "- Det körbara registret har fem kort: Byggval, Blocks, Versioner, Karta och Sajtagent.",
+    "- Chat är det enda pensionerade fristående kortet; byggdialogen ägs nu av Sajtagent.",
     "- Browserkort skapar endast `BuilderIntentV1`; inga OpenClaw-, MCP- eller verktygsnamn får läcka in i kortkontraktet.",
     "- Versioner och Karta projicerar verifierad produktstate och får inte deklarera framgång från råa modell- eller OpenClaw-events.",
     "",

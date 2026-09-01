@@ -1,37 +1,41 @@
 # Builder runtime baseline
 
-Status: verified prototype gaps, 2026-08-27.
+Status: local controller path, fail-closed before preview, 2026-09-01.
 
-The Builder UI is not connected to the future Sajtagent runtime yet. Current
-code in `lib/siteagent/adapter.ts` contains these explicit prototype paths:
+The Builder now uses Sajtagent-owned product routes:
 
-- `streamChat` calls the Sajtmaskin-era `/api/engine/chats/stream`, which is not
-  implemented in this repository, and converts any non-abort failure into a
-  simulated HTML preview;
-- `promptAssist` converts any failure into invented generic marketing guidance;
-- `publish` waits and returns `{ ok: true }` without a deployment;
-- `downloadZip` only writes a console message.
+- `POST /api/siteagent/projects/default` opens one deterministic, owner-bound
+  starter project and base revision;
+- `POST /api/siteagent/build-jobs` validates `BuilderIntentV1`, persists the
+  job, and returns ordered `BuildEventV1` records;
+- Supabase SSR cookies and verified claims resolve the server principal;
+- the standalone Chat card has been retired and its build conversation is
+  mounted in the Sajtagent card;
+- the old `/api/engine/chats/stream` request and simulated HTML fallback no
+  longer exist in production code.
 
-The `/siteagent` to `/builder` compatibility redirect is real and is defined in
-`next.config.mjs`. The prototype operations above are not real integrations.
+The current local runtime remains deliberately disconnected. A missing
+runtime or an unverified worker candidate ends as `job.failed`. The browser
+cannot convert that state into a preview or ready version.
 
-## Rules until replacement
+## Still unavailable
 
-- A simulated result must be visibly labeled as demo data and must not create a
-  ready version, deployment success, or other durable success state.
-- Production configuration must fail closed when its real backend is missing.
-- Do not add the missing Sajtmaskin route merely to preserve its old name or
-  request shape.
-- Replace one operation end to end and remove its fallback in the same change.
-- Keep UI event names only when they fit a new typed Sajtagent contract.
+- authenticated preview serving and canonical success projection;
+- acceptance checks and immutable revision/version persistence for candidates;
+- prompt assist, publish, ZIP export, import, and save actions.
 
-## First replacement target
+These controls are disabled or return failure. They do not report simulated
+success. A real `job.succeeded` is also held back from the current UI until an
+authenticated preview route exists.
 
-Replace chat/build first: one validated SiteAgent request, one server-owned job,
-one bounded call into `sajtagent-sprites`, and one real preview result with
-failure evidence. Publish and export stay visibly unavailable until their own
-real paths exist. The accepted delivery contract is
+## Configuration boundary
+
+Magic-link login uses only `NEXT_PUBLIC_SUPABASE_URL` and
+`NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`. Database writes still require the
+separate server-only Postgres connection and the reviewed local migration.
+No cloud migration is applied by this checkpoint.
+
+The next implementation target is the server-to-server runtime join followed
+by deterministic candidate verification, canonical version persistence, and
+authenticated preview health. The accepted end-to-end contract remains
 [`first-vertical-slice.md`](first-vertical-slice.md).
-
-This file can be removed when no production code path reports simulated or
-stubbed work as successful and the corresponding end-to-end checks exist.

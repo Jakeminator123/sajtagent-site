@@ -117,7 +117,7 @@ export function PreviewStage() {
                 <Monitor className="w-10 h-10 text-zinc-300" />
                 <p className="font-mono text-base text-zinc-600">Din sajt visas här</p>
                 <p className="text-sm text-zinc-400 leading-relaxed max-w-sm text-pretty">
-                  Skriv i chatten för att starta. Sajten fyller hela scenen — plattorna runt om kan
+                  Skriv till Sajtagent för att starta. Sajten fyller hela scenen — plattorna runt om kan
                   vikas ner till kuben nere till höger.
                 </p>
               </div>
@@ -131,7 +131,7 @@ export function PreviewStage() {
             {previewStatus === "error" && (
               <div className="w-full h-full flex flex-col items-center justify-center gap-2">
                 <TriangleAlert className="w-7 h-7 text-amber-500" />
-                <p className="font-mono text-sm text-zinc-500">Något gick fel — reparerar…</p>
+                <p className="font-mono text-sm text-zinc-500">Bygget stoppades — inget resultat skapades.</p>
               </div>
             )}
             {hasContent && <PreviewFrame />}

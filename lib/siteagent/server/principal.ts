@@ -1,16 +1,16 @@
 import "server-only"
 
 import { BuildPrincipalV1Schema, type BuildPrincipalV1 } from "./build-job-input.ts"
+import { buildPrincipalFromClaimsV1 } from "./principal-claims.ts"
+import { createSupabaseServerClient } from "../../supabase/server.ts"
+
+export { buildPrincipalFromClaimsV1 } from "./principal-claims.ts"
 
 function isLoopbackHostname(hostname: string): boolean {
   return hostname === "127.0.0.1" || hostname === "localhost" || hostname === "::1"
 }
 
-/**
- * Supabase Auth is not connected to this prototype yet, so production must
- * remain unauthenticated-by-default. An explicit development-only header mode
- * exists for local controller testing and cannot activate on a non-loopback URL.
- */
+/** Resolve an authenticated server principal; local header mode is loopback-only. */
 export async function resolveBuildPrincipalV1(
   request: Request,
   env: NodeJS.ProcessEnv = process.env,
@@ -21,11 +21,21 @@ export async function resolveBuildPrincipalV1(
     env.SITEAGENT_DEV_IDENTITY_MODE === "header" &&
     isLoopbackHostname(requestUrl.hostname)
 
-  if (!devHeaderMode) return null
+  if (devHeaderMode) {
+    const parsed = BuildPrincipalV1Schema.safeParse({
+      userId: request.headers.get("x-siteagent-dev-user-id"),
+      tenantId: request.headers.get("x-siteagent-dev-tenant-id"),
+    })
+    return parsed.success ? parsed.data : null
+  }
 
-  const parsed = BuildPrincipalV1Schema.safeParse({
-    userId: request.headers.get("x-siteagent-dev-user-id"),
-    tenantId: request.headers.get("x-siteagent-dev-tenant-id"),
-  })
-  return parsed.success ? parsed.data : null
+  try {
+    const supabase = await createSupabaseServerClient()
+    if (!supabase) return null
+    const { data, error } = await supabase.auth.getClaims()
+    if (error) return null
+    return buildPrincipalFromClaimsV1(data?.claims)
+  } catch {
+    return null
+  }
 }

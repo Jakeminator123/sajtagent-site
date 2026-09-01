@@ -1,8 +1,8 @@
 # Build-job server join V1
 
-Status: ArtifactReadV1 adapter wired, runtime dispatch health-gated, 2026-09-01.
+Status: internal ArtifactReadV1 join retained, not product-reachable, 2026-09-01.
 
-The build-job route now assembles one Site-owned server dependency graph:
+The retained build-job controller can assemble this Site-owned server dependency graph:
 
 ```text
 PostgresBuildJobRepositoryV1
@@ -48,13 +48,16 @@ client surface.
 
 The opaque report ref remains evidence, not a URL or Site-parsed workspace
 path. When configuration is absent, health is unavailable, the capability is
-disabled or its exact version/shape drifts, the route injects
+disabled or its exact version/shape drifts, the internal join injects
 `RUNTIME_ARTIFACT_CAPABILITY_UNAVAILABLE_V1`. The join sets runtime to `null`
 before the controller can dispatch, so there are zero build-job dispatch calls
 and no staged preview or success. The health probe is the read-only call that
 establishes the unavailable capability.
 
+No browser route exposes this join. Dispatch remains unavailable until explicit
+user approval and a Site-authorized tool join are ratified in the same session.
+
 Focused contract and adapter verification lives in
 `scripts/verify-artifact-read-contract.mts` and
-`scripts/verify-runtime-artifact-reader.mts`; the route/join regression remains
+`scripts/verify-runtime-artifact-reader.mts`; the internal join and route-absence regression remains
 in `scripts/verify-build-job-server-join.mts`. They are part of `npm run check`.

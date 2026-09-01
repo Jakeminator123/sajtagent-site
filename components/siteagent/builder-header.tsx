@@ -104,7 +104,7 @@ export function BuilderHeader({ showDrawer, onToggleDrawer }: BuilderHeaderProps
           className="flex items-center gap-1.5 px-3 py-2 rounded-lg font-mono text-sm bg-workflow-surface border border-workflow-border text-workflow-text-muted hover:text-workflow-text hover:bg-workflow-surface-hover transition-colors duration-200"
         >
           <Plus className="w-4 h-4" />
-          Nytt bygge
+          Ny chatt
         </button>
 
         <button

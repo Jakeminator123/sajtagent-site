@@ -43,12 +43,15 @@ Sprite token, or raw preview-organization token.
 
 ## Small versioned contract
 
-The two repositories freeze matching schemas and valid/invalid fixtures for
-five contracts before connecting runtime code.
+The browser uses the ratified AgentSession contract. The retained build
+contracts stay internal until the same-session approval/tool join is ratified.
 
 ```text
+AgentTurnRequestV1
+  browser message: session, turn, idempotency and selected UI context
+
 BuilderIntentV1
-  untrusted browser intent: action, message, selected context
+  internal normalized build intent; never a parallel browser command
 
 BuildJobV1
   jobId, tenantId, projectId, baseRevisionId, idempotencyKey
@@ -82,24 +85,26 @@ unrestricted command output.
 
 ## One request flow
 
-1. The Builder sends a validated request to a new Sajtagent-owned route such as
-   `POST /api/siteagent/build-jobs`.
-2. The site authenticates the user, resolves tenant/project/base revision, and
-   creates one idempotent job. Invalid ownership fails before a runtime call.
-3. The site sends the signed `BuildJobV1` to the runtime adapter through a
+1. The Builder sends only `AgentTurnRequestV1` to its Site-owned session route.
+2. The site authenticates the user and resolves tenant/project/base revision.
+   Current answer-only turns stop here without creating a build job.
+3. A future explicit approval and Site-authorized tool join in the same session
+   may normalize an internal `BuilderIntentV1` and create one idempotent job.
+   No browser-callable build-job route exists.
+4. The site sends the signed `BuildJobV1` to the runtime adapter through a
    narrow server-to-server endpoint.
-4. The adapter binds the job to one OpenClaw session and private workspace,
+5. The adapter binds the job to one OpenClaw session and private workspace,
    then compiles its semantic execution policy into fail-closed sandbox and
    tool policy. It does not implement another agent loop.
-5. OpenClaw Gateway runs the Sajtagent profile with native file, patch, command,
+6. OpenClaw Gateway runs the Sajtagent profile with native file, patch, command,
    check, browser, and preview tools that the compiled policy authorizes.
-6. The adapter normalizes the upstream run into `WorkerReportV1`. A candidate
+7. The adapter normalizes the upstream run into `WorkerReportV1`. A candidate
    is evidence, not authoritative success.
-7. The site runs deterministic acceptance checks and persists either a
+8. The site runs deterministic acceptance checks and persists either a
    canonical `BuildResultV1` or failure. Model text never decides success.
-8. The site appends the terminal `BuildEventV1`, then exposes the referenced
+9. The site appends the terminal `BuildEventV1`, then exposes the referenced
    preview through an authenticated SiteAgent route for the Builder iframe.
-9. Cancellation, timeout, stale revision, runtime error, failed check, or
+10. Cancellation, timeout, stale revision, runtime error, failed check, or
    unhealthy preview produces `job.failed`; no `srcDoc` simulation is
    generated.
 
@@ -143,8 +148,9 @@ credentials, Sprite tokens, and unrestricted logs never belong in these rows.
 1. **Contract:** freeze the five schemas, fixtures, error codes, idempotency,
    terminal ordering, execution policy, and receipt rules without creating a
    cloud resource.
-2. **Site boundary:** add the migration and API route, initially failing closed
-   when no runtime is configured; remove no fallback until the real join exists.
+2. **Site boundary:** retain the internal controller, persistence and acceptance
+   seams, but expose no browser build route. Ratify explicit same-session
+   approval and the Site-authorized tool join before product dispatch exists.
 3. **Runtime boundary:** configure the Sajtagent OpenClaw profile and implement
    only the thin signed adapter and Job Policy Compiler in
    `sajtagent-sprites`; OpenClaw remains the upstream agent loop. A local

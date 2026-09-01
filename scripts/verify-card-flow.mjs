@@ -114,10 +114,18 @@ const registryIds = model.registryCards.map((card) => card.id).sort()
 if (JSON.stringify(modeledRegistryIds) !== JSON.stringify(registryIds)) {
   failures.push("every registry card must have exactly one card node")
 }
-const expectedTargetCardIds = ["agent", "blocks", "chat", "choices", "map", "versions"]
+const expectedCurrentV1CardIds = ["agent", "blocks", "chat", "choices", "map", "versions"]
+const actualCurrentV1CardIds = [...(model.currentV1CardIds ?? [])].sort()
+if (JSON.stringify(actualCurrentV1CardIds) !== JSON.stringify(expectedCurrentV1CardIds)) {
+  failures.push("current V1 must contain exactly Byggval, Chat, Blocks, Versioner, Karta and Sajtagent")
+}
+if (JSON.stringify(actualCurrentV1CardIds) !== JSON.stringify(registryIds)) {
+  failures.push("currentV1CardIds must match the executable card registry")
+}
+const expectedTargetCardIds = ["agent", "blocks", "choices", "map", "versions"]
 const actualTargetCardIds = [...(model.targetCardIds ?? [])].sort()
 if (JSON.stringify(actualTargetCardIds) !== JSON.stringify(expectedTargetCardIds)) {
-  failures.push("V1 target must contain exactly Byggval, Chat, Blocks, Versioner, Karta and Sajtagent")
+  failures.push("five-card target must contain exactly Byggval, Blocks, Versioner, Karta and Sajtagent")
 }
 if (!Array.isArray(model.retiredCardIds) || model.retiredCardIds.length !== 0) {
   failures.push("V1 must not retire any of its six cards")
@@ -125,8 +133,17 @@ if (!Array.isArray(model.retiredCardIds) || model.retiredCardIds.length !== 0) {
 if (!registryIds.includes("chat") || !nodeById.has("card.chat")) {
   failures.push("V1 Chat must remain in both the executable registry and card graph")
 }
+const targetAbsorptions = model.targetAbsorptions ?? []
+if (
+  targetAbsorptions.length !== 1 ||
+  targetAbsorptions[0]?.from !== "chat" ||
+  targetAbsorptions[0]?.into !== "agent" ||
+  targetAbsorptions[0]?.status !== "planned"
+) {
+  failures.push("the five-card target must plan exactly one Chat-to-Sajtagent absorption")
+}
 if (model.edges.some((edge) => edge.channel === "migration")) {
-  failures.push("completed card migration must not remain as an active edge")
+  failures.push("planned card absorption belongs in targetAbsorptions, not the active V1 graph")
 }
 for (const edge of model.edges.filter((item) => item.channel === "intent")) {
   const source = nodeById.get(edge.from)
@@ -180,9 +197,11 @@ const renderDocs = () => {
     "## Beslut som tester låser",
     "",
     "- Det körbara V1-registret har sex kort: Byggval, Chat, Blocks, Versioner, Karta och Sajtagent.",
+    "- Målet efter V1 har fem kort: Byggval, Blocks, Versioner, Karta och Sajtagent; Chat absorberas då av Sajtagent.",
     "- Chat är användarens inmatningskort; Sajtagent är OpenClaw-agentens svarskort.",
     "- Byggval kan öppnas bredvid dialogen eller vikas ned utan att ändra meddelandevägen.",
-    "- Browserkort skapar endast `BuilderIntentV1`; inga OpenClaw-, MCP- eller verktygsnamn får läcka in i kortkontraktet.",
+    "- Browserkort skapar endast `AgentTurnRequestV1`; inga OpenClaw-, MCP- eller verktygsnamn får läcka in i kortkontraktet.",
+    "- Vanlig chatt har `conversation.respond` och `maxToolCalls: 0`; byggvägen förblir stängd tills samma session har ett ratificerat godkännande- och tool-join.",
     "- Versioner och Karta projicerar verifierad produktstate och får inte deklarera framgång från råa modell- eller OpenClaw-events.",
     "",
     "Ändra `system-model/card-flow-v1.json`, kör `npm run cards:docs`, och verifiera sedan med `npm run cards:check`.",

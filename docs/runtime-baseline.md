@@ -8,8 +8,8 @@ The Builder now uses Sajtagent-owned product routes:
   starter project and base revision;
 - project/session routes open a Site-owned `AgentSessionV1`, turn POST streams
   `AgentEventV1`, and events GET resumes after the last verified sequence;
-- `POST /api/siteagent/build-jobs` remains a server-side mutation boundary. It
-  is not called by Chat or any browser adapter;
+- no browser-callable build-job route exists. The internal BuildJob controller
+  and acceptance join remain reusable but are not reachable from product UI;
 - Supabase SSR cookies and verified claims resolve the server principal;
 - V1 exposes the user's input in a separate Chat card;
 - replies, progress and fail-closed errors appear in the Sajtagent card, which
@@ -24,11 +24,11 @@ health advertises both signed jobs and ArtifactReadV1. A missing or unhealthy
 runtime and an unverified worker candidate end as `job.failed`. The browser
 cannot convert that state into a preview or ready version.
 
-The deterministic Site-owned candidate gate is implemented and documented in
+The deterministic Site-owned candidate gate is implemented internally and documented in
 [`candidate-acceptance-v1.md`](candidate-acceptance-v1.md). It verifies stable
 receipt semantics, exact preview bytes and metadata, active revision, staged
 Site preview health, and exposes one atomic success-commit seam. The product
-route now has a server-only ArtifactReadV1 adapter, while candidate acceptance,
+join has a server-only ArtifactReadV1 adapter, while candidate acceptance,
 staged Site preview health and the transactional version repository are
 assembled behind the explicit dispatch guard documented in
 [`build-job-server-join-v1.md`](build-job-server-join-v1.md). The local
@@ -74,13 +74,15 @@ authenticated Site route; inline `srcDoc` is not part of the product flow.
 Chat now uses one continuous Sajtagent `AgentSession`. The browser opens a
 Site-owned session, POSTs strict `AgentTurnRequestV1`, consumes Site SSE and
 resumes from its last verified global sequence. It never creates `BuildJobV1`:
-that remains a subordinate server-owned mutation envelope when Sajtagent
-invokes an approved build tool.
+that remains a subordinate server-owned mutation envelope. It is unavailable
+until explicit user approval and a Site-authorized tool join are ratified in
+the same session and turn chain.
 
 ## Still unavailable
 
 - live Runtime/Site configuration and end-to-end proof of the private
   artifact-byte transfer;
+- explicit same-session approval and a Site-authorized build tool join;
 - applied database migration and live use of the local version/preview routes;
 - prompt assist, publish, ZIP export, import, and save actions.
 

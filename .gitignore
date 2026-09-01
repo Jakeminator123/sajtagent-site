@@ -13,3 +13,6 @@ node_modules/
 .DS_Store
 desktop.ini
 .vercel
+
+# Local coordination between agents sharing this worktree
+.agents/coordination/

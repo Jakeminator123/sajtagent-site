@@ -53,6 +53,24 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
   changes, Edge Functions, Supabase branches, deployments, and cloud resource
   lifecycle operations require explicit scope in the active task.
 
+## Concurrent agent coordination
+
+- Before editing, inspect the branch and working-tree diff. If another agent is
+  active in the same branch, worktree, folder, or file scope, coordinate before
+  touching overlapping files.
+- Prefer direct agent messaging and keep updates to four short lines: task,
+  files or area, what and why, and the next potentially conflicting action.
+- If direct messaging is unavailable, use a secret-free temporary note at
+  `.agents/coordination/<agent-id>.md`; the directory is local and ignored.
+- On overlap, pause the overlapping edits and agree on ownership, ordering, or
+  a compatible split. Use repository authority, product boundaries, tests, and
+  concrete evidence when one option is clearly better.
+- If materially different options remain equally defensible (roughly 50/50),
+  or the resolution would change product scope, security, data, or an external
+  resource, ask Jakob before proceeding.
+- Never overwrite, discard, stage, commit, or rewrite another agent's changes
+  without agreement. Recheck status and diff immediately before staging.
+
 ## Current verification baseline
 
 - `next.config.mjs` temporarily ignores build-time TypeScript errors inherited

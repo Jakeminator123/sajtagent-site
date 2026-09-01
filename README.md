@@ -67,10 +67,11 @@ Publishable-nyckeln är inte en serverhemlighet, men all åtkomst till exponerad
 tabeller måste ändå skyddas med RLS.
 
 Databasfunktioner använder i första hand `POSTGRES_URL` eller
-`POSTGRES_URL_NON_POOLING`, med `DATABASE_URL` som fallback. GitHub-noden kan
-använda `GITHUB_TOKEN`, och `NEXT_PUBLIC_URL` kan ange applikationens publika
-basadress. `GITHUB_TOKEN` är endast ett valfritt prototyphjälpmedel och ska
-ersättas av den framtida, avgränsade SiteAgent GitHub App-integrationen.
+`POSTGRES_URL_NON_POOLING`, med `DATABASE_URL` som fallback. Interna API-anrop
+härleder origin från den inkommande requesten och kräver därför ingen
+`NEXT_PUBLIC_URL`. GitHub-noden kan använda `GITHUB_TOKEN`, men tokenen är
+endast ett valfritt lokalt prototyphjälpmedel och ska inte läggas i Vercel innan
+route-behörigheten har ersatts av en avgränsad SiteAgent GitHub App-integration.
 
 Projektets regler för Supabase, MCP, GitHub, Vercel och Sajtmaskin-separation
 finns i [integration baseline](docs/integration-baseline.md). Den repoägda

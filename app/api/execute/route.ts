@@ -21,8 +21,8 @@ interface ExecutionContext {
   workflowId?: string;
 }
 
-async function fetchGitHub(data: GitHubNodeData): Promise<string> {
-  const response = await fetch(`${process.env.NEXT_PUBLIC_URL || "http://localhost:3000"}/api/github`, {
+async function fetchGitHub(data: GitHubNodeData, requestOrigin: string): Promise<string> {
+  const response = await fetch(new URL("/api/github", requestOrigin), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
@@ -162,6 +162,7 @@ function topologicalSort(nodes: WorkflowNode[], edges: Edge[]): WorkflowNode[] {
 export async function POST(request: Request) {
   try {
     const { nodes, edges, workflowId } = await request.json();
+    const requestOrigin = new URL(request.url).origin;
 
     if (!nodes || nodes.length === 0) {
       return NextResponse.json({ error: "No nodes to execute" }, { status: 400 });
@@ -192,7 +193,7 @@ export async function POST(request: Request) {
 
           case "github": {
             const data = node.data as GitHubNodeData;
-            output = await fetchGitHub(data);
+            output = await fetchGitHub(data, requestOrigin);
             break;
           }
 

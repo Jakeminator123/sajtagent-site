@@ -133,3 +133,16 @@ receiver acknowledges scope or a write lock and reports commit/check evidence.
 This coordination never creates product coupling or grants permission to read
 secrets, mutate another repository, push, merge, deploy, or change external
 resources.
+
+## Coordination-rule delivery
+
+- Platform governance commit `b519162` is pushed on
+  `codex/system-flow-infrastructure` and is included in draft Platform PR #2.
+- The Site handoff/rule commit `a8a05ff` is pushed on
+  `codex/site-v1-vertical-slice` and is included in draft Site PR #3.
+- Runtime/Sprites rule commit `33b968e` is pushed on
+  `codex/cross-agent-handoff-rules`; draft Sprites PR #6 is
+  https://github.com/Jakeminator123/sajtagent-sprites/pull/6.
+- These are documentation and development-coordination rules only. They do not
+  mean that Site PR #3/#4, Platform PR #2, or Sprites PR #6 is merged, and they
+  do not represent a Runtime or production deployment.

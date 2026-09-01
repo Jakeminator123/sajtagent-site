@@ -101,6 +101,22 @@ export class PostgresBuildJobRepositoryV1 implements BuildJobRepositoryV1 {
     return (result.rowCount ?? 0) === 1
   }
 
+  async isProjectRevisionCurrent(
+    principal: BuildPrincipalV1,
+    projectId: string,
+    revisionId: string,
+  ): Promise<boolean> {
+    const result = await this.pool.query(
+      `select 1
+         from public.site_projects
+        where id = $1 and active_revision_id = $2
+          and tenant_id = $3 and owner_user_id = $4
+        limit 1`,
+      [projectId, revisionId, principal.tenantId, principal.userId],
+    )
+    return (result.rowCount ?? 0) === 1
+  }
+
   async createAccepted(
     principal: BuildPrincipalV1,
     job: BuildJobV1,

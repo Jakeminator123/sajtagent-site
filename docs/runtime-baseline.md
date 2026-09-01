@@ -20,6 +20,17 @@ The current local runtime remains deliberately disconnected. A missing
 runtime or an unverified worker candidate ends as `job.failed`. The browser
 cannot convert that state into a preview or ready version.
 
+The deterministic Site-owned candidate gate is implemented and documented in
+[`candidate-acceptance-v1.md`](candidate-acceptance-v1.md). It verifies stable
+receipt semantics, exact preview bytes and metadata, active revision, staged
+Site preview health, and exposes one atomic success-commit seam. The product
+route still fails closed until private artifact transfer and the matching
+transactional version repository are injected together.
+
+This build gate is subordinate to the mutating tool path. It does not define
+the ordinary Chat-to-Sajtagent conversation protocol, and conversation alone
+does not create a build job or version.
+
 The product wording is user-to-Sajtagent; OpenClaw is Sajtagent's runtime, not a
 second product persona. The network path remains browser -> SiteAgent
 controller -> Sprite runtime -> OpenClaw. The browser never receives runtime
@@ -28,7 +39,7 @@ signing keys or calls OpenClaw directly.
 ## Still unavailable
 
 - authenticated preview serving and canonical success projection;
-- acceptance checks and immutable revision/version persistence for candidates;
+- the private artifact-transfer adapter and atomic revision/version committer;
 - prompt assist, publish, ZIP export, import, and save actions.
 
 These controls are disabled or return failure. They do not report simulated

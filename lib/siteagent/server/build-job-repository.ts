@@ -26,6 +26,11 @@ export interface BuildJobRepositoryV1 {
     projectId: string,
     revisionId: string,
   ): Promise<boolean>
+  isProjectRevisionCurrent(
+    principal: BuildPrincipalV1,
+    projectId: string,
+    revisionId: string,
+  ): Promise<boolean>
   createAccepted(
     principal: BuildPrincipalV1,
     job: BuildJobV1,
@@ -57,12 +62,17 @@ function projectRevisionKey(
   return `${principal.userId}\0${principal.tenantId}\0${projectId}\0${revisionId}`
 }
 
+function projectKey(principal: BuildPrincipalV1, projectId: string) {
+  return `${principal.userId}\0${principal.tenantId}\0${projectId}`
+}
+
 /** In-memory repository used only by focused contract tests. */
 export class MemoryBuildJobRepositoryV1 implements BuildJobRepositoryV1 {
   private readonly jobsByIdempotency = new Map<string, StoredBuildJobV1>()
   private readonly jobsById = new Map<string, StoredBuildJobV1>()
   private readonly ownerUserIdByJobId = new Map<string, string>()
   private readonly projectRevisions = new Set<string>()
+  private readonly currentRevisionByProject = new Map<string, string>()
 
   addProjectRevision(
     principal: BuildPrincipalV1,
@@ -70,6 +80,7 @@ export class MemoryBuildJobRepositoryV1 implements BuildJobRepositoryV1 {
     revisionId: string,
   ): void {
     this.projectRevisions.add(projectRevisionKey(principal, projectId, revisionId))
+    this.currentRevisionByProject.set(projectKey(principal, projectId), revisionId)
   }
 
   async hasProjectRevision(
@@ -78,6 +89,17 @@ export class MemoryBuildJobRepositoryV1 implements BuildJobRepositoryV1 {
     revisionId: string,
   ): Promise<boolean> {
     return this.projectRevisions.has(projectRevisionKey(principal, projectId, revisionId))
+  }
+
+  async isProjectRevisionCurrent(
+    principal: BuildPrincipalV1,
+    projectId: string,
+    revisionId: string,
+  ): Promise<boolean> {
+    return (
+      this.projectRevisions.has(projectRevisionKey(principal, projectId, revisionId)) &&
+      this.currentRevisionByProject.get(projectKey(principal, projectId)) === revisionId
+    )
   }
 
   async createAccepted(

@@ -19,6 +19,7 @@
     "app/api/siteagent/projects/default/route.ts",
     "proxy.ts",
     "scripts/verify-build-jobs.mts",
-    "scripts/verify-runtime-protocol.mts"
+    "scripts/verify-runtime-protocol.mts",
+    "scripts/verify-candidate-acceptance.mts"
   ]
 }

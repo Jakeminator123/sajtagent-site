@@ -9,9 +9,12 @@ import {
   BuildEventV1Schema,
   BuildJobV1Schema,
   BuildResultFailureV1Schema,
+  WorkerReportV1Schema,
+  validateBuildEventStreamV1,
   type BuildEventV1,
   type BuildJobV1,
   type BuildResultV1,
+  type EvidenceReceiptV1,
   type WorkerReportV1,
 } from "../../../contracts/builder-v1.ts"
 import {
@@ -20,12 +23,26 @@ import {
   type CreateBuildJobRequestV1,
 } from "./build-job-input.ts"
 import type {
+  CandidateAcceptanceDecisionV1,
+  CandidateAcceptanceV1,
+  PreparedAcceptedCandidateV1,
+} from "./candidate-acceptance.ts"
+import type {
   BuildJobRepositoryV1,
   StoredBuildJobV1,
 } from "./build-job-repository.ts"
 
 export interface BuildRuntimeClientV1 {
   run(job: BuildJobV1): Promise<WorkerReportV1>
+}
+
+export interface AcceptedCandidateCommitterV1 {
+  commitAcceptedCandidate(
+    principal: BuildPrincipalV1,
+    job: BuildJobV1,
+    prepared: PreparedAcceptedCandidateV1,
+    expectedSequence: number,
+  ): Promise<StoredBuildJobV1>
 }
 
 type BuildResultFailureV1 = Extract<BuildResultV1, { status: "failed" }>
@@ -42,9 +59,11 @@ export type CreateBuildJobControllerResultV1 = {
   error?: { code: string; message: string }
 }
 
-type BuildJobControllerDependenciesV1 = {
+export type BuildJobControllerDependenciesV1 = {
   repository: BuildJobRepositoryV1
   runtime: BuildRuntimeClientV1 | null
+  acceptance?: CandidateAcceptanceV1 | null
+  successCommitter?: AcceptedCandidateCommitterV1 | null
   now?: () => Date
   createId?: () => string
 }
@@ -78,6 +97,7 @@ function failureResult(
   message: string,
   retryable: boolean,
   failedAt: string,
+  receipts: EvidenceReceiptV1[] = [],
 ): BuildResultFailureV1 {
   return BuildResultFailureV1Schema.parse({
     schemaVersion: 1,
@@ -88,7 +108,7 @@ function failureResult(
     message,
     retryable,
     failedAt,
-    receipts: [],
+    receipts,
   })
 }
 
@@ -259,57 +279,9 @@ export async function createBuildJobV1(
     { status: "running" },
   )
 
+  let workerReportInput: unknown
   try {
-    const workerReport = await dependencies.runtime.run(job)
-    const failedAt = (dependencies.now ?? (() => new Date()))().toISOString()
-    if (workerReport.status === "candidate") {
-      const result = failureResult(
-        job,
-        "verification_failed",
-        "Runtime returnerade en kandidat, men acceptans- och previewverifiering är ännu inte ansluten.",
-        true,
-        failedAt,
-      )
-      const record = await persistRuntimeFailure(
-        dependencies,
-        principal,
-        job,
-        3,
-        result,
-        { workerReport },
-      )
-      return { httpStatus: 422, kind: "failed", record }
-    }
-    const code =
-      workerReport.status === "cancelled"
-        ? "cancelled"
-        : workerReport.status === "timed_out"
-          ? "timeout"
-          : "worker_failed"
-    const result = failureResult(
-      job,
-      code,
-      workerReport.diagnostics[0]?.message ?? "Runtime-jobbet misslyckades.",
-      workerReport.diagnostics.some((diagnostic) => diagnostic.retryable),
-      failedAt,
-    )
-    const record = await persistRuntimeFailure(
-      dependencies,
-      principal,
-      job,
-      3,
-      result,
-      {
-        workerReport,
-        status:
-          workerReport.status === "cancelled"
-            ? "cancelled"
-            : workerReport.status === "timed_out"
-              ? "timed_out"
-              : "failed",
-      },
-    )
-    return { httpStatus: 502, kind: "failed", record }
+    workerReportInput = await dependencies.runtime.run(job)
   } catch {
     const failedAt = (dependencies.now ?? (() => new Date()))().toISOString()
     const result = failureResult(
@@ -328,4 +300,197 @@ export async function createBuildJobV1(
     )
     return { httpStatus: 503, kind: "failed", record }
   }
+
+  const parsedWorkerReport = WorkerReportV1Schema.safeParse(workerReportInput)
+  if (!parsedWorkerReport.success) {
+    const failedAt = (dependencies.now ?? (() => new Date()))().toISOString()
+    const result = failureResult(
+      job,
+      "verification_failed",
+      "Runtime returnerade en rapport som inte matchar WorkerReportV1.",
+      false,
+      failedAt,
+    )
+    const record = await persistRuntimeFailure(
+      dependencies,
+      principal,
+      job,
+      3,
+      result,
+    )
+    return { httpStatus: 422, kind: "failed", record }
+  }
+
+  const workerReport = parsedWorkerReport.data
+  const terminalAt = (dependencies.now ?? (() => new Date()))().toISOString()
+  if (workerReport.status === "candidate") {
+    if (!dependencies.acceptance) {
+      const result = failureResult(
+        job,
+        "verification_failed",
+        "Runtime returnerade en kandidat, men Site-ägd acceptans är inte konfigurerad.",
+        true,
+        terminalAt,
+        workerReport.receipts,
+      )
+      const record = await persistRuntimeFailure(
+        dependencies,
+        principal,
+        job,
+        3,
+        result,
+        { workerReport },
+      )
+      return { httpStatus: 422, kind: "failed", record }
+    }
+    if (!dependencies.successCommitter) {
+      const result = failureResult(
+        job,
+        "persistence_failed",
+        "Atomisk commit för revision, version och terminalt event är inte konfigurerad.",
+        true,
+        terminalAt,
+        workerReport.receipts,
+      )
+      const record = await persistRuntimeFailure(
+        dependencies,
+        principal,
+        job,
+        3,
+        result,
+        { workerReport },
+      )
+      return { httpStatus: 503, kind: "failed", record }
+    }
+
+    let decision: CandidateAcceptanceDecisionV1
+    try {
+      decision = await dependencies.acceptance.accept({
+        principal,
+        job,
+        report: workerReport,
+      })
+    } catch {
+      const result = failureResult(
+        job,
+        "verification_failed",
+        "Kandidatacceptansen kunde inte slutföras och stoppades felsäkert.",
+        true,
+        terminalAt,
+        workerReport.receipts,
+      )
+      const record = await persistRuntimeFailure(
+        dependencies,
+        principal,
+        job,
+        3,
+        result,
+        { workerReport },
+      )
+      return { httpStatus: 422, kind: "failed", record }
+    }
+
+    if (!decision.accepted) {
+      const result = failureResult(
+        job,
+        decision.code,
+        decision.message,
+        decision.retryable,
+        terminalAt,
+        decision.receipts,
+      )
+      const record = await persistRuntimeFailure(
+        dependencies,
+        principal,
+        job,
+        3,
+        result,
+        { workerReport },
+      )
+      const httpStatus =
+        decision.code === "stale_revision" || decision.code === "expired"
+          ? 409
+          : decision.code === "persistence_failed"
+            ? 503
+            : decision.code === "preview_unhealthy"
+              ? 502
+              : 422
+      return { httpStatus, kind: "failed", record }
+    }
+
+    let record: StoredBuildJobV1
+    try {
+      record = await dependencies.successCommitter.commitAcceptedCandidate(
+        principal,
+        job,
+        decision.prepared,
+        3,
+      )
+    } catch {
+      const result = failureResult(
+        job,
+        "persistence_failed",
+        "Verifierad kandidat kunde inte committas atomiskt som revision, version och terminalt event.",
+        true,
+        terminalAt,
+        workerReport.receipts,
+      )
+      const failedRecord = await persistRuntimeFailure(
+        dependencies,
+        principal,
+        job,
+        3,
+        result,
+        { workerReport },
+      )
+      return { httpStatus: 503, kind: "failed", record: failedRecord }
+    }
+    const stream = validateBuildEventStreamV1(record.events)
+    const terminal = record.events.at(-1)
+    if (
+      !stream.success ||
+      record.status !== "succeeded" ||
+      record.result?.status !== "succeeded" ||
+      record.result.jobId !== job.jobId ||
+      record.result.baseRevisionId !== job.baseRevisionId ||
+      record.result.previewRef !== decision.prepared.preview.previewRef ||
+      terminal?.type !== "job.succeeded" ||
+      terminal.sequence !== 3
+    ) {
+      throw new Error("accepted_candidate_commit_invalid")
+    }
+    return { httpStatus: 201, kind: "created", record }
+  }
+
+  const code =
+    workerReport.status === "cancelled"
+      ? "cancelled"
+      : workerReport.status === "timed_out"
+        ? "timeout"
+        : "worker_failed"
+  const result = failureResult(
+    job,
+    code,
+    workerReport.diagnostics[0]?.message ?? "Runtime-jobbet misslyckades.",
+    workerReport.diagnostics.some((diagnostic) => diagnostic.retryable),
+    terminalAt,
+    workerReport.receipts,
+  )
+  const record = await persistRuntimeFailure(
+    dependencies,
+    principal,
+    job,
+    3,
+    result,
+    {
+      workerReport,
+      status:
+        workerReport.status === "cancelled"
+          ? "cancelled"
+          : workerReport.status === "timed_out"
+            ? "timed_out"
+            : "failed",
+    },
+  )
+  return { httpStatus: 502, kind: "failed", record }
 }

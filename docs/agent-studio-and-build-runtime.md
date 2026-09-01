@@ -49,8 +49,11 @@ Local header identity is disabled unless an explicit development-only loopback
 mode is selected.
 
 The runtime worker report is non-authoritative. A candidate deliberately ends
-as `verification_failed` until acceptance checks, preview health, immutable
-workspace revision persistence, and version projection have been connected.
+as a failure until the implemented deterministic acceptance core, private
+artifact reader, preview health, and atomic workspace revision/version commit
+have all been injected into the product route together. The acceptance rules
+are documented in
+[`candidate-acceptance-v1.md`](candidate-acceptance-v1.md).
 Missing persistence, missing runtime, transport errors, or an unconnected
 OpenClaw Gateway never produce a preview or successful version.
 

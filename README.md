@@ -32,6 +32,7 @@ npm run dev
 
 Öppna SiteAgents förstasida på [http://localhost:3000](http://localhost:3000).
 Buildern finns på [http://localhost:3000/builder](http://localhost:3000/builder).
+Agentprofilen kan formas i [Agent Studio](http://localhost:3000/agent-studio).
 Gamla länkar till `/siteagent` skickas vidare till `/builder`.
 
 ## Verifiering
@@ -48,6 +49,8 @@ du tolkar ett grönt buildsteg som full typverifiering.
 Builderns backend-, preview- och publiceringsintegrationer är fortfarande en
 prototyp med simulerade reservvägar. Se [runtime baseline](docs/runtime-baseline.md)
 innan du ändrar Builder-flödet.
+Den lokala Agent Studio/OpenClaw-kompilatorn och den felsäkra bygggränsen
+beskrivs i [agent-studio-and-build-runtime](docs/agent-studio-and-build-runtime.md).
 
 ## Valfri konfiguration
 

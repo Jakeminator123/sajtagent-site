@@ -1,0 +1,15 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "incremental": false
+  },
+  "include": [
+    "next-env.d.ts",
+    "app/agent-studio/**/*.ts",
+    "app/agent-studio/**/*.tsx",
+    "components/agent-studio/**/*.ts",
+    "components/agent-studio/**/*.tsx",
+    "contracts/**/*.ts"
+  ],
+  "exclude": ["node_modules"]
+}

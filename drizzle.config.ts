@@ -17,8 +17,8 @@ export default {
       process.env.DATABASE_URL ||
       "",
   },
-  // Siteagent delar dev-databas med sajtmaskin. Utan den här filtreringen
-  // skulle drizzle-kit se sajtmaskins ~38 tabeller som "främmande" och
-  // föreslå DROP på dem.
+  // Detta repo ska använda en fristående Sajtagent-databas, aldrig
+  // Sajtmaskins databas. Drizzle äger bara de äldre workflow-tabellerna;
+  // build-job-tabellerna ägs av versionsstyrda Supabase-migrationer.
   tablesFilter: ["workflows", "workflow_executions", "workflow_memory"],
 } satisfies Config;

@@ -15,6 +15,8 @@
     "dev": "next dev",
     "build": "next build",
     "check:contracts": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/verify-builder-contracts.mts && tsc -p tsconfig.contracts.json",
+    "check:agent-profile": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/verify-agent-profile.mts && tsc -p tsconfig.agent-studio.json",
+    "check:build-jobs": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/verify-build-jobs.mts && tsc -p tsconfig.build-jobs.json",
     "cards:docs": "node scripts/verify-card-flow.mjs --write",
     "cards:check": "node scripts/verify-card-flow.mjs",
     "start": "next start",

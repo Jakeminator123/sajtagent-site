@@ -1,0 +1,20 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "incremental": false,
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "target": "ES2022",
+    "types": ["node"]
+  },
+  "include": [
+    "contracts/agent-profile-v1.ts",
+    "contracts/builder-v1.ts",
+    "lib/db/client.ts",
+    "lib/db/env.ts",
+    "lib/db/schema.ts",
+    "lib/siteagent/server/**/*.ts",
+    "app/api/siteagent/build-jobs/route.ts",
+    "scripts/verify-build-jobs.mts"
+  ]
+}

@@ -2,8 +2,10 @@
 
 // Toppbar i mallens toolbar-stil, med sajtmaskins funktioner.
 
+import Link from "next/link"
 import React from "react"
 import {
+  Bot,
   Check,
   ChevronDown,
   Clock,
@@ -79,6 +81,11 @@ export function BuilderHeader({ showDrawer, onToggleDrawer }: BuilderHeaderProps
             </DropdownMenuItem>
             <DropdownMenuItem onClick={menuStub("Egna instruktioner")}>
               <SlidersHorizontal className="w-3.5 h-3.5 mr-2" /> Egna instruktioner
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link href="/agent-studio">
+                <Bot className="w-3.5 h-3.5 mr-2" /> Agent Studio
+              </Link>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={menuStub("Importera")}>

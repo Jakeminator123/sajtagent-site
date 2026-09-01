@@ -26,6 +26,12 @@ jobs:
       - name: Check builder contracts
         run: npm run check:contracts
 
+      - name: Check Agent Studio profile contract
+        run: npm run check:agent-profile
+
+      - name: Check fail-closed build-job boundary
+        run: npm run check:build-jobs
+
       - name: Check card flow model and generated documentation
         run: npm run cards:check
 

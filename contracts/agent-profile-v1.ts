@@ -185,6 +185,25 @@ export const AgentProfileV1Schema = z
 
 export type AgentProfileV1 = z.infer<typeof AgentProfileV1Schema>
 
+export const AgentProfileCompileProjectionV1Schema = z
+  .object({
+    schemaVersion: z.literal(1),
+    compiled: z.literal(true),
+    runtime: z
+      .object({
+        service: z.literal("sajtagent-sprites-runtime"),
+        mode: z.enum(["openclaw-gateway", "fail-closed"]),
+      })
+      .strict(),
+    capabilityCount: z.number().int().min(0).max(16),
+    findingCount: z.number().int().min(0).max(64),
+  })
+  .strict()
+
+export type AgentProfileCompileProjectionV1 = z.infer<
+  typeof AgentProfileCompileProjectionV1Schema
+>
+
 export const AgentHostCeilingV1Schema = z
   .object({
     ceilingId: IdentifierV1Schema,

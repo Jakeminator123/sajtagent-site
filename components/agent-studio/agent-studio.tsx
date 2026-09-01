@@ -30,6 +30,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import {
   AgentProfileV1Schema,
+  AgentProfileCompileProjectionV1Schema,
   DEFAULT_AGENT_PROFILE_V1,
   DEFAULT_LOCAL_AGENT_CEILING_V1,
   compilePortableOpenClawBundleV1,
@@ -39,7 +40,6 @@ import {
 } from "@/contracts/agent-profile-v1"
 
 const STORAGE_KEY = "siteagent.agent-profile-v1"
-const DEFAULT_RUNTIME_URL = "http://127.0.0.1:4317"
 
 const CAPABILITIES: Array<{
   id: ExecutionCapabilityV1
@@ -176,10 +176,9 @@ export function AgentStudio() {
   const [storageReady, setStorageReady] = useState(false)
   const [saveMessage, setSaveMessage] = useState("Inte sparad i den här browsern ännu")
   const [copied, setCopied] = useState(false)
-  const [runtimeUrl, setRuntimeUrl] = useState(DEFAULT_RUNTIME_URL)
   const [runtimeState, setRuntimeState] = useState<RuntimeState>({
     kind: "idle",
-    message: "Lokal runtime är valfri tills du vill provkompilera profilen.",
+    message: "Site ansluter till runtime först när du provar en giltig profil.",
   })
   const importRef = useRef<HTMLInputElement>(null)
 
@@ -323,51 +322,22 @@ export function AgentStudio() {
     }
   }
 
-  const checkRuntime = async () => {
-    setRuntimeState({ kind: "checking", message: "Kontaktar lokal runtime…" })
-    try {
-      const response = await fetch(`${runtimeUrl.replace(/\/$/, "")}/health`, {
-        headers: { Accept: "application/json" },
-        signal: AbortSignal.timeout(3_000),
-      })
-      if (!response.ok) throw new Error(`HTTP ${response.status}`)
-      const data = (await response.json()) as { service?: string; mode?: string }
-      setRuntimeState({
-        kind: "ready",
-        message: `${data.service ?? "Runtime"} svarar i läget ${data.mode ?? "ok"}.`,
-      })
-    } catch (error) {
-      setRuntimeState({
-        kind: "error",
-        message:
-          error instanceof Error
-            ? `Ingen lokal runtime nåddes: ${error.message}`
-            : "Ingen lokal runtime nåddes.",
-      })
-    }
-  }
-
   const compileInRuntime = async () => {
     if (!validation.success) return
     setRuntimeState({ kind: "checking", message: "Kompilerar profilen mot runtime-hostens tak…" })
     try {
-      const response = await fetch(
-        `${runtimeUrl.replace(/\/$/, "")}/v1/agent-profiles/compile`,
-        {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ profile: validation.data }),
-          signal: AbortSignal.timeout(3_000),
-        },
-      )
+      const response = await fetch("/api/siteagent/agent-profiles/compile", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ profile: validation.data }),
+        credentials: "same-origin",
+        signal: AbortSignal.timeout(6_000),
+      })
       if (!response.ok) throw new Error(`HTTP ${response.status}`)
-      const compiled = (await response.json()) as {
-        effectivePolicy?: { capabilities?: string[] }
-        findings?: unknown[]
-      }
+      const compiled = AgentProfileCompileProjectionV1Schema.parse(await response.json())
       setRuntimeState({
         kind: "ready",
-        message: `Profilen kompilerades med ${compiled.effectivePolicy?.capabilities?.length ?? 0} capabilities och ${compiled.findings?.length ?? 0} begränsningar. Inget byggjobb startades.`,
+        message: `Profilen kompilerades med ${compiled.capabilityCount} capabilities och ${compiled.findingCount} begränsningar. Runtime-läge: ${compiled.runtime.mode}. Inget byggjobb startades.`,
       })
     } catch (error) {
       setRuntimeState({
@@ -829,23 +799,14 @@ export function AgentStudio() {
                 <div className="mb-4 flex items-start gap-3">
                   <PlugZap className="mt-0.5 size-5 text-brand-blue" />
                   <div>
-                    <h2 className="font-semibold">Lokal OpenClaw-adapter</h2>
+                    <h2 className="font-semibold">Privat OpenClaw-adapter</h2>
                     <p className="mt-1 text-sm leading-6 text-muted-foreground">
-                      Fungerar när webbappen och runtime körs lokalt. Preview på HTTPS kan blockera
-                      åtkomst till localhost, men exporten fungerar alltid.
+                      Browsern anropar endast Site. Site autentiserar begäran och signerar
+                      runtime-anropet server-side; runtime-URL och nyckel lämnar aldrig servern.
                     </p>
                   </div>
                 </div>
                 <div className="flex flex-col gap-3 sm:flex-row">
-                  <Input
-                    value={runtimeUrl}
-                    onChange={(event) => setRuntimeUrl(event.target.value)}
-                    className="font-mono text-xs"
-                    aria-label="Lokal runtime-URL"
-                  />
-                  <Button variant="outline" onClick={() => void checkRuntime()} disabled={runtimeState.kind === "checking"}>
-                    <PlugZap /> Kontrollera
-                  </Button>
                   <Button onClick={() => void compileInRuntime()} disabled={!validation.success || runtimeState.kind === "checking"}>
                     <Wrench /> Prova profil
                   </Button>

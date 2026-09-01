@@ -4,38 +4,26 @@
 // Medvetet markant skild från kontrollytorna — ljust "browserfönster" med
 // chrome-list, adress-pill och spotlight på mörk prickad scen.
 
-import React, { useState } from "react"
+import React from "react"
 import { ExternalLink, Globe, Loader2, Monitor, TriangleAlert } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useBuilder } from "./builder-store"
 
 function PreviewFrame({ className }: { className?: string }) {
-  const { previewUrl, previewSrcDoc } = useBuilder()
-  if (previewUrl) {
-    return (
-      <iframe
-        src={previewUrl}
-        title="Förhandsvisning av sajten"
-        className={cn("w-full h-full border-0 bg-white", className)}
-      />
-    )
-  }
-  if (previewSrcDoc) {
-    return (
-      <iframe
-        srcDoc={previewSrcDoc}
-        title="Förhandsvisning av sajten"
-        className={cn("w-full h-full border-0 bg-white", className)}
-      />
-    )
-  }
-  return null
+  const { previewUrl } = useBuilder()
+  if (!previewUrl) return null
+  return (
+    <iframe
+      src={previewUrl}
+      title="Förhandsvisning av sajten"
+      className={cn("w-full h-full border-0 bg-white", className)}
+    />
+  )
 }
 
 export function PreviewStage() {
-  const { previewStatus, previewUrl, previewPages } = useBuilder()
-  const [activePage, setActivePage] = useState(0)
-  const hasContent = previewStatus === "ready"
+  const { previewStatus, previewUrl } = useBuilder()
+  const hasContent = previewStatus === "ready" && Boolean(previewUrl)
 
   return (
     <div className="absolute inset-0 bg-workflow-canvas transition-colors duration-200">
@@ -77,25 +65,6 @@ export function PreviewStage() {
               </div>
             </div>
             <div className="flex items-center gap-1">
-              {previewPages.length > 0 && (
-                <div className="flex items-center gap-1 mr-1">
-                  {previewPages.map((page, i) => (
-                    <button
-                      key={page}
-                      type="button"
-                      onClick={() => setActivePage(i)}
-                      className={cn(
-                        "px-2 py-0.5 rounded text-[10px] font-mono border transition-colors duration-150",
-                        activePage === i
-                          ? "bg-zinc-800 text-white border-transparent"
-                          : "text-zinc-500 border-zinc-300 hover:text-zinc-800"
-                      )}
-                    >
-                      {page}
-                    </button>
-                  ))}
-                </div>
-              )}
               {previewUrl && (
                 <a
                   href={previewUrl}
@@ -122,10 +91,11 @@ export function PreviewStage() {
                 </p>
               </div>
             )}
-            {previewStatus === "starting" && (
+            {previewStatus === "building" && (
               <div className="w-full h-full flex flex-col items-center justify-center gap-2">
                 <Loader2 className="w-7 h-7 animate-spin text-zinc-400" />
-                <p className="font-mono text-sm text-zinc-500">Preview startar…</p>
+                <p className="font-mono text-sm text-zinc-500">Sajtagent bygger…</p>
+                <p className="text-xs text-zinc-400">Preview öppnas först efter verifierad framgång.</p>
               </div>
             )}
             {previewStatus === "error" && (

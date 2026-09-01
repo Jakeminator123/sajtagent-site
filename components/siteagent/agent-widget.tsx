@@ -4,7 +4,7 @@
 // flik 1: Siteagent (D-ID/openclaw-slot), flik 2: Karta (sajtkarta).
 
 import React, { useState } from "react"
-import { Bot, ChevronDown, Map, Send, Video } from "lucide-react"
+import { Bot, ChevronDown, Map, ShieldCheck, Video } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useBuilder } from "./builder-store"
 
@@ -17,8 +17,7 @@ const QUICK_REPLIES = [
 export function AgentWidget() {
   const [open, setOpen] = useState(false)
   const [tab, setTab] = useState<"agent" | "map">("agent")
-  const [input, setInput] = useState("")
-  const { previewPages, previewStatus } = useBuilder()
+  const { previewStatus, sitemapRevision } = useBuilder()
 
   if (!open) {
     return (
@@ -91,52 +90,34 @@ export function AgentWidget() {
               <button
                 key={q}
                 type="button"
-                className="text-left rounded-lg border border-workflow-border-subtle px-2.5 py-1.5 text-[11px] text-workflow-text-muted hover:text-workflow-text hover:bg-workflow-surface-hover transition-colors duration-150 leading-relaxed"
+                disabled
+                title="Denna prototype action är inte ansluten"
+                className="text-left rounded-lg border border-workflow-border-subtle px-2.5 py-1.5 text-[11px] text-workflow-text-muted opacity-40 leading-relaxed"
               >
                 {q}
               </button>
             ))}
           </div>
 
-          <div className="flex items-center gap-2 border-t border-workflow-border p-2">
-            <input
-              type="text"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder="Skriv ett meddelande…"
-              className="flex-1 bg-workflow-node-input border border-workflow-border-subtle rounded-md px-2.5 py-1.5 text-xs text-workflow-text placeholder:text-workflow-text-subtle focus:outline-none focus:ring-1 focus:ring-workflow-border"
-            />
-            <button
-              type="button"
-              className="p-1.5 rounded-md bg-foreground text-background disabled:opacity-40"
-              disabled={!input.trim()}
-              aria-label="Skicka till Siteagent"
-            >
-              <Send className="w-3.5 h-3.5" />
-            </button>
+          <div className="border-t border-workflow-border p-2 text-center font-mono text-[10px] text-workflow-text-subtle">
+            Skriv till Sajtagent i det separata Chatt-kortet.
           </div>
         </div>
       ) : (
         <div className="p-4 min-h-[220px]">
-          {previewStatus !== "ready" || previewPages.length === 0 ? (
+          {previewStatus !== "ready" || !sitemapRevision ? (
             <p className="text-xs text-workflow-text-subtle text-center py-12 leading-relaxed">
-              Sajtkartan visas när en version har genererats.
+              Sajtkartan visas först efter verifierad framgång.
             </p>
           ) : (
             <div className="flex flex-col items-center gap-0">
               <div className="rounded-lg border-2 border-foreground/60 bg-workflow-node-input px-4 py-2 font-mono text-xs text-workflow-text">
-                Start
+                Verifierad sajtkarta
               </div>
               <div className="w-px h-4 bg-workflow-border" />
-              <div className="flex items-start justify-center gap-3">
-                {previewPages.map((page) => (
-                  <div key={page} className="flex flex-col items-center gap-0">
-                    <div className="w-px h-3 bg-workflow-border" />
-                    <div className="rounded-md border border-workflow-border-subtle bg-workflow-node-input px-3 py-1.5 font-mono text-[10px] text-workflow-text-muted">
-                      {page}
-                    </div>
-                  </div>
-                ))}
+              <div className="flex max-w-full items-center gap-1.5 rounded-md border border-workflow-border-subtle bg-workflow-node-input px-3 py-1.5 font-mono text-[10px] text-workflow-text-muted">
+                <ShieldCheck className="h-3 w-3 shrink-0" />
+                <span className="truncate">{sitemapRevision}</span>
               </div>
             </div>
           )}

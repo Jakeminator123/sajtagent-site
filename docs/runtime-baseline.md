@@ -39,6 +39,25 @@ second product persona. The network path remains browser -> SiteAgent
 controller -> Sprite runtime -> OpenClaw. The browser never receives runtime
 signing keys or calls OpenClaw directly.
 
+## Client projection boundary
+
+The browser now reduces each subordinate `BuildEventV1` stream with one pure,
+sequence-aware state machine. Exact event replays are deduplicated. Changed
+replays, mixed job IDs, sequence gaps, incomplete streams, and events after a
+terminal event invalidate the candidate projection and clear its result.
+
+`job.succeeded` is necessary but not sufficient for ready UI. Its version,
+workspace revision, preview ref, and sitemap revision must also match the
+owner-bound project state and versions read models. Reload restores Versioner,
+Karta, and Preview from those read models. The preview iframe uses only the
+authenticated Site route; inline `srcDoc` is not part of the product flow.
+
+Chat is ultimately one continuous Sajtagent `AgentSession`. The current
+`submitBuildIntent` call is an isolated compatibility seam while the shared
+AgentSession/AgentEvent SSE contract is ratified. It must not be treated as a
+final one-message/one-BuildJob chat architecture: `BuildJobV1` remains a
+subordinate mutation envelope when Sajtagent invokes an approved build tool.
+
 ## Still unavailable
 
 - the controller dependency join that turns an accepted candidate into

@@ -91,8 +91,8 @@
       "kind": "adapter",
       "layer": 1,
       "owner": "builder-ui",
-      "status": "contracted",
-      "summary": "Tar emot BuildEventV1 i ordning och återhämtar canonical state vid sequence-gap.",
+      "status": "implemented",
+      "summary": "Deduplicerar BuildEventV1, låser terminal status, stoppar felsäkert vid sequence-gap och återhämtar verifierade vyer från canonical read models.",
       "failure": {
         "code": "cards.sequence-gap",
         "symptom": "Berörda kort pausas och state hämtas om; inget event hoppas över tyst.",

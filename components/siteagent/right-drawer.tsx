@@ -4,9 +4,10 @@
 // Smalare än dagens versionsspalt (300px), kollapsbar via toppbaren.
 
 import React, { useState } from "react"
-import { Blocks, Clock, Download, FlaskConical, Loader2, Pin, RotateCcw } from "lucide-react"
+import { Blocks, Clock, FlaskConical } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useBuilder } from "./builder-store"
+import { VersionList } from "./version-list"
 
 type DrawerTab = "versions" | "blocks" | "test"
 
@@ -26,8 +27,7 @@ const BLOCKS = [
 
 export function RightDrawer() {
   const [tab, setTab] = useState<DrawerTab>("versions")
-  const { versions, activeVersionId, restoreVersion, togglePin, downloadZip, sendMessage, isStreaming } =
-    useBuilder()
+  const { sendMessage, isStreaming } = useBuilder()
   const [scratch, setScratch] = useState("")
 
   return (
@@ -59,75 +59,7 @@ export function RightDrawer() {
 
       <div className="flex-1 overflow-y-auto p-3">
         {tab === "versions" && (
-          <div className="flex flex-col gap-2">
-            {versions.length === 0 ? (
-              <p className="text-xs text-workflow-text-subtle text-center py-8 leading-relaxed">
-                Inga versioner ännu.
-                <br />
-                Skriv till Sajtagent i Chatt-kortet för att skapa den första.
-              </p>
-            ) : (
-              versions.map((v) => (
-                <div
-                  key={v.id}
-                  className={cn(
-                    "rounded-lg border p-2.5 flex flex-col gap-1.5 transition-colors duration-150",
-                    v.id === activeVersionId
-                      ? "border-workflow-text/40 bg-workflow-surface-hover"
-                      : "border-workflow-border-subtle"
-                  )}
-                >
-                  <div className="flex items-center gap-2">
-                    <span className="font-mono text-xs text-workflow-text">{v.label}</span>
-                    <span
-                      className={cn(
-                        "font-mono text-[10px] px-1.5 py-0.5 rounded",
-                        v.status === "ready" && "bg-brand-teal/15 text-brand-teal",
-                        v.status === "building" && "bg-brand-amber/15 text-brand-amber",
-                        v.status === "error" && "bg-destructive/15 text-destructive"
-                      )}
-                    >
-                      {v.status === "ready" ? "Klar" : v.status === "building" ? "Bygger" : "Fel"}
-                    </span>
-                    {v.status === "building" && (
-                      <Loader2 className="w-3 h-3 animate-spin text-workflow-text-muted" />
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => togglePin(v.id)}
-                      className={cn(
-                        "ml-auto p-1 rounded transition-colors duration-150",
-                        v.pinned
-                          ? "text-brand-amber"
-                          : "text-workflow-text-subtle hover:text-workflow-text"
-                      )}
-                      title={v.pinned ? "Ta bort pin" : "Pinna"}
-                    >
-                      <Pin className="w-3 h-3" />
-                    </button>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <button
-                      type="button"
-                      onClick={() => restoreVersion(v.id)}
-                      disabled={v.status !== "ready"}
-                      className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-mono border border-workflow-border-subtle text-workflow-text-muted hover:text-workflow-text transition-colors duration-150 disabled:opacity-40"
-                    >
-                      <RotateCcw className="w-3 h-3" /> Återställ
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => downloadZip(v.id)}
-                      disabled={v.status !== "ready"}
-                      className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-mono border border-workflow-border-subtle text-workflow-text-muted hover:text-workflow-text transition-colors duration-150 disabled:opacity-40"
-                    >
-                      <Download className="w-3 h-3" /> ZIP
-                    </button>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
+          <VersionList />
         )}
 
         {tab === "blocks" && (

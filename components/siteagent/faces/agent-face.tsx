@@ -8,14 +8,10 @@ import { Bot, Loader2, ShieldCheck, Video } from "lucide-react"
 import { useBuilder } from "../builder-store"
 
 export function AgentFace() {
-  const { isStreaming, messages, previewStatus } = useBuilder()
+  const { activeJob, isStreaming, messages } = useBuilder()
   const assistantMessages = messages.filter((message) => message.role === "assistant")
   const listRef = useRef<HTMLDivElement>(null)
-  const status = isStreaming
-    ? "Sajtagent arbetar"
-    : previewStatus === "error"
-      ? "Stoppad felsäkert"
-      : "Väntar på uppdrag"
+  const status = activeJob?.progressLabel ?? "Väntar på uppdrag"
 
   useEffect(() => {
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight })
@@ -58,8 +54,16 @@ export function AgentFace() {
           ))
         )}
       </div>
-      <div className="flex items-center gap-1.5 border-t border-workflow-border-subtle px-3 py-2 font-mono text-[10px] text-workflow-text-subtle">
-        <ShieldCheck className="h-3.5 w-3.5" /> Via Site-controllern
+      <div
+        aria-live="polite"
+        className="flex items-center gap-1.5 border-t border-workflow-border-subtle px-3 py-2 font-mono text-[10px] text-workflow-text-subtle"
+      >
+        {isStreaming ? (
+          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+        ) : (
+          <ShieldCheck className="h-3.5 w-3.5" />
+        )}
+        {status}
       </div>
     </div>
   )

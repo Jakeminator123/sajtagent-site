@@ -1,17 +1,18 @@
-// Browser boundary for Sajtagent. The browser sends product intent only; it
-// never calls OpenClaw, Sprite, model tools, or persistence directly.
+// Temporary browser-to-controller compatibility boundary. The V1 target is a
+// continuous AgentSession/AgentEvent channel; BuildJobV1 remains a subordinate
+// mutation envelope selected by Sajtagent, not the chat protocol itself.
+// The browser never calls OpenClaw, Sprite, model tools, or persistence directly.
 
 import { z } from "zod"
 
-import { BuildEventV1Schema, type BuilderIntentV1 } from "../../contracts/builder-v1.ts"
+import type { BuilderIntentV1 } from "../../contracts/builder-v1.ts"
 import type { BuildChoices } from "./build-choices"
-import type { StreamEvent } from "./types"
 
 const DefaultProjectResponseV1Schema = z.object({
   schemaVersion: z.literal(1),
   projectId: z.string().min(1),
   activeRevisionId: z.string().min(1),
-})
+}).strict()
 
 const BuildJobResponseV1Schema = z.object({
   schemaVersion: z.literal(1),
@@ -19,16 +20,27 @@ const BuildJobResponseV1Schema = z.object({
   error: z.object({ code: z.string(), message: z.string() }).optional(),
 })
 
-export interface StreamChatParams {
-  chatId: string | null
+export interface SubmitBuildIntentParams {
+  isFollowUp: boolean
   message: string
   choices: BuildChoices
   planMode?: boolean
   /** Promptläge från förstasidan. */
   mode?: string
-  onEvent: (event: StreamEvent) => void
   signal?: AbortSignal
 }
+
+export interface BuildIntentDispatchV1 {
+  projectId: string | null
+  events: readonly unknown[]
+  error: string | null
+}
+
+export type DefaultProjectV1 = z.infer<typeof DefaultProjectResponseV1Schema>
+
+export type OpenDefaultProjectResultV1 =
+  | { ok: true; project: DefaultProjectV1 }
+  | { ok: false; error: string }
 
 function normalizedMode(mode: string | undefined): BuilderIntentV1["context"]["mode"] {
   if (mode === "analyserad" || mode === "analyzed") return "analyzed"
@@ -54,76 +66,50 @@ function apiMessage(payload: unknown, fallback: string): string {
   return typeof message === "string" && message.trim() ? message : fallback
 }
 
-export function reduceBuildEventsV1(
-  eventsInput: unknown,
-  onEvent: (event: StreamEvent) => void,
-): { valid: boolean; terminalSeen: boolean } {
-  const events = BuildEventV1Schema.array().safeParse(eventsInput)
-  if (!events.success) {
-    onEvent({ type: "error", message: "Build-events matchade inte det signerade kontraktet." })
-    return { valid: false, terminalSeen: false }
+export async function openDefaultProject(
+  signal?: AbortSignal,
+): Promise<OpenDefaultProjectResultV1> {
+  const response = await fetch("/api/siteagent/projects/default", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    signal,
+  })
+  const payload = await responsePayload(response)
+  const project = DefaultProjectResponseV1Schema.safeParse(payload)
+  if (!response.ok || !project.success) {
+    return { ok: false, error: apiMessage(payload, "Projektet kunde inte öppnas.") }
   }
-
-  let expectedSequence = 1
-  let terminalSeen = false
-  let jobId: string | null = null
-  for (const event of events.data) {
-    jobId ??= event.jobId
-    if (event.jobId !== jobId || event.sequence !== expectedSequence) {
-      onEvent({ type: "error", message: "Build-eventströmmen hade ett sekvensgap." })
-      return { valid: false, terminalSeen: false }
-    }
-    expectedSequence += 1
-
-    if (event.type === "job.accepted") {
-      onEvent({ type: "progress", message: "Byggjobbet accepterades." })
-    } else if (event.type === "job.running") {
-      onEvent({ type: "progress", message: event.payload.label ?? `Fas: ${event.payload.phase}` })
-    } else if (event.type === "message.delta") {
-      onEvent({ type: "text", delta: event.payload.delta })
-    } else if (event.type === "job.failed") {
-      terminalSeen = true
-      onEvent({ type: "error", message: event.payload.result.message })
-    } else if (event.type === "job.succeeded") {
-      terminalSeen = true
-      onEvent({
-        type: "error",
-        message: "Bygget verifierades, men en autentiserad preview-route är ännu inte ansluten.",
-      })
-    }
-  }
-  return { valid: true, terminalSeen }
+  return { ok: true, project: project.data }
 }
 
 /**
  * Opens the authenticated user's starter project and creates one BuildJobV1.
- * A missing runtime, rejected candidate, or missing preview route remains an
- * explicit error; this function never manufactures HTML or a ready version.
+ * The adapter returns the controller envelope without projecting product
+ * success. Only the pure BuildEventV1 reducer may interpret those events.
  */
-export async function streamChat(params: StreamChatParams): Promise<void> {
-  const { chatId, message, choices, planMode, mode, onEvent, signal } = params
+export async function submitBuildIntent(
+  params: SubmitBuildIntentParams,
+): Promise<BuildIntentDispatchV1> {
+  // Integration seam to replace with AgentSession dispatch once that shared
+  // contract is ratified. Do not copy this one-message/one-job shape outward.
+  const { isFollowUp, message, choices, planMode, mode, signal } = params
   try {
-    const projectResponse = await fetch("/api/siteagent/projects/default", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      signal,
-    })
-    const projectPayload = await responsePayload(projectResponse)
-    const project = DefaultProjectResponseV1Schema.safeParse(projectPayload)
-    if (!projectResponse.ok || !project.success) {
-      onEvent({
-        type: "error",
-        message: apiMessage(projectPayload, "Projektet kunde inte öppnas."),
-      })
-      return
+    const opened = await openDefaultProject(signal)
+    if (!opened.ok) {
+      return {
+        projectId: null,
+        events: [],
+        error: opened.error,
+      }
     }
+    const project = opened.project
 
     const intent: BuilderIntentV1 = {
       schemaVersion: 1,
-      intentType: chatId ? "site.change" : "site.create",
+      intentType: isFollowUp ? "site.change" : "site.create",
       message,
       context: {
-        selectedBaseRevisionId: project.data.activeRevisionId,
+        selectedBaseRevisionId: project.activeRevisionId,
         buildChoices: choices,
         mode: normalizedMode(mode),
         planMode,
@@ -134,8 +120,8 @@ export async function streamChat(params: StreamChatParams): Promise<void> {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         schemaVersion: 1,
-        projectId: project.data.projectId,
-        baseRevisionId: project.data.activeRevisionId,
+        projectId: project.projectId,
+        baseRevisionId: project.activeRevisionId,
         idempotencyKey: `browser:${crypto.randomUUID()}`,
         intent,
       }),
@@ -144,27 +130,33 @@ export async function streamChat(params: StreamChatParams): Promise<void> {
     const buildPayload = await responsePayload(buildResponse)
     const envelope = BuildJobResponseV1Schema.safeParse(buildPayload)
     if (!envelope.success) {
-      onEvent({ type: "error", message: "Build-controllern returnerade ett ogiltigt svar." })
-      return
+      return {
+        projectId: project.projectId,
+        events: [],
+        error: "Build-controllern returnerade ett ogiltigt svar.",
+      }
     }
 
-    const reduced = reduceBuildEventsV1(envelope.data.events ?? [], onEvent)
-    if (!reduced.valid) return
-    if (!reduced.terminalSeen) {
-      onEvent({
-        type: "error",
-        message: apiMessage(
-          buildPayload,
-          buildResponse.ok ? "Byggjobbet saknar terminal status." : "Byggjobbet kunde inte startas.",
-        ),
-      })
+    const controllerMessage = envelope.data.error?.message
+    return {
+      projectId: project.projectId,
+      events: envelope.data.events ?? [],
+      error:
+        controllerMessage ??
+        (!buildResponse.ok
+          ? apiMessage(
+              buildPayload,
+              "Byggjobbet kunde inte slutföras.",
+            )
+          : null),
     }
   } catch (error) {
-    if (signal?.aborted) return
-    onEvent({
-      type: "error",
-      message: error instanceof Error ? error.message : "Build-anropet kunde inte slutföras.",
-    })
+    if (signal?.aborted) throw error
+    return {
+      projectId: null,
+      events: [],
+      error: error instanceof Error ? error.message : "Build-anropet kunde inte slutföras.",
+    }
   }
 }
 

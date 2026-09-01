@@ -6,7 +6,9 @@
   "include": [
     "contracts/builder-v1.ts",
     "lib/siteagent/adapter.ts",
+    "lib/siteagent/build-event-reducer.ts",
     "lib/siteagent/build-choices.ts",
+    "lib/siteagent/read-model.ts",
     "lib/siteagent/types.ts",
     "lib/supabase/**/*.ts",
     "app/login/page.tsx",
@@ -17,6 +19,7 @@
     "components/siteagent/faces/*.tsx",
     "components/siteagent/landing-prompt-handoff.tsx",
     "components/siteagent/right-drawer.tsx",
+    "components/siteagent/version-list.tsx",
     "components/siteagent/use-layout-prefs.ts"
   ]
 }

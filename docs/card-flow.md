@@ -30,7 +30,7 @@ flowchart BT
     n_product_controller -->|"BuildResultV1"| n_product_version
     n_product_sitemap["Canonical sitemap-projektion<br/>sajtagent-site · prototype"]
     n_product_controller -->|"BuildResultV1.sitemapRevision"| n_product_sitemap
-    n_ui_event_reducer["Sekvensordnad kort-reducer<br/>builder-ui · contracted"]
+    n_ui_event_reducer["Sekvensordnad kort-reducer<br/>builder-ui · implemented"]
     n_product_controller -->|"BuildEventV1"| n_ui_event_reducer
     n_product_version -->|"canonical version refs"| n_ui_event_reducer
     n_product_sitemap -->|"canonical sitemap ref"| n_ui_event_reducer

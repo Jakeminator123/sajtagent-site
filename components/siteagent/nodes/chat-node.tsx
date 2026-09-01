@@ -10,10 +10,10 @@ import { cn } from "@/lib/utils"
 import { useBuilder } from "../builder-store"
 
 export function ChatNode() {
-  const { messages, isStreaming, sendMessage, promptAssist } = useBuilder()
+  const { messages, isStreaming, sendMessage } = useBuilder()
+  const userMessages = messages.filter((message) => message.role === "user")
   const [input, setInput] = useState("")
   const [planMode, setPlanMode] = useState(false)
-  const [assisting, setAssisting] = useState(false)
   const listRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -33,14 +33,6 @@ export function ChatNode() {
     }
   }
 
-  const handleAssist = async () => {
-    if (!input.trim() || assisting) return
-    setAssisting(true)
-    const improved = await promptAssist(input)
-    setInput(improved)
-    setAssisting(false)
-  }
-
   return (
     <div className="w-[400px] rounded-lg border-2 border-blue-500/50 bg-workflow-node-bg shadow-lg flex flex-col">
       <Handle
@@ -56,7 +48,7 @@ export function ChatNode() {
       </div>
 
       <div ref={listRef} className="h-[260px] overflow-y-auto p-3 flex flex-col gap-2 nowheel">
-        {messages.length === 0 ? (
+        {userMessages.length === 0 ? (
           <div className="flex-1 flex flex-col items-center justify-center gap-2 text-center px-4">
             <p className="font-mono text-sm text-workflow-text">Vad vill du bygga?</p>
             <p className="text-xs text-workflow-text-muted leading-relaxed">
@@ -64,17 +56,12 @@ export function ChatNode() {
             </p>
           </div>
         ) : (
-          messages.map((m) => (
+          userMessages.map((m) => (
             <div
               key={m.id}
-              className={cn(
-                "max-w-[85%] rounded-lg px-3 py-2 text-xs leading-relaxed",
-                m.role === "user"
-                  ? "self-end bg-foreground text-background"
-                  : "self-start bg-workflow-node-input text-workflow-text"
-              )}
+              className="max-w-[85%] self-end rounded-lg bg-foreground px-3 py-2 text-xs leading-relaxed text-background"
             >
-              {m.content || <Loader2 className="w-3 h-3 animate-spin" />}
+              {m.content}
             </div>
           ))
         )}
@@ -98,26 +85,27 @@ export function ChatNode() {
           </button>
           <button
             type="button"
-            onClick={handleAssist}
-            disabled={assisting || !input.trim()}
-            className="flex items-center gap-1 px-2 py-1 rounded text-[11px] font-mono border border-workflow-border-subtle text-workflow-text-muted hover:text-workflow-text transition-colors duration-150 disabled:opacity-40"
-            title="Prompt-assist"
+            disabled
+            className="flex items-center gap-1 px-2 py-1 rounded text-[11px] font-mono border border-workflow-border-subtle text-workflow-text-muted opacity-40"
+            title="Prompt-assist är inte ansluten ännu"
           >
-            {assisting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+            <Sparkles className="w-3 h-3" />
             Prompt-assist
           </button>
           <div className="ml-auto flex items-center gap-1">
             <button
               type="button"
-              className="p-1.5 rounded text-workflow-text-subtle hover:text-workflow-text transition-colors duration-150"
-              title="Lägg till media"
+              disabled
+              className="p-1.5 rounded text-workflow-text-subtle opacity-40"
+              title="Media är inte anslutet ännu"
             >
               <ImageIcon className="w-3.5 h-3.5" />
             </button>
             <button
               type="button"
-              className="p-1.5 rounded text-workflow-text-subtle hover:text-workflow-text transition-colors duration-150"
-              title="Lägg till text"
+              disabled
+              className="p-1.5 rounded text-workflow-text-subtle opacity-40"
+              title="Textbilagor är inte anslutna ännu"
             >
               <Type className="w-3.5 h-3.5" />
             </button>

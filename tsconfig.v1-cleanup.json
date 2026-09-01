@@ -8,18 +8,15 @@
     "types": ["node"]
   },
   "include": [
+    "contracts/agent-profile-v1.ts",
     "contracts/builder-v1.ts",
     "lib/db/client.ts",
     "lib/db/env.ts",
     "lib/siteagent/server/build-job-input.ts",
     "lib/siteagent/server/principal.ts",
     "lib/siteagent/server/principal-claims.ts",
-    "lib/siteagent/server/version-model.ts",
-    "lib/siteagent/server/version-repository.ts",
+    "lib/siteagent/server/request-security.ts",
     "lib/supabase/**/*.ts",
-    "app/api/siteagent/projects/[projectId]/state/route.ts",
-    "app/api/siteagent/projects/[projectId]/versions/route.ts",
-    "app/api/siteagent/previews/[previewRef]/route.ts",
-    "scripts/verify-version-read-model.mts"
+    "app/api/ai/transcribe/route.ts"
   ]
 }

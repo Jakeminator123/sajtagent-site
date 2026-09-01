@@ -2,14 +2,33 @@
 import { experimental_transcribe as transcribe } from "ai"
 import { NextResponse } from "next/server"
 
+import { resolveBuildPrincipalV1 } from "../../../../lib/siteagent/server/principal.ts"
+import { isSameOriginMutation } from "../../../../lib/siteagent/server/request-security.ts"
+
 // Ljudinspelning -> text. Körs på node-runtime (aldrig edge med AI SDK).
 export const runtime = "nodejs"
+export const dynamic = "force-dynamic"
 export const maxDuration = 60
 
 // Håll uppladdningen liten — promptdiktering är korta klipp, inte poddavsnitt.
 const MAX_BYTES = 20 * 1024 * 1024
 
 export async function POST(request: Request) {
+  if (!isSameOriginMutation(request)) {
+    return NextResponse.json(
+      { error: "Begäran måste komma från samma origin." },
+      { status: 403 },
+    )
+  }
+
+  const principal = await resolveBuildPrincipalV1(request)
+  if (!principal) {
+    return NextResponse.json(
+      { error: "Logga in för att använda transkribering." },
+      { status: 401 },
+    )
+  }
+
   try {
     const form = await request.formData()
     const file = form.get("audio")
@@ -47,10 +66,10 @@ export async function POST(request: Request) {
       text: result.text,
       durationInSeconds: result.durationInSeconds ?? null,
     })
-  } catch (error) {
-    console.error("[v0] transcribe error:", error)
+  } catch {
+    console.error("[ai/transcribe] Transkriberingen misslyckades.")
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Transkribering misslyckades" },
+      { error: "Transkribering misslyckades" },
       { status: 500 }
     )
   }

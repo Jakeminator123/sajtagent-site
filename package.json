@@ -14,7 +14,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "check": "npm run check:contracts && npm run check:artifact-read && npm run check:agent-profile && npm run check:build-jobs && npm run check:version-read-model && npm run check:builder-adapter && npm run check:agent-session-server && npm run check:site-ui && npm run cards:check",
+    "check": "npm run check:contracts && npm run check:artifact-read && npm run check:agent-profile && npm run check:build-jobs && npm run check:version-read-model && npm run check:builder-adapter && npm run check:agent-session-server && npm run check:site-ui && npm run check:v1-cleanup && npm run cards:check",
     "check:contracts": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/verify-builder-contracts.mts && node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/verify-agent-session-contract.mts && tsc -p tsconfig.contracts.json",
     "check:artifact-read": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/verify-artifact-read-contract.mts && node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/verify-runtime-artifact-reader.mts && tsc -p tsconfig.artifact-read.json",
     "check:agent-session": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/verify-agent-session-contract.mts && tsc -p tsconfig.agent-session.json",
@@ -25,13 +25,11 @@
     "check:builder-adapter": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/verify-builder-adapter.mts && tsc -p tsconfig.builder-adapter.json",
     "check:agent-session-ui": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/verify-agent-session-ui.mts && tsc -p tsconfig.agent-session-ui.json",
     "check:site-ui": "node scripts/verify-site-ui.mjs && node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/verify-agent-session-ui.mts && tsc -p tsconfig.site-ui.json",
+    "check:v1-cleanup": "node scripts/verify-v1-cleanup.mjs && tsc -p tsconfig.v1-cleanup.json",
     "cards:docs": "node scripts/verify-card-flow.mjs --write",
     "cards:check": "node scripts/verify-card-flow.mjs",
     "start": "next start",
-    "lint": "eslint .",
-    "db:generate": "drizzle-kit generate",
-    "db:push": "drizzle-kit push",
-    "db:studio": "drizzle-kit studio"
+    "lint": "eslint ."
   },
   "dependencies": {
     "@emotion/is-prop-valid": "^1.4.0",
@@ -77,7 +75,6 @@
     "clsx": "^2.1.1",
     "cmdk": "1.1.1",
     "date-fns": "4.1.0",
-    "drizzle-orm": "^0.45.2",
     "embla-carousel-react": "8.5.1",
     "input-otp": "1.4.1",
     "lucide-react": "^0.544.0",
@@ -109,8 +106,6 @@
     "@types/pg": "^8.23.1",
     "@types/react": "19.2.7",
     "@types/react-dom": "19.2.3",
-    "dotenv": "^17.4.2",
-    "drizzle-kit": "^0.31.10",
     "eslint": "9.39.5",
     "eslint-config-next": "16.3.3",
     "postcss": "^8.5",

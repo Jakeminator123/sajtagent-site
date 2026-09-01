@@ -26,6 +26,9 @@ jobs:
       - name: Run deterministic contracts and product checks
         run: npm run check
 
+      - name: Check V1 surface and transcription boundary
+        run: npm run check:v1-cleanup
+
       - name: Lint
         run: npm run lint
 

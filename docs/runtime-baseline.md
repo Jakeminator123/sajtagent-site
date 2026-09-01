@@ -45,6 +45,19 @@ second product persona. The network path remains browser -> SiteAgent
 controller -> Sprite runtime -> OpenClaw. The browser never receives runtime
 signing keys or calls OpenClaw directly.
 
+## V1 surface boundary
+
+The orphaned workflow-editor prototype and its generation, execution, GitHub,
+memory, and workflow routes are not part of SiteAgent V1. They have been
+removed together with their Drizzle schema and scripts. Site persistence uses
+the server-only `pg.Pool` module and reviewed Supabase migrations.
+
+Prompt dictation remains available only through the authenticated, same-origin
+`POST /api/ai/transcribe` Site route. It accepts at most 20 MB and returns a
+generic failure instead of provider details. The browser never calls the
+transcription provider directly. `npm run check:v1-cleanup` locks these
+boundaries and is run by CI.
+
 ## Client projection boundary
 
 The browser now reduces each subordinate `BuildEventV1` stream with one pure,

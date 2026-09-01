@@ -9,9 +9,10 @@ The Builder now uses Sajtagent-owned product routes:
 - `POST /api/siteagent/build-jobs` validates `BuilderIntentV1`, persists the
   job, and returns ordered `BuildEventV1` records;
 - Supabase SSR cookies and verified claims resolve the server principal;
-- V1 exposes a separate OpenClaw Chat card as the primary conversation surface;
-- Build choices can remain beside Chat or be folded down, while the Sajtagent
-  card presents identity, product state and the server security boundary;
+- V1 exposes the user's input in a separate Chat card;
+- replies, progress and fail-closed errors appear in the Sajtagent card, which
+  is the product surface for the OpenClaw-backed agent;
+- Build choices can be opened beside the conversation or folded down;
 - the old `/api/engine/chats/stream` request and simulated HTML fallback no
   longer exist in production code.
 
@@ -19,9 +20,10 @@ The current local runtime remains deliberately disconnected. A missing
 runtime or an unverified worker candidate ends as `job.failed`. The browser
 cannot convert that state into a preview or ready version.
 
-The product wording is intentionally user-to-OpenClaw, but the network path is
-always browser -> SiteAgent controller -> Sprite runtime -> OpenClaw. The
-browser never receives runtime signing keys or calls OpenClaw directly.
+The product wording is user-to-Sajtagent; OpenClaw is Sajtagent's runtime, not a
+second product persona. The network path remains browser -> SiteAgent
+controller -> Sprite runtime -> OpenClaw. The browser never receives runtime
+signing keys or calls OpenClaw directly.
 
 ## Still unavailable
 

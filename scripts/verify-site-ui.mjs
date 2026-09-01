@@ -7,6 +7,9 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), "..")
 const proxySource = readFileSync(resolve(root, "lib/supabase/proxy.ts"), "utf8")
 const executeSource = readFileSync(resolve(root, "app/api/execute/route.ts"), "utf8")
 const envExample = readFileSync(resolve(root, ".env.example"), "utf8")
+const chatFaceSource = readFileSync(resolve(root, "components/siteagent/faces/chat-face.tsx"), "utf8")
+const agentFaceSource = readFileSync(resolve(root, "components/siteagent/faces/agent-face.tsx"), "utf8")
+const layoutSource = readFileSync(resolve(root, "components/siteagent/use-layout-prefs.ts"), "utf8")
 
 assert.match(
   proxySource,
@@ -28,5 +31,20 @@ assert.doesNotMatch(
   /^NEXT_PUBLIC_URL=/m,
   "NEXT_PUBLIC_URL is not a required Site environment variable",
 )
+assert.match(
+  chatFaceSource,
+  /message\.role === "user"/,
+  "Chat card must render the user's side of the conversation",
+)
+assert.match(
+  agentFaceSource,
+  /message\.role === "assistant"/,
+  "Sajtagent card must render the agent's side of the conversation",
+)
+assert.match(
+  layoutSource,
+  /DEFAULT_DOCKED: FaceId\[\] = \["choices", "versions", "blocks", "map"\]/,
+  "Chat and Sajtagent must be the two open default cards",
+)
 
-console.log("Site UI boundary: PASS (proxy routing and environment origin)")
+console.log("Site UI boundary: PASS (proxy routing, environment origin, and split conversation cards)")

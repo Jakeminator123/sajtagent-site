@@ -127,13 +127,13 @@
       "layer": 2,
       "owner": "builder-ui",
       "status": "implemented",
-      "summary": "V1:s primära dialog mellan användaren och OpenClaw; skickar produktavsikt via Site-controllern och visar controllerstyrd progress eller fel.",
+      "summary": "Användarens inmatningskort; skickar produktavsikt via Site-controllern till Sajtagent utan att exponera runtimeverktyg.",
       "card": {
         "registryId": "chat",
-        "current": "separate controller-bound conversation",
-        "target": "primary user-to-OpenClaw conversation",
+        "current": "separate controller-bound user input",
+        "target": "user input to Sajtagent",
         "produces": ["site.create", "site.change"],
-        "consumes": ["job.accepted", "job.running", "message.delta", "job.failed"]
+        "consumes": []
       },
       "failure": {
         "code": "card.chat-unavailable",
@@ -147,18 +147,18 @@
       "kind": "card",
       "layer": 2,
       "owner": "builder-ui",
-      "status": "prototype",
-      "summary": "Presenterar produktagentens identitet, status och säkerhetsgräns utan att duplicera OpenClaw-dialogen.",
+      "status": "implemented",
+      "summary": "Sajtagent är den OpenClaw-backade agenten; kortet visar dess svar, progress och felsäkra runtimefel.",
       "card": {
         "registryId": "agent",
-        "current": "agent identity and status prototype",
-        "target": "verified agent and runtime status",
+        "current": "controller-bound agent response",
+        "target": "Sajtagent response and verified runtime status",
         "produces": [],
-        "consumes": ["agent.profile", "job.running", "job.failed"]
+        "consumes": ["agent.profile", "job.running", "message.delta", "job.failed"]
       },
       "failure": {
         "code": "card.agent-unavailable",
-        "symptom": "Agentstatus visas som okänd utan att chatt eller versioner felaktigt deklareras otillgängliga.",
+        "symptom": "Sajtagent visar ett controllerverifierat fel i stället för ett fabricerat svar eller lyckat bygge.",
         "detectedBy": "builder-ui"
       }
     },
@@ -251,8 +251,7 @@
     { "id": "projection.controller-to-reducer", "from": "product.controller", "to": "ui.event-reducer", "channel": "projection", "contract": "BuildEventV1" },
     { "id": "projection.version-to-reducer", "from": "product.version", "to": "ui.event-reducer", "channel": "projection", "contract": "canonical version refs" },
     { "id": "projection.sitemap-to-reducer", "from": "product.sitemap", "to": "ui.event-reducer", "channel": "projection", "contract": "canonical sitemap ref" },
-    { "id": "projection.reducer-to-chat", "from": "ui.event-reducer", "to": "card.chat", "channel": "projection", "contract": "progress and failure state" },
-    { "id": "projection.reducer-to-agent", "from": "ui.event-reducer", "to": "card.agent", "channel": "projection", "contract": "agent and runtime status" },
+    { "id": "projection.reducer-to-agent", "from": "ui.event-reducer", "to": "card.agent", "channel": "projection", "contract": "assistant response, progress and failure state" },
     { "id": "projection.reducer-to-versions", "from": "ui.event-reducer", "to": "card.versions", "channel": "projection", "contract": "terminal version state" },
     { "id": "projection.reducer-to-map", "from": "ui.event-reducer", "to": "card.map", "channel": "projection", "contract": "verified sitemap state" }
   ],
@@ -279,7 +278,6 @@
         "projection.controller-to-reducer",
         "projection.version-to-reducer",
         "projection.sitemap-to-reducer",
-        "projection.reducer-to-chat",
         "projection.reducer-to-agent",
         "projection.reducer-to-versions",
         "projection.reducer-to-map"

@@ -34,10 +34,8 @@ flowchart BT
     n_product_controller -->|"BuildEventV1"| n_ui_event_reducer
     n_product_version -->|"canonical version refs"| n_ui_event_reducer
     n_product_sitemap -->|"canonical sitemap ref"| n_ui_event_reducer
-    n_card_chat["Chatt<br/>builder-ui · implemented"]
-    n_ui_event_reducer -->|"progress and failure state"| n_card_chat
-    n_card_agent["Sajtagent<br/>builder-ui · prototype"]
-    n_ui_event_reducer -->|"agent and runtime status"| n_card_agent
+    n_card_agent["Sajtagent<br/>builder-ui · implemented"]
+    n_ui_event_reducer -->|"assistant response, progress and failure state"| n_card_agent
     n_card_versions["Versioner<br/>builder-ui · prototype"]
     n_ui_event_reducer -->|"terminal version state"| n_card_versions
     n_card_map["Karta<br/>builder-ui · prototype"]
@@ -49,8 +47,8 @@ flowchart BT
 | Kort | Nu | Mål | Producerar | Konsumerar | Felkod |
 | --- | --- | --- | --- | --- | --- |
 | Byggval | separate prototype card | keep until first verified version | `BuilderIntentV1.context.buildChoices` | - | `card.choices-invalid` |
-| Chatt | separate controller-bound conversation | primary user-to-OpenClaw conversation | `site.create`<br/>`site.change` | `job.accepted`<br/>`job.running`<br/>`message.delta`<br/>`job.failed` | `card.chat-unavailable` |
-| Sajtagent | agent identity and status prototype | verified agent and runtime status | - | `agent.profile`<br/>`job.running`<br/>`job.failed` | `card.agent-unavailable` |
+| Chatt | separate controller-bound user input | user input to Sajtagent | `site.create`<br/>`site.change` | - | `card.chat-unavailable` |
+| Sajtagent | controller-bound agent response | Sajtagent response and verified runtime status | - | `agent.profile`<br/>`job.running`<br/>`message.delta`<br/>`job.failed` | `card.agent-unavailable` |
 | Blocks | free-text follow-up prototype | typed block intent | `site.block.add`<br/>`site.block.replace`<br/>`site.block.remove` | `job.failed` | `card.blocks-stale-ref` |
 | Versioner | prototype projection | verified read model | - | `job.succeeded`<br/>`job.failed` | `card.versions-gap` |
 | Karta | preview-pages prototype | verified sitemap read model | - | `job.succeeded` | `card.map-missing` |
@@ -58,8 +56,8 @@ flowchart BT
 ## Beslut som tester låser
 
 - Det körbara V1-registret har sex kort: Byggval, Chat, Blocks, Versioner, Karta och Sajtagent.
-- Chat är den primära användar-till-OpenClaw-dialogen; Byggval kan ligga bredvid eller vikas ned.
-- Sajtagent visar identitet, produktstate och säkerhetsgräns utan att absorbera Chat.
+- Chat är användarens inmatningskort; Sajtagent är OpenClaw-agentens svarskort.
+- Byggval kan öppnas bredvid dialogen eller vikas ned utan att ändra meddelandevägen.
 - Browserkort skapar endast `BuilderIntentV1`; inga OpenClaw-, MCP- eller verktygsnamn får läcka in i kortkontraktet.
 - Versioner och Karta projicerar verifierad produktstate och får inte deklarera framgång från råa modell- eller OpenClaw-events.
 

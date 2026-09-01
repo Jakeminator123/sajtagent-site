@@ -7,7 +7,7 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { FACES, type FaceId } from "./faces/face-defs"
 
-const STORAGE_KEY = "siteagent:layout:v3"
+const STORAGE_KEY = "siteagent:layout:v4"
 
 export interface FaceSize {
   w: number
@@ -16,9 +16,9 @@ export interface FaceSize {
 
 export const SIZE_LIMITS = { minW: 260, maxW: 680, minH: 180, maxH: 820 }
 
-// V1 öppnar Byggval och OpenClaw-chatten sida vid sida. Övriga kort kan
-// plockas upp från kortleken när användaren behöver dem.
-const DEFAULT_DOCKED: FaceId[] = ["versions", "blocks", "map", "agent"]
+// V1 öppnar användarens Chatt till vänster och Sajtagent/OpenClaw till höger.
+// Byggval och övriga kort kan plockas upp från kortleken vid behov.
+const DEFAULT_DOCKED: FaceId[] = ["choices", "versions", "blocks", "map"]
 
 function defaultSizes(): Record<FaceId, FaceSize> {
   const sizes = {} as Record<FaceId, FaceSize>

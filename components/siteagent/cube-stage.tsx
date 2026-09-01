@@ -2,7 +2,7 @@
 
 // Kortscenen: sex kort som flyter över preview-scenen.
 // - Kort kan vikas ner till kortleken (bara främsta syns), resizas och dras runt.
-// - Kort med baksida kan flippas 180°: OpenClaw-chatt → logg, Blocks → reserverad,
+// - Kort med baksida kan flippas 180°: Chatt → logg, Blocks → reserverad,
 //   Byggval → "Motorn". Byggval låses efter första genereringen och
 //   auto-flippas till motor-strömmen.
 // Layouten (dock, storlek, position) sparas i localStorage.

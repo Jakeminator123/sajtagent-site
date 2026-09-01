@@ -80,11 +80,11 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
   registry, target card responsibilities, typed inputs/outputs and failure
   propagation. `docs/card-flow.md` is generated and must not be hand-edited.
 - V1 has six cards: Build choices, Chat, Blocks, Versions, Map and SiteAgent.
-  Chat is the primary user-to-OpenClaw conversation surface. Build choices may
-  remain beside it or be folded down; SiteAgent presents identity, product
-  state and the security boundary rather than absorbing the conversation.
+  Chat is the user's input card. SiteAgent is the OpenClaw-backed agent card
+  where replies, progress and fail-closed errors appear. Build choices may be
+  opened beside them or folded down.
 - The browser must still submit typed product intent through the SiteAgent
-  controller. A visible OpenClaw conversation never authorizes a direct
+  controller. Showing SiteAgent/OpenClaw in a card never authorizes a direct
   browser-to-OpenClaw, browser-to-Sprite, MCP or model-tool connection.
 - Run `npm run cards:docs` after an intentional model change and
   `npm run cards:check` before reporting PR or push verification.

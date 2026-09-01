@@ -117,7 +117,7 @@ export function PreviewStage() {
                 <Monitor className="w-10 h-10 text-zinc-300" />
                 <p className="font-mono text-base text-zinc-600">Din sajt visas här</p>
                 <p className="text-sm text-zinc-400 leading-relaxed max-w-sm text-pretty">
-                  Skriv till OpenClaw för att starta. Sajten fyller hela scenen — plattorna runt om kan
+                  Skriv till Sajtagent i Chatt-kortet. Sajten fyller hela scenen — plattorna runt om kan
                   vikas ner till kuben nere till höger.
                 </p>
               </div>

@@ -16,7 +16,7 @@ export function VersionsFace() {
         <p className="text-xs text-workflow-text-subtle text-center py-8 leading-relaxed">
           Inga versioner ännu.
           <br />
-          Skriv till OpenClaw för att skapa den första.
+          Skriv till Sajtagent i Chatt-kortet för att skapa den första.
         </p>
       ) : (
         versions.map((v) => (

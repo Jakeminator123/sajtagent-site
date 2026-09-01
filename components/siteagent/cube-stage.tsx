@@ -2,9 +2,9 @@
 
 // Kortscenen: sex kort som flyter över preview-scenen.
 // - Kort kan vikas ner till kortleken (bara främsta syns), resizas och dras runt.
-// - Kort med baksida kan flippas 180°: Chat → logg, Blocks → reserverad,
-//   Byggval → "Motorn". Byggval låses efter första genereringen och
-//   auto-flippas till motor-strömmen.
+// - Kort med baksida kan flippas 180°: Chatt → logg, Blocks → reserverad,
+//   Byggval → byggstatus. Byggval låses först av verifierad version eller
+//   ett faktiskt build-event, aldrig av en vanlig chatt-turn.
 // Layouten (dock, storlek, position) sparas i localStorage.
 
 import React, { useCallback, useEffect, useRef, useState } from "react"
@@ -205,7 +205,7 @@ function FaceCard({
       style={{ width: size.w, height: size.h, x, y, perspective: 1400 }}
       className={cn(
         "relative pointer-events-auto shrink-0",
-        face.id === "chat" && "mt-auto"
+        face.id === "agent" && "mt-auto"
       )}
     >
       <motion.div
@@ -225,12 +225,12 @@ function FaceCard({
           {header}
           <div className="flex-1 min-h-0 relative">
             <face.Component />
-            {/* Byggval låses efter första genereringen */}
+            {/* Byggval låses efter ett faktiskt bygge eller en verifierad version. */}
             {face.id === "choices" && locked && (
               <div className="absolute inset-0 bg-workflow-node-bg/70 backdrop-blur-[1px] flex flex-col items-center justify-center gap-2 z-10">
                 <Lock className="w-4 h-4 text-workflow-text-muted" />
                 <p className="font-mono text-[10px] text-workflow-text-muted text-center px-4 leading-relaxed">
-                  Byggvalen låstes när första genereringen startade.
+                  Byggvalen låstes när ett verifierat bygge startade.
                 </p>
               </div>
             )}
@@ -302,18 +302,19 @@ export function CubeStage({
 }: CubeStageProps) {
   const [fanned, setFanned] = useState(false)
   const [flipped, setFlipped] = useState<Partial<Record<FaceId, boolean>>>({})
-  const { versions, isStreaming } = useBuilder()
+  const { versions, previewStatus } = useBuilder()
 
-  // Byggval låses när första genereringen startar — och auto-flippas
-  // till baksidan ("Motorn") som strömmar vad LLM:erna gör och bygger.
-  const choicesLocked = versions.length > 0 || isStreaming
+  // En vanlig chatt-turn får inte se ut som ett bygge. Endast ett faktiskt
+  // build-event auto-flippar kortet; en verifierad version låser det också.
+  const buildStarted = previewStatus === "building"
+  const choicesLocked = versions.length > 0 || buildStarted
   const autoFlippedRef = useRef(false)
   useEffect(() => {
-    if (choicesLocked && !autoFlippedRef.current) {
+    if (buildStarted && !autoFlippedRef.current) {
       autoFlippedRef.current = true
       setFlipped((prev) => ({ ...prev, choices: true }))
     }
-  }, [choicesLocked])
+  }, [buildStarted])
 
   const toggleFlip = useCallback((id: FaceId) => {
     setFlipped((prev) => ({ ...prev, [id]: !prev[id] }))

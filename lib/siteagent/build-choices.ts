@@ -101,7 +101,7 @@ export const CHOICE_GROUPS: ChoiceGroup[] = [
 /** Antal sidor hanteras separat som slider: 0 = Auto, 1–3 */
 export const PAGE_COUNT = { min: 0, max: 3, autoValue: 0 }
 
-export type BuildChoices = Record<string, string> & { pageCount: number }
+export type BuildChoices = Record<string, string | number> & { pageCount: number }
 
 export function defaultBuildChoices(): BuildChoices {
   const choices = Object.fromEntries(

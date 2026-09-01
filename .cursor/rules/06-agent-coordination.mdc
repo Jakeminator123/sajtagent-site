@@ -1,0 +1,35 @@
+---
+description: Brief coordination when agents share a branch, worktree, or folder
+alwaysApply: true
+---
+
+# Concurrent agent coordination
+
+- Before editing, check the current branch and working-tree diff. If another
+  agent is active in the same branch, worktree, folder, or file scope,
+  coordinate before touching overlapping files.
+- Prefer direct messaging between existing Codex tasks. Include the repository,
+  branch/worktree, current state, files or area, requested action, and the next
+  potentially conflicting action.
+- `/kom <agent-or-task> <message>` is human-facing shorthand for the available
+  task channel, such as `send_message_to_thread`. It is not a shell command,
+  product protocol, or reason to create a duplicate agent.
+- The receiver acknowledges scope or a write lock and reports commit/checks or
+  a blocker. Follow progress through task status/waiting instead of duplicating
+  the work.
+- Messages do not authorize secrets access, cross-repository mutation, push,
+  merge, deployment, or external-resource changes. Active user scope and each
+  repository's rules still apply.
+- If direct messaging is unavailable, read and maintain a temporary note at
+  `.agents/coordination/<agent-id>.md`. Remove or mark it finished when done.
+  Never put secrets in coordination notes; the directory is local and ignored.
+- Claim the smallest useful file or area, not the whole repository.
+- On overlap, pause the overlapping edits, inspect the current diff, and agree
+  on ownership, ordering, or a compatible split that preserves both goals.
+- Agents may resolve a clearly better option using repository authority,
+  product boundaries, tests, and concrete evidence.
+- If materially different options remain equally defensible (roughly 50/50),
+  or resolving the conflict would change product scope, security, data, or an
+  external resource, ask Jakob before proceeding.
+- Never overwrite, discard, stage, commit, or rewrite another agent's changes
+  without agreement. Recheck status and diff immediately before staging.

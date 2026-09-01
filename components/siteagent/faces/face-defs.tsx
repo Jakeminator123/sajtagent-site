@@ -1,15 +1,15 @@
 "use client"
 
-// Registret över tärningens sex sidor.
+// Det körbara V1-registret har sex kort. Femkortsmålet absorberar Chatt i Sajtagent senare.
 // column: vilken sida av scenen ytan öppnas på.
 
 import type React from "react"
 import { Blocks, Bot, Clock, Map, MessageSquare, SlidersHorizontal } from "lucide-react"
 import { BuildChoicesFace } from "./build-choices-face"
-import { ChatFace } from "./chat-face"
 import { VersionsFace } from "./versions-face"
 import { BlocksFace } from "./blocks-face"
 import { AgentFace } from "./agent-face"
+import { ChatFace } from "./chat-face"
 import { SitemapFace } from "./sitemap-face"
 import { BlankBack, EngineBack, LogBack } from "./back-faces"
 
@@ -41,19 +41,19 @@ export const FACES: FaceDef[] = [
     height: 380,
     Component: BuildChoicesFace,
     Back: EngineBack,
-    backLabel: "Motorn",
+    backLabel: "Byggstatus",
   },
   {
     id: "chat",
-    label: "Chat",
+    label: "Chatt",
     icon: MessageSquare,
-    accent: "text-brand-blue",
-    edge: "border-brand-blue/50",
+    accent: "text-sky-600 dark:text-sky-400",
+    edge: "border-sky-500/50",
     column: "left",
     height: 440,
     Component: ChatFace,
     Back: LogBack,
-    backLabel: "Logg",
+    backLabel: "Körlogg",
   },
   {
     id: "versions",
@@ -89,12 +89,12 @@ export const FACES: FaceDef[] = [
   },
   {
     id: "agent",
-    label: "Siteagent",
+    label: "Sajtagent",
     icon: Bot,
     accent: "text-rose-600 dark:text-rose-400",
     edge: "border-rose-500/50",
     column: "right",
-    height: 380,
+    height: 440,
     Component: AgentFace,
   },
 ]

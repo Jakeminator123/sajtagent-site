@@ -1,0 +1,296 @@
+{
+  "schemaVersion": 1,
+  "modelId": "sajtagent-card-flow-v1",
+  "title": "Builderkortens målflöde",
+  "description": "Kortens kontinuerliga AgentSession-flöde, verifierade projektioner och felpåverkan.",
+  "sourceRegistry": "components/siteagent/faces/face-defs.tsx",
+  "owners": ["user", "builder-ui", "sajtagent-site"],
+  "statuses": ["planned", "prototype", "contracted", "implemented", "verified"],
+  "channels": {
+    "intent": "Kortet skapar ett browser-säkert AgentTurnRequestV1 utan tool- eller runtimeval.",
+    "context": "Lokal vydata blir strukturerad kontext men skapar inget jobb ensam.",
+    "projection": "Kortet visar endast sekvensordnad eller canonical produktstate.",
+    "migration": "Ett nuvarande kort absorberas av ett annat målansvar."
+  },
+  "layers": [
+    { "id": 0, "label": "Produktcontroller och persistens" },
+    { "id": 1, "label": "Intent- och eventadapter" },
+    { "id": 2, "label": "Builderkort" },
+    { "id": 3, "label": "Användare" }
+  ],
+  "registryCards": [
+    { "id": "choices", "label": "Byggval" },
+    { "id": "chat", "label": "Chatt" },
+    { "id": "versions", "label": "Versioner" },
+    { "id": "blocks", "label": "Blocks" },
+    { "id": "map", "label": "Karta" },
+    { "id": "agent", "label": "Sajtagent" }
+  ],
+  "currentV1CardIds": ["choices", "chat", "versions", "blocks", "map", "agent"],
+  "targetCardIds": ["choices", "blocks", "versions", "map", "agent"],
+  "targetAbsorptions": [
+    {
+      "from": "chat",
+      "into": "agent",
+      "status": "planned",
+      "summary": "Efter V1 absorberar Sajtagent användarens inmatning; dagens separata Chat-kort ligger kvar tills dess."
+    }
+  ],
+  "retiredCardIds": [],
+  "nodes": [
+    {
+      "id": "product.controller",
+      "label": "SiteAgent controller",
+      "kind": "product",
+      "layer": 0,
+      "owner": "sajtagent-site",
+      "status": "implemented",
+      "summary": "Binder användare, projekt och AgentSession, skapar svarspolicy och sekvenserar AgentEventV1. BuildJobV1 förblir stängt tills samma session har ett ratificerat godkännande- och tool-join.",
+      "failure": {
+        "code": "cards.controller-rejected",
+        "symptom": "Inget kort får visa en lyckad version.",
+        "detectedBy": "sajtagent-site"
+      }
+    },
+    {
+      "id": "product.version",
+      "label": "Canonical version och preview",
+      "kind": "projection",
+      "layer": 0,
+      "owner": "sajtagent-site",
+      "status": "prototype",
+      "summary": "Verifierade revisions-, versions- och previewreferenser.",
+      "failure": {
+        "code": "cards.version-unavailable",
+        "symptom": "Versioner stannar i fel- eller väntläge och preview blir inte ready.",
+        "detectedBy": "sajtagent-site"
+      }
+    },
+    {
+      "id": "product.sitemap",
+      "label": "Canonical sitemap-projektion",
+      "kind": "projection",
+      "layer": 0,
+      "owner": "sajtagent-site",
+      "status": "prototype",
+      "summary": "Sitemap härleds från den verifierade versionen, aldrig från ett pågående modellutkast.",
+      "failure": {
+        "code": "cards.sitemap-stale",
+        "symptom": "Karta visar väntläge eller markerad stale state.",
+        "detectedBy": "sajtagent-site"
+      }
+    },
+    {
+      "id": "ui.intent-adapter",
+      "label": "Tunn sessionadapter",
+      "kind": "adapter",
+      "layer": 1,
+      "owner": "builder-ui",
+      "status": "implemented",
+      "summary": "Öppnar Site-owned AgentSession, skickar AgentTurnRequestV1 och återupptar Site-SSE utan tool-, OpenClaw- eller MCP-namn.",
+      "failure": {
+        "code": "cards.intent-invalid",
+        "symptom": "Avsikten stoppas lokalt eller av servervalidering innan ett jobb skapas.",
+        "detectedBy": "sajtagent-site"
+      }
+    },
+    {
+      "id": "ui.event-reducer",
+      "label": "Sekvensordnad kort-reducer",
+      "kind": "adapter",
+      "layer": 1,
+      "owner": "builder-ui",
+      "status": "implemented",
+      "summary": "Deduplicerar AgentEventV1 med session-global sequence, låser terminal status per turn och återhämtar verifierade vyer från canonical read models.",
+      "failure": {
+        "code": "cards.sequence-gap",
+        "symptom": "Berörda kort pausas och state hämtas om; inget event hoppas över tyst.",
+        "detectedBy": "builder-ui"
+      }
+    },
+    {
+      "id": "card.choices",
+      "label": "Byggval",
+      "kind": "card",
+      "layer": 2,
+      "owner": "builder-ui",
+      "status": "prototype",
+      "summary": "Valfri strukturerad startkontext. Tom scaffold är tillåten och Auto är standard.",
+      "card": {
+        "registryId": "choices",
+        "current": "separate prototype card",
+        "target": "keep until first verified version",
+        "produces": ["AgentTurnRequestV1.uiContext.buildChoices"],
+        "consumes": []
+      },
+      "failure": {
+        "code": "card.choices-invalid",
+        "symptom": "Ogiltigt val ignoreras inte utan avsikten avvisas tydligt.",
+        "detectedBy": "builder-ui"
+      }
+    },
+    {
+      "id": "card.chat",
+      "label": "Chatt",
+      "kind": "card",
+      "layer": 2,
+      "owner": "builder-ui",
+      "status": "implemented",
+      "summary": "Användarens inmatningskort; skickar vanliga frågor eller byggönskemål som AgentTurnRequestV1 utan att välja runtimeverktyg.",
+      "card": {
+        "registryId": "chat",
+        "current": "Site AgentSession user input",
+        "target": "absorbed as user input in Sajtagent after V1",
+        "produces": ["AgentTurnRequestV1"],
+        "consumes": []
+      },
+      "failure": {
+        "code": "card.chat-unavailable",
+        "symptom": "Nya byggavsikter blockeras men befintliga versioner förblir läsbara.",
+        "detectedBy": "builder-ui"
+      }
+    },
+    {
+      "id": "card.agent",
+      "label": "Sajtagent",
+      "kind": "card",
+      "layer": 2,
+      "owner": "builder-ui",
+      "status": "implemented",
+      "summary": "Sajtagent är den OpenClaw-backade agenten; kortet visar message.delta, safe tool labels, explicit ask_user och felsäkra fel.",
+      "card": {
+        "registryId": "agent",
+        "current": "AgentEventV1 response projection",
+        "target": "Sajtagent user input, response, question and verified runtime status",
+        "produces": ["AgentTurnRequestV1.replyToQuestionId", "AgentTurnRequestV1.answerSelections"],
+        "consumes": ["agent.status", "message.delta", "question.requested", "tool.started", "tool.completed", "turn.failed"]
+      },
+      "failure": {
+        "code": "card.agent-unavailable",
+        "symptom": "Sajtagent visar ett controllerverifierat fel i stället för ett fabricerat svar eller lyckat bygge.",
+        "detectedBy": "builder-ui"
+      }
+    },
+    {
+      "id": "card.blocks",
+      "label": "Blocks",
+      "kind": "card",
+      "layer": 2,
+      "owner": "builder-ui",
+      "status": "prototype",
+      "summary": "Skickar ett blockönskemål som AgentTurnRequestV1 med vald route, elementreferens och basrevision.",
+      "card": {
+        "registryId": "blocks",
+        "current": "free-text follow-up prototype",
+        "target": "typed block context in an agent turn",
+        "produces": ["AgentTurnRequestV1"],
+        "consumes": ["turn.failed"]
+      },
+      "failure": {
+        "code": "card.blocks-stale-ref",
+        "symptom": "Kommandot avvisas mot en stale revision i stället för att ändra fel element.",
+        "detectedBy": "sajtagent-site"
+      }
+    },
+    {
+      "id": "card.versions",
+      "label": "Versioner",
+      "kind": "card",
+      "layer": 2,
+      "owner": "builder-ui",
+      "status": "prototype",
+      "summary": "Läs- och återställningsvy över verifierade produktversioner.",
+      "card": {
+        "registryId": "versions",
+        "current": "prototype projection",
+        "target": "verified read model",
+        "produces": [],
+        "consumes": ["preview.ready", "turn.failed"]
+      },
+      "failure": {
+        "code": "card.versions-gap",
+        "symptom": "Listan återhämtas från canonical state och visar inte en saknad version som klar.",
+        "detectedBy": "builder-ui"
+      }
+    },
+    {
+      "id": "card.map",
+      "label": "Karta",
+      "kind": "card",
+      "layer": 2,
+      "owner": "builder-ui",
+      "status": "prototype",
+      "summary": "En enkel sitemap-trädvy över den senaste verifierade versionen.",
+      "card": {
+        "registryId": "map",
+        "current": "preview-pages prototype",
+        "target": "verified sitemap read model",
+        "produces": [],
+        "consumes": ["preview.ready"]
+      },
+      "failure": {
+        "code": "card.map-missing",
+        "symptom": "Kortet visar att sitemap saknas och behåller inte en gammal karta omärkt.",
+        "detectedBy": "builder-ui"
+      }
+    },
+    {
+      "id": "user.intent",
+      "label": "Användare",
+      "kind": "actor",
+      "layer": 3,
+      "owner": "user",
+      "status": "implemented",
+      "summary": "Ger en första beskrivning och därefter uppföljningar mot vald basversion.",
+      "failure": {
+        "code": "card.user-input-invalid",
+        "symptom": "Ingen muterande avsikt skickas.",
+        "detectedBy": "builder-ui"
+      }
+    }
+  ],
+  "edges": [
+    { "id": "intent.user-to-chat", "from": "user.intent", "to": "card.chat", "channel": "intent", "contract": "free prompt" },
+    { "id": "context.choices-to-chat", "from": "card.choices", "to": "card.chat", "channel": "context", "contract": "buildChoices" },
+    { "id": "intent.chat-to-adapter", "from": "card.chat", "to": "ui.intent-adapter", "channel": "intent", "contract": "AgentTurnRequestV1" },
+    { "id": "intent.blocks-to-adapter", "from": "card.blocks", "to": "ui.intent-adapter", "channel": "intent", "contract": "AgentTurnRequestV1" },
+    { "id": "intent.adapter-to-controller", "from": "ui.intent-adapter", "to": "product.controller", "channel": "intent", "contract": "AgentTurnRequestV1" },
+    { "id": "projection.controller-to-version", "from": "product.controller", "to": "product.version", "channel": "projection", "contract": "BuildResultV1" },
+    { "id": "projection.controller-to-sitemap", "from": "product.controller", "to": "product.sitemap", "channel": "projection", "contract": "BuildResultV1.sitemapRevision" },
+    { "id": "projection.controller-to-reducer", "from": "product.controller", "to": "ui.event-reducer", "channel": "projection", "contract": "AgentEventV1 SSE + resume" },
+    { "id": "projection.version-to-reducer", "from": "product.version", "to": "ui.event-reducer", "channel": "projection", "contract": "canonical version refs" },
+    { "id": "projection.sitemap-to-reducer", "from": "product.sitemap", "to": "ui.event-reducer", "channel": "projection", "contract": "canonical sitemap ref" },
+    { "id": "projection.reducer-to-agent", "from": "ui.event-reducer", "to": "card.agent", "channel": "projection", "contract": "assistant response, progress and failure state" },
+    { "id": "projection.reducer-to-versions", "from": "ui.event-reducer", "to": "card.versions", "channel": "projection", "contract": "terminal version state" },
+    { "id": "projection.reducer-to-map", "from": "ui.event-reducer", "to": "card.map", "channel": "projection", "contract": "verified sitemap state" }
+  ],
+  "views": [
+    {
+      "id": "target-command",
+      "label": "Mål: kommando nedåt",
+      "orientation": "TB",
+      "edgeIds": [
+        "intent.user-to-chat",
+        "context.choices-to-chat",
+        "intent.chat-to-adapter",
+        "intent.blocks-to-adapter",
+        "intent.adapter-to-controller"
+      ]
+    },
+    {
+      "id": "target-projection",
+      "label": "Mål: bevis upp till korten",
+      "orientation": "BT",
+      "edgeIds": [
+        "projection.controller-to-version",
+        "projection.controller-to-sitemap",
+        "projection.controller-to-reducer",
+        "projection.version-to-reducer",
+        "projection.sitemap-to-reducer",
+        "projection.reducer-to-agent",
+        "projection.reducer-to-versions",
+        "projection.reducer-to-map"
+      ]
+    }
+  ]
+}

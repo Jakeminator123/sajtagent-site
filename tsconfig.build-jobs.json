@@ -1,0 +1,25 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "incremental": false,
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "target": "ES2022",
+    "types": ["node"]
+  },
+  "include": [
+    "contracts/agent-profile-v1.ts",
+    "contracts/builder-v1.ts",
+    "lib/db/client.ts",
+    "lib/db/env.ts",
+    "lib/siteagent/server/**/*.ts",
+    "lib/supabase/**/*.ts",
+    "app/api/siteagent/build-jobs/route.ts",
+    "app/api/siteagent/projects/default/route.ts",
+    "proxy.ts",
+    "scripts/verify-build-jobs.mts",
+    "scripts/verify-runtime-protocol.mts",
+    "scripts/verify-candidate-acceptance.mts",
+    "scripts/verify-build-job-server-join.mts"
+  ]
+}

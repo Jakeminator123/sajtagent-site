@@ -1,36 +1,104 @@
 # Builder runtime baseline
 
-Status: verified prototype gaps, 2026-08-27.
+Status: local controller path, fail-closed before preview, 2026-09-01.
 
-The Builder UI is not connected to the future Sajtagent runtime yet. Current
-code in `lib/siteagent/adapter.ts` contains these explicit prototype paths:
+The Builder now uses Sajtagent-owned product routes:
 
-- `streamChat` calls the Sajtmaskin-era `/api/engine/chats/stream`, which is not
-  implemented in this repository, and converts any non-abort failure into a
-  simulated HTML preview;
-- `promptAssist` converts any failure into invented generic marketing guidance;
-- `publish` waits and returns `{ ok: true }` without a deployment;
-- `downloadZip` only writes a console message.
+- `POST /api/siteagent/projects/default` opens one deterministic, owner-bound
+  starter project and base revision;
+- project/session routes open a Site-owned `AgentSessionV1`, turn POST streams
+  `AgentEventV1`, and events GET resumes after the last verified sequence;
+- no browser-callable build-job route exists. The internal BuildJob controller
+  and acceptance join remain reusable but are not reachable from product UI;
+- Supabase SSR cookies and verified claims resolve the server principal;
+- V1 exposes the user's input in a separate Chat card;
+- replies, progress and fail-closed errors appear in the Sajtagent card, which
+  is the product surface for the OpenClaw-backed agent;
+- Build choices can be opened beside the conversation or folded down;
+- the old `/api/engine/chats/stream` request and simulated HTML fallback no
+  longer exist in production code.
 
-The `/siteagent` to `/builder` compatibility redirect is real and is defined in
-`next.config.mjs`. The prototype operations above are not real integrations.
+The current local environment remains deliberately disconnected unless its
+server-only runtime URL and signing key are configured and strict Runtime
+health advertises both signed jobs and ArtifactReadV1. A missing or unhealthy
+runtime and an unverified worker candidate end as `job.failed`. The browser
+cannot convert that state into a preview or ready version.
 
-## Rules until replacement
+The deterministic Site-owned candidate gate is implemented internally and documented in
+[`candidate-acceptance-v1.md`](candidate-acceptance-v1.md). It verifies stable
+receipt semantics, exact preview bytes and metadata, active revision, staged
+Site preview health, and exposes one atomic success-commit seam. The product
+join has a server-only ArtifactReadV1 adapter, while candidate acceptance,
+staged Site preview health and the transactional version repository are
+assembled behind the explicit dispatch guard documented in
+[`build-job-server-join-v1.md`](build-job-server-join-v1.md). The local
+repository and owner-bound routes exist and are documented in
+[`site-version-preview-v1.md`](site-version-preview-v1.md); they are not proof
+that the migration has been applied or the controller join is live.
 
-- A simulated result must be visibly labeled as demo data and must not create a
-  ready version, deployment success, or other durable success state.
-- Production configuration must fail closed when its real backend is missing.
-- Do not add the missing Sajtmaskin route merely to preserve its old name or
-  request shape.
-- Replace one operation end to end and remove its fallback in the same change.
-- Keep UI event names only when they fit a new typed Sajtagent contract.
+This build gate is subordinate to the mutating tool path. It does not define
+the ordinary Chat-to-Sajtagent conversation protocol, and conversation alone
+does not create a build job or version.
 
-## First replacement target
+The product wording is user-to-Sajtagent; OpenClaw is Sajtagent's runtime, not a
+second product persona. The network path remains browser -> SiteAgent
+controller -> Sprite runtime -> OpenClaw. The browser never receives runtime
+signing keys or calls OpenClaw directly.
 
-Replace chat/build first: one validated SiteAgent request, one server-owned job,
-one bounded call into `sajtagent-sprites`, and one real preview result with
-failure evidence. Publish and export stay visibly unavailable until their own
-real paths exist.
+## V1 surface boundary
 
-This file can be removed when no production code path reports simulated or
-stubbed work as successful and the corresponding end-to-end checks exist.
+The orphaned workflow-editor prototype and its generation, execution, GitHub,
+memory, and workflow routes are not part of SiteAgent V1. They have been
+removed together with their Drizzle schema and scripts. Site persistence uses
+the server-only `pg.Pool` module and reviewed Supabase migrations.
+
+Prompt dictation remains available only through the authenticated, same-origin
+`POST /api/ai/transcribe` Site route. It accepts at most 20 MB and returns a
+generic failure instead of provider details. The browser never calls the
+transcription provider directly. `npm run check:v1-cleanup` locks these
+boundaries and is run by CI.
+
+## Client projection boundary
+
+The browser now reduces each subordinate `BuildEventV1` stream with one pure,
+sequence-aware state machine. Exact event replays are deduplicated. Changed
+replays, mixed job IDs, sequence gaps, incomplete streams, and events after a
+terminal event invalidate the candidate projection and clear its result.
+
+`job.succeeded` is necessary but not sufficient for ready UI. Its version,
+workspace revision, preview ref, and sitemap revision must also match the
+owner-bound project state and versions read models. Reload restores Versioner,
+Karta, and Preview from those read models. The preview iframe uses only the
+authenticated Site route; inline `srcDoc` is not part of the product flow.
+
+Chat now uses one continuous Sajtagent `AgentSession`. The browser opens a
+Site-owned session, POSTs strict `AgentTurnRequestV1`, consumes Site SSE and
+resumes from its last verified global sequence. It never creates `BuildJobV1`:
+that remains a subordinate server-owned mutation envelope. It is unavailable
+until explicit user approval and a Site-authorized tool join are ratified in
+the same session and turn chain.
+
+## Still unavailable
+
+- live Runtime/Site configuration and end-to-end proof of the private
+  artifact-byte transfer;
+- explicit same-session approval and a Site-authorized build tool join;
+- applied database migration and live use of the local version/preview routes;
+- prompt assist, publish, ZIP export, import, and save actions.
+
+These controls are disabled or return failure. They do not report simulated
+success. A real `job.succeeded` is also held back from the current UI until an
+authenticated preview route exists.
+
+## Configuration boundary
+
+Magic-link login uses only `NEXT_PUBLIC_SUPABASE_URL` and
+`NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`. Database writes still require the
+separate server-only Postgres connection and the reviewed local migration.
+No cloud migration is applied by this checkpoint.
+
+The shared private artifact-byte protocol and Site adapter are implemented and
+covered locally. Live enablement still requires the server-only environment,
+strict healthy Runtime capability, applied Site persistence, and an end-to-end
+proof. The accepted end-to-end contract remains
+[`first-vertical-slice.md`](first-vertical-slice.md).

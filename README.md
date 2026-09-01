@@ -32,6 +32,7 @@ npm run dev
 
 Öppna SiteAgents förstasida på [http://localhost:3000](http://localhost:3000).
 Buildern finns på [http://localhost:3000/builder](http://localhost:3000/builder).
+Agentprofilen kan formas i [Agent Studio](http://localhost:3000/agent-studio).
 Gamla länkar till `/siteagent` skickas vidare till `/builder`.
 
 ## Verifiering
@@ -45,9 +46,16 @@ npm run build
 befintliga TypeScript-fel. Se [quality baseline](docs/quality-baseline.md) innan
 du tolkar ett grönt buildsteg som full typverifiering.
 
-Builderns backend-, preview- och publiceringsintegrationer är fortfarande en
-prototyp med simulerade reservvägar. Se [runtime baseline](docs/runtime-baseline.md)
+Buildern går nu via Sajtagents autentiserade projekt- och build-job-controller
+och misslyckas stängt utan verifierad runtime. Preview, publicering och export
+är fortfarande otillgängliga. Se [runtime baseline](docs/runtime-baseline.md)
 innan du ändrar Builder-flödet.
+Den avsiktligt enkla V1-kedjan finns i
+[one continuous agent, one verified truth](docs/simple-v1-loop.md). Det
+auktoritativa samtals-, policy- och eventkontraktet beskrivs i
+[AgentSession V1](docs/agent-session-v1.md).
+Den lokala Agent Studio/OpenClaw-kompilatorn och den felsäkra bygggränsen
+beskrivs i [agent-studio-and-build-runtime](docs/agent-studio-and-build-runtime.md).
 
 ## Valfri konfiguration
 
@@ -63,7 +71,13 @@ Publishable-nyckeln är inte en serverhemlighet, men all åtkomst till exponerad
 tabeller måste ändå skyddas med RLS.
 
 Databasfunktioner använder i första hand `POSTGRES_URL` eller
-`POSTGRES_URL_NON_POOLING`, med `DATABASE_URL` som fallback. GitHub-noden kan
-använda `GITHUB_TOKEN`, och `NEXT_PUBLIC_URL` kan ange applikationens publika
-basadress. `GITHUB_TOKEN` är endast ett valfritt prototyphjälpmedel och ska
-ersättas av den framtida, avgränsade SiteAgent GitHub App-integrationen.
+`POSTGRES_URL_NON_POOLING`, med `DATABASE_URL` som fallback. Interna API-anrop
+härleder origin från den inkommande requesten och kräver därför ingen
+`NEXT_PUBLIC_URL`. GitHub-noden kan använda `GITHUB_TOKEN`, men tokenen är
+endast ett valfritt lokalt prototyphjälpmedel och ska inte läggas i Vercel innan
+route-behörigheten har ersatts av en avgränsad SiteAgent GitHub App-integration.
+
+Projektets regler för Supabase, MCP, GitHub, Vercel och Sajtmaskin-separation
+finns i [integration baseline](docs/integration-baseline.md). Den repoägda
+Codex-konfigurationen är projektavgränsad och hemlighetsfri; OAuth-inloggningen
+stannar lokalt hos utvecklaren.

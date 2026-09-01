@@ -1,0 +1,21 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "incremental": false,
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "target": "ES2022",
+    "types": ["node"]
+  },
+  "include": [
+    "contracts/agent-session-v1.ts",
+    "contracts/builder-v1.ts",
+    "lib/siteagent/adapter.ts",
+    "lib/siteagent/agent-event-reducer.ts",
+    "lib/siteagent/build-event-reducer.ts",
+    "lib/siteagent/build-choices.ts",
+    "lib/siteagent/read-model.ts",
+    "lib/siteagent/types.ts",
+    "scripts/verify-builder-adapter.mts"
+  ]
+}

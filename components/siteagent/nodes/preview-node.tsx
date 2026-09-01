@@ -11,22 +11,16 @@ import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
 import { useBuilder } from "../builder-store"
 
 function PreviewFrame({ className }: { className?: string }) {
-  const { previewUrl, previewSrcDoc } = useBuilder()
-  if (previewUrl) {
-    return <iframe src={previewUrl} title="Förhandsvisning av sajten" className={cn("w-full h-full border-0 bg-white", className)} />
-  }
-  if (previewSrcDoc) {
-    return <iframe srcDoc={previewSrcDoc} title="Förhandsvisning av sajten" className={cn("w-full h-full border-0 bg-white", className)} />
-  }
-  return null
+  const { previewUrl } = useBuilder()
+  if (!previewUrl) return null
+  return <iframe src={previewUrl} title="Förhandsvisning av sajten" className={cn("w-full h-full border-0 bg-white", className)} />
 }
 
 export function PreviewNode() {
-  const { previewStatus, previewUrl, previewPages } = useBuilder()
+  const { previewStatus, previewUrl } = useBuilder()
   const [fullscreen, setFullscreen] = useState(false)
-  const [activePage, setActivePage] = useState(0)
 
-  const hasContent = previewStatus === "ready"
+  const hasContent = previewStatus === "ready" && Boolean(previewUrl)
 
   return (
     <div className="w-[560px] rounded-lg border-2 border-rose-500/50 bg-workflow-node-bg shadow-lg flex flex-col">
@@ -39,26 +33,6 @@ export function PreviewNode() {
       <div className="flex items-center gap-2 px-3 py-2 border-b border-workflow-border-subtle text-rose-600 dark:text-rose-400">
         <Monitor className="w-4 h-4" />
         <span className="font-mono text-sm font-medium text-workflow-text">Preview</span>
-
-        {previewPages.length > 0 && (
-          <div className="flex items-center gap-1 ml-2">
-            {previewPages.map((page, i) => (
-              <button
-                key={page}
-                type="button"
-                onClick={() => setActivePage(i)}
-                className={cn(
-                  "px-2 py-0.5 rounded text-[10px] font-mono border transition-colors duration-150",
-                  activePage === i
-                    ? "bg-foreground text-background border-transparent"
-                    : "text-workflow-text-muted border-workflow-border-subtle hover:text-workflow-text"
-                )}
-              >
-                {page}
-              </button>
-            ))}
-          </div>
-        )}
 
         <div className="ml-auto flex items-center gap-1">
           {previewUrl && (
@@ -90,20 +64,21 @@ export function PreviewNode() {
             <Monitor className="w-8 h-8 text-workflow-text-subtle" />
             <p className="font-mono text-sm text-workflow-text-muted">Ingen preview ännu</p>
             <p className="text-xs text-workflow-text-subtle leading-relaxed">
-              Skriv i chatten för att starta. Första versionen visas här.
+              Skriv till Sajtagent i Chatt-kortet. Första versionen visas här.
             </p>
           </div>
         )}
-        {previewStatus === "starting" && (
+        {previewStatus === "building" && (
           <div className="w-full h-full flex flex-col items-center justify-center gap-2">
             <Loader2 className="w-6 h-6 animate-spin text-workflow-text-muted" />
-            <p className="font-mono text-xs text-workflow-text-muted">Preview startar…</p>
+            <p className="font-mono text-xs text-workflow-text-muted">Sajtagent bygger…</p>
+            <p className="text-[10px] text-workflow-text-subtle">Preview väntar på verifierad framgång.</p>
           </div>
         )}
         {previewStatus === "error" && (
           <div className="w-full h-full flex flex-col items-center justify-center gap-2">
             <TriangleAlert className="w-6 h-6 text-amber-500" />
-            <p className="font-mono text-xs text-workflow-text-muted">Något gick fel — reparerar…</p>
+            <p className="font-mono text-xs text-workflow-text-muted">Bygget stoppades — inget resultat skapades.</p>
           </div>
         )}
         {hasContent && <PreviewFrame />}

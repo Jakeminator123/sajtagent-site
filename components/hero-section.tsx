@@ -41,7 +41,7 @@ export default function HeroSection() {
                                 speedSegment={0.3}
                                 as="h1"
                                 className="max-w-2xl text-balance text-6xl font-semibold md:text-7xl xl:text-8xl">
-                                färdig webbplats
+                                första webbutkast
                             </TextEffect>
                             <TextEffect
                                 per="line"
@@ -50,7 +50,7 @@ export default function HeroSection() {
                                 delay={0.5}
                                 as="p"
                                 className="mt-8 max-w-2xl text-pretty text-lg leading-relaxed text-workflow-text-muted">
-                                Siteagent skriver, skissar och bygger. Du styr, stryker och godkänner. Halvautomatiskt på riktigt — ingen sida publiceras utan att en människa har tittat på den.
+                                Sajtagent hjälper dig att planera och granska i en lokal beta. Verifierat bygge och publicering aktiveras först när du uttryckligen har godkänt nästa steg.
                             </TextEffect>
                             <HomePrompt />
                         </div>
@@ -84,11 +84,11 @@ export default function HeroSection() {
                         <div className="relative overflow-hidden py-6 md:w-[calc(100%-13rem)]">
                             <InfiniteSlider speedOnHover={20} speed={36} gap={64}>
                                 {[
-                                    { actor: 'Maskin', action: 'läser din bransch' },
+                                    { actor: 'Sajtagent', action: 'samlar din kontext' },
                                     { actor: 'Du', action: 'rättar det som inte stämmer' },
-                                    { actor: 'Maskin', action: 'skriver texten och bygger sidan' },
+                                    { actor: 'Sajtagent', action: 'föreslår text och struktur' },
                                     { actor: 'Du', action: 'stryker, flyttar, skärper tonen' },
-                                    { actor: 'Maskin', action: 'gör om på tio sekunder' },
+                                    { actor: 'Sajtagent', action: 'förbereder nästa ändring' },
                                     { actor: 'Du', action: 'säger när den är klar' },
                                 ].map(({ actor, action }) => (
                                     <span key={action} className="flex items-baseline gap-2 whitespace-nowrap font-mono text-sm">

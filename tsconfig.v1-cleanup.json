@@ -1,0 +1,22 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "incremental": false,
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "target": "ES2022",
+    "types": ["node"]
+  },
+  "include": [
+    "contracts/agent-profile-v1.ts",
+    "contracts/builder-v1.ts",
+    "lib/db/client.ts",
+    "lib/db/env.ts",
+    "lib/siteagent/server/build-job-input.ts",
+    "lib/siteagent/server/principal.ts",
+    "lib/siteagent/server/principal-claims.ts",
+    "lib/siteagent/server/request-security.ts",
+    "lib/supabase/**/*.ts",
+    "app/api/ai/transcribe/route.ts"
+  ]
+}

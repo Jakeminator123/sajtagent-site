@@ -5,24 +5,27 @@
 
 import React, { useEffect, useRef, useState } from "react"
 import { Handle, Position } from "@xyflow/react"
-import { FileText, ImageIcon, Loader2, MessageSquare, Send, Sparkles, Type } from "lucide-react"
-import { cn } from "@/lib/utils"
+import { ImageIcon, Loader2, MessageSquare, Send, Sparkles, Type } from "lucide-react"
 import { useBuilder } from "../builder-store"
 
 export function ChatNode() {
-  const { messages, isStreaming, sendMessage, promptAssist } = useBuilder()
+  const { agentProjection, messages, isStreaming, sendMessage, sessionStatus } = useBuilder()
+  const userMessages = messages.filter((message) => message.role === "user")
   const [input, setInput] = useState("")
-  const [planMode, setPlanMode] = useState(false)
-  const [assisting, setAssisting] = useState(false)
   const listRef = useRef<HTMLDivElement>(null)
+  const inputDisabled =
+    isStreaming ||
+    sessionStatus !== "ready" ||
+    Boolean(agentProjection.pendingQuestion) ||
+    agentProjection.status === "invalid"
 
   useEffect(() => {
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight })
   }, [messages])
 
   const submit = () => {
-    if (!input.trim() || isStreaming) return
-    void sendMessage(input, { planMode })
+    if (!input.trim() || inputDisabled) return
+    void sendMessage(input)
     setInput("")
   }
 
@@ -31,14 +34,6 @@ export function ChatNode() {
       e.preventDefault()
       submit()
     }
-  }
-
-  const handleAssist = async () => {
-    if (!input.trim() || assisting) return
-    setAssisting(true)
-    const improved = await promptAssist(input)
-    setInput(improved)
-    setAssisting(false)
   }
 
   return (
@@ -56,25 +51,20 @@ export function ChatNode() {
       </div>
 
       <div ref={listRef} className="h-[260px] overflow-y-auto p-3 flex flex-col gap-2 nowheel">
-        {messages.length === 0 ? (
+        {userMessages.length === 0 ? (
           <div className="flex-1 flex flex-col items-center justify-center gap-2 text-center px-4">
-            <p className="font-mono text-sm text-workflow-text">Vad vill du bygga?</p>
+            <p className="font-mono text-sm text-workflow-text">Vad vill du fråga eller bygga?</p>
             <p className="text-xs text-workflow-text-muted leading-relaxed">
-              Beskriv din sajt här. Byggvalen till vänster styr första versionen.
+              Vanliga frågor blir svar. Sajtagent väljer byggverktyg först när det behövs.
             </p>
           </div>
         ) : (
-          messages.map((m) => (
+          userMessages.map((m) => (
             <div
               key={m.id}
-              className={cn(
-                "max-w-[85%] rounded-lg px-3 py-2 text-xs leading-relaxed",
-                m.role === "user"
-                  ? "self-end bg-foreground text-background"
-                  : "self-start bg-workflow-node-input text-workflow-text"
-              )}
+              className="max-w-[85%] self-end rounded-lg bg-foreground px-3 py-2 text-xs leading-relaxed text-background"
             >
-              {m.content || <Loader2 className="w-3 h-3 animate-spin" />}
+              {m.content}
             </div>
           ))
         )}
@@ -84,40 +74,27 @@ export function ChatNode() {
         <div className="flex items-center gap-1.5">
           <button
             type="button"
-            onClick={() => setPlanMode((v) => !v)}
-            className={cn(
-              "flex items-center gap-1 px-2 py-1 rounded text-[11px] font-mono border transition-colors duration-150",
-              planMode
-                ? "bg-foreground text-background border-transparent"
-                : "text-workflow-text-muted border-workflow-border-subtle hover:text-workflow-text"
-            )}
-            title="Planläge"
+            disabled
+            className="flex items-center gap-1 px-2 py-1 rounded text-[11px] font-mono border border-workflow-border-subtle text-workflow-text-muted opacity-40"
+            title="Prompt-assist är inte ansluten ännu"
           >
-            <FileText className="w-3 h-3" />
-            Plan
-          </button>
-          <button
-            type="button"
-            onClick={handleAssist}
-            disabled={assisting || !input.trim()}
-            className="flex items-center gap-1 px-2 py-1 rounded text-[11px] font-mono border border-workflow-border-subtle text-workflow-text-muted hover:text-workflow-text transition-colors duration-150 disabled:opacity-40"
-            title="Prompt-assist"
-          >
-            {assisting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+            <Sparkles className="w-3 h-3" />
             Prompt-assist
           </button>
           <div className="ml-auto flex items-center gap-1">
             <button
               type="button"
-              className="p-1.5 rounded text-workflow-text-subtle hover:text-workflow-text transition-colors duration-150"
-              title="Lägg till media"
+              disabled
+              className="p-1.5 rounded text-workflow-text-subtle opacity-40"
+              title="Media är inte anslutet ännu"
             >
               <ImageIcon className="w-3.5 h-3.5" />
             </button>
             <button
               type="button"
-              className="p-1.5 rounded text-workflow-text-subtle hover:text-workflow-text transition-colors duration-150"
-              title="Lägg till text"
+              disabled
+              className="p-1.5 rounded text-workflow-text-subtle opacity-40"
+              title="Textbilagor är inte anslutna ännu"
             >
               <Type className="w-3.5 h-3.5" />
             </button>
@@ -129,14 +106,20 @@ export function ChatNode() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Beskriv vad du vill bygga… (Enter för att skicka)"
+            disabled={inputDisabled}
+            aria-label="Meddelande till Sajtagent"
+            placeholder={
+              agentProjection.pendingQuestion
+                ? "Svara i Sajtagent-kortet…"
+                : "Skriv till Sajtagent… (Enter för att skicka)"
+            }
             rows={2}
             className="flex-1 resize-none rounded-md bg-workflow-node-input border border-workflow-border-subtle px-2.5 py-2 text-xs text-workflow-text placeholder:text-workflow-text-subtle focus:outline-none focus:ring-1 focus:ring-workflow-border nodrag nowheel"
           />
           <button
             type="button"
             onClick={submit}
-            disabled={isStreaming || !input.trim()}
+            disabled={inputDisabled || !input.trim()}
             className="p-2 rounded-md bg-foreground text-background disabled:opacity-40 transition-opacity duration-150"
             aria-label="Skicka"
           >

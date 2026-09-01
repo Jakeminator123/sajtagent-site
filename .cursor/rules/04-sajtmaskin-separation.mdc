@@ -1,0 +1,17 @@
+---
+description: Keep Sajtagent independent from every Sajtmaskin resource
+alwaysApply: true
+---
+
+# Sajtmaskin separation
+
+- Sajtagent is version 2 of selected proven ideas, not a fork or shared system.
+- Sajtmaskin repositories and local checkouts are read-only reference unless
+  the user explicitly places an exact resource in scope.
+- Never modify Sajtmaskin as a side effect of Sajtagent work.
+- Never share or reuse its database, auth, Vercel project, environment,
+  secrets, MCP connection, runtime, or live dependency.
+- Ask before opening a local Sajtmaskin checkout; prefer a scoped GitHub
+  comparison when reference evidence is needed.
+- Reuse only an inventoried behavior or asset whose assumptions still fit.
+  Adapt it behind a Sajtagent-owned contract; never raw-merge a donor tree.

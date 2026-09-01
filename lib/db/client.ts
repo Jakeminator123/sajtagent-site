@@ -1,6 +1,4 @@
-import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
-import * as schema from "./schema";
 import { resolveConfiguredDbEnv } from "./env";
 
 const MISSING_DB_MESSAGE =
@@ -175,15 +173,4 @@ if (pool) {
   });
 }
 
-export const db = connectionString
-  ? drizzle(pool as Pool, { schema })
-  : (new Proxy(
-      {},
-      {
-        get() {
-          throw new Error(MISSING_DB_MESSAGE);
-        },
-      },
-    ) as ReturnType<typeof drizzle>);
-
-export { schema, pool };
+export { pool };

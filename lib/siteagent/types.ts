@@ -1,5 +1,5 @@
-// Siteagent — delade typer.
-// Speglar formerna i sajtmaskin (chat/version/preview) så mergen blir enkel.
+// Sajtagent — små klientprojektioner. Auktoritativ jobb- och versionsstate
+// kommer alltid från de versionerade Builder-kontrakten.
 
 export type ChatRole = "user" | "assistant"
 
@@ -8,32 +8,25 @@ export interface ChatMessage {
   role: ChatRole
   content: string
   createdAt: number
+  turnId?: string
 }
-
-export type VersionStatus = "building" | "ready" | "error"
 
 export interface SiteVersion {
   id: string
   label: string
-  status: VersionStatus
-  previewUrl: string | null
-  /** Fallback när ingen riktig preview-URL finns (simuleringsläge) */
-  srcDoc: string | null
-  pages: string[]
-  createdAt: number
+  projectId: string
+  versionNumber: number
+  workspaceRevisionId: string
+  previewRef: string
+  previewUrl: string
+  sitemapRevision: string
+  sha256: string
+  sizeBytes: number
+  verifiedAt: string
+  createdAt: string
   pinned: boolean
 }
 
-export type PreviewStatus = "idle" | "starting" | "ready" | "error"
-
-/**
- * Events från chat-streamen. Motsvarar SSE-eventen från
- * POST /api/engine/chats/stream i sajtmaskin (text / preview / done / error).
- */
-export type StreamEvent =
-  | { type: "text"; delta: string }
-  | { type: "preview"; url?: string; srcDoc?: string; pages?: string[] }
-  | { type: "done"; versionId?: string }
-  | { type: "error"; message: string }
+export type PreviewStatus = "idle" | "building" | "ready" | "error"
 
 export type PublishState = "idle" | "publishing" | "published"

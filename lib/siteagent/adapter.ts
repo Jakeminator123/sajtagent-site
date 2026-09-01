@@ -1,192 +1,257 @@
-// Siteagent — adapterlager.
-// ALLA backend-anrop går genom denna fil. Varje funktion har samma
-// API-vägar som sajtmaskin använder, med en tunn simulering som fallback
-// när endpointen inte finns (t.ex. i v0-förhandsvisningen).
-//
-// Merge-karta (sajtmaskin-hook -> adapterfunktion):
-//   useCreateChat / useSendMessage  -> streamChat()   (POST /api/engine/chats/stream)
-//   prompt-assist-knappen           -> promptAssist() (POST /api/ai/prompt-assist)
-//   useBuilderDeployActions         -> publish()
-//   ZIP-nedladdning                 -> downloadZip()
+// Browser-safe Site adapter. Chat opens a Site-owned AgentSession and sends
+// AgentTurnRequestV1 to Site routes. It never creates BuildJobV1 or contacts
+// OpenClaw, Sprite, model tools, or persistence directly.
 
-import type { BuildChoices } from "./build-choices"
-import type { StreamEvent } from "./types"
+import { z } from "zod"
 
-export interface StreamChatParams {
-  chatId: string | null
-  message: string
-  choices: BuildChoices
-  planMode?: boolean
-  /** Modellval från chatkortet (t.ex. "fast" | "standard" | "max") */
-  model?: string
-  /** Promptläge från förstasidans dock: analyserad | audit | template | fritext */
-  mode?: string
-  onEvent: (event: StreamEvent) => void
-  signal?: AbortSignal
+import {
+  AgentEventV1Schema,
+  AgentSessionV1Schema,
+  AgentTurnRequestV1Schema,
+  type AgentEventV1,
+  type AgentSessionV1,
+  type AgentTurnRequestV1,
+} from "../../contracts/agent-session-v1.ts"
+
+const DefaultProjectResponseV1Schema = z
+  .object({
+    schemaVersion: z.literal(1),
+    projectId: z.string().min(1),
+    activeRevisionId: z.string().min(1),
+  })
+  .strict()
+const SessionIdV1Schema = z
+  .string()
+  .min(40)
+  .max(136)
+  .regex(/^session:[A-Za-z0-9_-]{32,128}$/)
+
+export type DefaultProjectV1 = z.infer<typeof DefaultProjectResponseV1Schema>
+export type SiteagentFetchV1 = typeof fetch
+
+export type OpenDefaultProjectResultV1 =
+  | { ok: true; project: DefaultProjectV1 }
+  | { ok: false; error: string }
+
+export interface AgentEventStreamResultV1 {
+  eventCount: number
+  lastSequence: number | null
 }
 
-/**
- * Init + follow-up mot chat-motorn.
- * Motsvarar useCreateChat/useSendMessage i sajtmaskin.
- * Läser SSE-events (text/preview/done/error) från /api/engine/chats/stream.
- */
-export async function streamChat(params: StreamChatParams): Promise<void> {
-  const { chatId, message, choices, planMode, model, mode, onEvent, signal } = params
+const MAX_SSE_EVENT_BYTES_V1 = 1_048_576
+
+async function responsePayload(response: Response): Promise<unknown> {
+  try {
+    return await response.json()
+  } catch {
+    return null
+  }
+}
+
+function apiMessage(payload: unknown, fallback: string): string {
+  if (!payload || typeof payload !== "object") return fallback
+  const error = (payload as { error?: unknown }).error
+  if (!error || typeof error !== "object") return fallback
+  const message = (error as { message?: unknown }).message
+  return typeof message === "string" && message.trim() ? message : fallback
+}
+
+export async function openDefaultProject(
+  signal?: AbortSignal,
+  fetchImpl: SiteagentFetchV1 = fetch,
+): Promise<OpenDefaultProjectResultV1> {
+  const response = await fetchImpl("/api/siteagent/projects/default", {
+    method: "POST",
+    headers: { Accept: "application/json" },
+    cache: "no-store",
+    signal,
+  })
+  const payload = await responsePayload(response)
+  const project = DefaultProjectResponseV1Schema.safeParse(payload)
+  if (!response.ok || !project.success) {
+    return { ok: false, error: apiMessage(payload, "Projektet kunde inte öppnas.") }
+  }
+  return { ok: true, project: project.data }
+}
+
+export async function openAgentSessionV1(
+  projectId: string,
+  signal?: AbortSignal,
+  fetchImpl: SiteagentFetchV1 = fetch,
+): Promise<AgentSessionV1> {
+  const response = await fetchImpl(
+    `/api/siteagent/projects/${encodeURIComponent(projectId)}/sessions`,
+    {
+      method: "POST",
+      headers: { Accept: "application/json" },
+      cache: "no-store",
+      signal,
+    },
+  )
+  const payload = await responsePayload(response)
+  const session = AgentSessionV1Schema.safeParse(payload)
+  if (
+    !response.ok ||
+    !session.success ||
+    session.data.projectId !== projectId ||
+    session.data.status !== "active"
+  ) {
+    throw new Error(apiMessage(payload, "Sajtagent-sessionen kunde inte öppnas."))
+  }
+  return session.data
+}
+
+function parseSseBlock(block: string): string | null {
+  const dataLines: string[] = []
+  for (const line of block.split("\n")) {
+    if (!line || line.startsWith(":")) continue
+    if (line === "data") {
+      dataLines.push("")
+      continue
+    }
+    if (line.startsWith("data:")) {
+      const value = line.slice(5)
+      dataLines.push(value.startsWith(" ") ? value.slice(1) : value)
+    }
+  }
+  return dataLines.length > 0 ? dataLines.join("\n") : null
+}
+
+export async function consumeAgentEventStreamV1(
+  response: Response,
+  onEvent: (event: AgentEventV1) => void | Promise<void>,
+): Promise<AgentEventStreamResultV1> {
+  if (!response.ok) {
+    const payload = await responsePayload(response)
+    throw new Error(apiMessage(payload, "Sajtagent avvisade agentturnen."))
+  }
+  const contentType = response.headers.get("content-type")?.toLowerCase() ?? ""
+  if (!contentType.startsWith("text/event-stream")) {
+    throw new Error("Sajtagent returnerade inte en verifierbar eventström.")
+  }
+  if (!response.body) {
+    throw new Error("Sajtagents eventström saknade body.")
+  }
+
+  const reader = response.body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ""
+  let eventCount = 0
+  let lastSequence: number | null = null
+
+  const consumeBlock = async (block: string) => {
+    const data = parseSseBlock(block)
+    if (data === null) return
+    if (data.length > MAX_SSE_EVENT_BYTES_V1) {
+      throw new Error("Sajtagents eventström överskred V1-gränsen.")
+    }
+    let value: unknown
+    try {
+      value = JSON.parse(data)
+    } catch {
+      throw new Error("Sajtagents eventström innehöll ogiltig JSON.")
+    }
+    const parsed = AgentEventV1Schema.safeParse(value)
+    if (!parsed.success) {
+      throw new Error("Sajtagents eventström innehöll ett ogiltigt AgentEventV1.")
+    }
+    await onEvent(parsed.data)
+    eventCount += 1
+    lastSequence = parsed.data.sequence
+  }
 
   try {
-    const res = await fetch("/api/engine/chats/stream", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ chatId, message, meta: { choices, planMode, model, mode } }),
-      signal,
-    })
-
-    if (!res.ok || !res.body) throw new Error(`stream failed: ${res.status}`)
-
-    const reader = res.body.getReader()
-    const decoder = new TextDecoder()
-    let buffer = ""
-
     while (true) {
       const { done, value } = await reader.read()
-      if (done) break
-      buffer += decoder.decode(value, { stream: true })
-
-      // SSE-format: "data: {json}\n\n"
-      const parts = buffer.split("\n\n")
-      buffer = parts.pop() ?? ""
-      for (const part of parts) {
-        const line = part.trim()
-        if (!line.startsWith("data:")) continue
-        const payload = line.slice(5).trim()
-        if (payload === "[DONE]") {
-          onEvent({ type: "done" })
-          continue
-        }
-        try {
-          onEvent(JSON.parse(payload) as StreamEvent)
-        } catch {
-          // ignorera trasiga chunkar
-        }
+      buffer += decoder.decode(value, { stream: !done })
+      buffer = buffer.replaceAll("\r\n", "\n")
+      if (buffer.length > MAX_SSE_EVENT_BYTES_V1 && !buffer.includes("\n\n")) {
+        throw new Error("Sajtagents eventström överskred V1-gränsen.")
       }
+
+      let boundary = buffer.indexOf("\n\n")
+      while (boundary >= 0) {
+        const block = buffer.slice(0, boundary)
+        buffer = buffer.slice(boundary + 2)
+        await consumeBlock(block)
+        boundary = buffer.indexOf("\n\n")
+      }
+
+      if (done) break
     }
-  } catch (err) {
-    if (signal?.aborted) return
-    // Fallback: endpointen finns inte här — kör tunn simulering så UI:t går att klicka igenom.
-    await simulateStream(message, choices, onEvent, signal)
+
+    const trailing = buffer.trim()
+    if (trailing) await consumeBlock(trailing)
+  } catch (error) {
+    await reader.cancel().catch(() => undefined)
+    throw error
+  } finally {
+    reader.releaseLock()
   }
+  return { eventCount, lastSequence }
 }
 
-/**
- * Prompt-assist. Motsvarar POST /api/ai/prompt-assist i sajtmaskin.
- */
-export async function promptAssist(text: string): Promise<string> {
-  try {
-    const res = await fetch("/api/ai/prompt-assist", {
+export async function sendAgentTurnV1(
+  requestValue: AgentTurnRequestV1,
+  onEvent: (event: AgentEventV1) => void | Promise<void>,
+  options: {
+    signal?: AbortSignal
+    fetchImpl?: SiteagentFetchV1
+  } = {},
+): Promise<AgentEventStreamResultV1> {
+  const request = AgentTurnRequestV1Schema.parse(requestValue)
+  const fetchImpl = options.fetchImpl ?? fetch
+  const response = await fetchImpl(
+    `/api/siteagent/sessions/${encodeURIComponent(request.sessionId)}/turns`,
+    {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ prompt: text }),
-    })
-    if (!res.ok) throw new Error(`assist failed: ${res.status}`)
-    const data = (await res.json()) as { prompt?: string; text?: string }
-    return data.prompt ?? data.text ?? text
-  } catch {
-    // Tunn fallback så knappen gör något synligt.
-    return `${text}\n\nMålgrupp: småföretag. Ton: professionell men varm. Inkludera hero, tjänster, omdömen och kontaktformulär.`
-  }
-}
-
-/**
- * Publicera. Stub — pekas mot useBuilderDeployActions vid merge.
- */
-export async function publish(): Promise<{ ok: boolean; url?: string }> {
-  await delay(1200)
-  return { ok: true }
-}
-
-/**
- * Ladda ner ZIP för en version. Stub — pekas mot befintlig ZIP-export vid merge.
- */
-export async function downloadZip(versionId: string): Promise<void> {
-  console.log("[siteagent] downloadZip stub, versionId:", versionId)
-}
-
-// ---------------------------------------------------------------------------
-// Simulering (endast fallback — tas bort/ignoreras vid merge)
-// ---------------------------------------------------------------------------
-
-function delay(ms: number, signal?: AbortSignal) {
-  return new Promise<void>((resolve) => {
-    const t = setTimeout(resolve, ms)
-    signal?.addEventListener("abort", () => {
-      clearTimeout(t)
-      resolve()
-    })
-  })
-}
-
-const SWATCH_HEX: Record<string, string> = {
-  ocean: "#0284c7",
-  forest: "#059669",
-  amber: "#f59e0b",
-  brick: "#e11d48",
-  flower: "#f472b6",
-  plum: "#9333ea",
-  mustard: "#ca8a04",
-}
-
-async function simulateStream(
-  message: string,
-  choices: BuildChoices,
-  onEvent: (event: StreamEvent) => void,
-  signal?: AbortSignal
-) {
-  const reply =
-    "Jag bygger ett utkast utifrån din beskrivning och dina byggval. " +
-    "En första version med hero, innehållssektioner och kontakt genereras nu…"
-
-  for (const word of reply.split(" ")) {
-    if (signal?.aborted) return
-    onEvent({ type: "text", delta: word + " " })
-    await delay(35, signal)
-  }
-
-  await delay(500, signal)
-  if (signal?.aborted) return
-
-  const accent = SWATCH_HEX[choices.color] ?? "#0284c7"
-  const dark = choices.colorMode === "dark"
-  const pages = ["Hem", "Om oss", "Kontakt"].slice(
-    0,
-    choices.pageCount > 0 ? choices.pageCount : 3
+      headers: {
+        Accept: "text/event-stream",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(request),
+      cache: "no-store",
+      signal: options.signal,
+    },
   )
-
-  const srcDoc = `<!doctype html><html><head><meta charset="utf-8"><style>
-    body{margin:0;font-family:system-ui,sans-serif;background:${dark ? "#0a0a0a" : "#fafafa"};color:${dark ? "#fafafa" : "#171717"}}
-    header{padding:16px 32px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid ${dark ? "#262626" : "#e5e5e5"}}
-    nav{display:flex;gap:20px;font-size:14px;color:${dark ? "#a3a3a3" : "#525252"}}
-    .hero{padding:96px 32px;text-align:center}
-    .hero h1{font-size:44px;margin:0 0 16px;max-width:640px;margin-inline:auto;line-height:1.15}
-    .hero p{color:${dark ? "#a3a3a3" : "#525252"};max-width:480px;margin:0 auto 32px;line-height:1.5}
-    .cta{background:${accent};color:#fff;border:none;padding:14px 32px;border-radius:8px;font-size:16px;cursor:pointer}
-    .cards{display:flex;gap:16px;padding:0 32px 96px;max-width:960px;margin:0 auto}
-    .card{flex:1;border:1px solid ${dark ? "#262626" : "#e5e5e5"};border-radius:12px;padding:24px}
-    .card h3{margin:0 0 8px;font-size:16px}.card p{margin:0;font-size:14px;color:${dark ? "#a3a3a3" : "#525252"};line-height:1.5}
-  </style></head><body>
-  <header><strong>Din sajt</strong><nav>${pages.map((p) => `<span>${p}</span>`).join("")}</nav></header>
-  <div class="hero"><h1>${escapeHtml(message.slice(0, 80) || "Din nya sajt")}</h1>
-  <p>Genererad förhandsvisning (simulering). Efter merge visas den riktiga preview-sessionen här.</p>
-  <button class="cta">Kom igång</button></div>
-  <div class="cards"><div class="card"><h3>Snabbt</h3><p>Byggd på dina byggval.</p></div>
-  <div class="card"><h3>Flexibelt</h3><p>Fortsätt förbättra via chatten.</p></div>
-  <div class="card"><h3>Redo</h3><p>Publicera när du är nöjd.</p></div></div>
-  </body></html>`
-
-  onEvent({ type: "preview", srcDoc, pages })
-  await delay(400, signal)
-  onEvent({ type: "done" })
+  return consumeAgentEventStreamV1(response, onEvent)
 }
 
-function escapeHtml(s: string) {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+export async function resumeAgentEventsV1(
+  sessionId: AgentSessionV1["sessionId"],
+  afterSequence: number,
+  onEvent: (event: AgentEventV1) => void | Promise<void>,
+  options: {
+    signal?: AbortSignal
+    fetchImpl?: SiteagentFetchV1
+  } = {},
+): Promise<AgentEventStreamResultV1> {
+  if (!Number.isSafeInteger(afterSequence) || afterSequence < 0) {
+    throw new Error("afterSequence måste vara ett icke-negativt heltal.")
+  }
+  const session = SessionIdV1Schema.parse(sessionId)
+  const fetchImpl = options.fetchImpl ?? fetch
+  const response = await fetchImpl(
+    `/api/siteagent/sessions/${encodeURIComponent(session)}/events?afterSequence=${afterSequence}`,
+    {
+      method: "GET",
+      headers: { Accept: "text/event-stream" },
+      cache: "no-store",
+      signal: options.signal,
+    },
+  )
+  return consumeAgentEventStreamV1(response, onEvent)
+}
+
+export async function promptAssist(): Promise<string> {
+  throw new Error("Prompt-assist är inte ansluten till produktcontrollern ännu.")
+}
+
+export async function publish(): Promise<{ ok: boolean; url?: string }> {
+  return { ok: false }
+}
+
+export async function downloadZip(versionId: string): Promise<void> {
+  void versionId
+  throw new Error("ZIP-export är inte ansluten till en verifierad version ännu.")
 }

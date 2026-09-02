@@ -314,7 +314,10 @@ export class SignedRuntimeArtifactReaderV1
     try {
       const response = await this.fetchImpl(this.healthEndpoint, {
         method: "GET",
-        headers: { accept: "application/json" },
+        headers: {
+          accept: "application/json",
+          "accept-encoding": "identity",
+        },
         redirect: "error",
         cache: "no-store",
         signal: AbortSignal.timeout(this.healthTimeoutMs),
@@ -366,6 +369,7 @@ export class SignedRuntimeArtifactReaderV1
       method: "POST",
       headers: {
         accept: "application/json",
+        "accept-encoding": "identity",
         "content-type": "application/json",
         "x-siteagent-timestamp": timestamp,
         "x-siteagent-nonce": nonce,

@@ -480,3 +480,10 @@ export function isActiveAgentTurnTerminalV1(
   if (!state.activeTurnId) return false
   return Boolean(state.turns[state.activeTurnId]?.terminal)
 }
+
+export function isAgentTurnTerminalV1(
+  state: AgentEventProjectionV1,
+  turnId: string,
+): boolean {
+  return Boolean(state.turns[turnId]?.terminal)
+}

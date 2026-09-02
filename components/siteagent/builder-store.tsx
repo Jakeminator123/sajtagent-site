@@ -23,11 +23,15 @@ import type {
 import * as adapter from "@/lib/siteagent/adapter"
 import {
   createAgentEventProjectionV1,
-  isActiveAgentTurnTerminalV1,
+  isAgentTurnTerminalV1,
   reduceAgentEventV1,
   rejectAgentEventStreamV1,
   type AgentEventProjectionV1,
 } from "@/lib/siteagent/agent-event-reducer"
+import {
+  catchUpAgentEventProjectionV1,
+  loadAgentEventProjectionV1,
+} from "@/lib/siteagent/agent-session-bootstrap"
 import { defaultBuildChoices, type BuildChoices } from "@/lib/siteagent/build-choices"
 import {
   loadCanonicalProjectV1,
@@ -94,6 +98,15 @@ function errorMessage(error: unknown, fallback: string): string {
   return error instanceof Error && error.message.trim() ? error.message : fallback
 }
 
+function isAbortError(error: unknown): boolean {
+  return Boolean(
+    error &&
+      typeof error === "object" &&
+      "name" in error &&
+      error.name === "AbortError",
+  )
+}
+
 function eventLogLine(event: AgentEventV1): string | null {
   if (event.type === "turn.accepted") return "Sajtagent tog emot turnen."
   if (event.type === "agent.status") return event.payload.label ?? null
@@ -107,8 +120,11 @@ function eventLogLine(event: AgentEventV1): string | null {
   return null
 }
 
-function needsAgentResume(projection: AgentEventProjectionV1): boolean {
-  return projection.status !== "invalid" && !isActiveAgentTurnTerminalV1(projection)
+function needsAgentResume(
+  projection: AgentEventProjectionV1,
+  turnId: string,
+): boolean {
+  return projection.status !== "invalid" && !isAgentTurnTerminalV1(projection, turnId)
 }
 
 export function BuilderProvider({ children }: { children: ReactNode }) {
@@ -229,9 +245,20 @@ export function BuilderProvider({ children }: { children: ReactNode }) {
           throw new DOMException("Aborted", "AbortError")
         }
 
+        const hydratedProjection = await loadAgentEventProjectionV1(
+          session.sessionId,
+          { signal },
+        )
+        if (
+          signal?.aborted ||
+          sessionGeneration !== sessionGenerationRef.current
+        ) {
+          throw new DOMException("Aborted", "AbortError")
+        }
+
         sessionRef.current = session
         baseRevisionIdRef.current = session.activeBaseRevisionId
-        applyProjection(createAgentEventProjectionV1(session.sessionId))
+        applyProjection(hydratedProjection)
         setSessionStatus("ready")
 
         if (
@@ -260,7 +287,7 @@ export function BuilderProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const controller = new AbortController()
     void startSession(controller.signal).catch((error: unknown) => {
-      if (controller.signal.aborted) return
+      if (controller.signal.aborted || isAbortError(error)) return
       setSessionStatus("error")
       applyProjection(
         rejectAgentEventStreamV1(
@@ -345,7 +372,7 @@ export function BuilderProvider({ children }: { children: ReactNode }) {
         ])
         pushLog("> skickar agentturn till Sajtagent")
 
-        const onEvent = (event: AgentEventV1) => {
+        const onEvent = async (event: AgentEventV1) => {
           if (event.sessionId !== session.sessionId || event.turnId !== turnId) {
             const rejected = rejectAgentEventStreamV1(
               projectionRef.current,
@@ -353,6 +380,16 @@ export function BuilderProvider({ children }: { children: ReactNode }) {
             )
             applyProjection(rejected)
             throw new Error(rejected.error ?? "Fel session eller turn.")
+          }
+          if (event.sequence > projectionRef.current.lastSequence + 1) {
+            pushLog(
+              `synkroniserar agenthistorik efter sekvens ${projectionRef.current.lastSequence}`,
+            )
+            const caughtUp = await catchUpAgentEventProjectionV1(
+              projectionRef.current,
+              { signal: controller.signal },
+            )
+            applyProjection(caughtUp)
           }
           const next = reduceAgentEventV1(projectionRef.current, event)
           applyProjection(next)
@@ -374,7 +411,7 @@ export function BuilderProvider({ children }: { children: ReactNode }) {
 
         if (
           !controller.signal.aborted &&
-          needsAgentResume(projectionRef.current)
+          needsAgentResume(projectionRef.current, turnId)
         ) {
           try {
             pushLog(`återupptar agentström efter sekvens ${projectionRef.current.lastSequence}`)
@@ -392,7 +429,7 @@ export function BuilderProvider({ children }: { children: ReactNode }) {
         if (controller.signal.aborted || requestGeneration !== requestGenerationRef.current) {
           return
         }
-        if (!isActiveAgentTurnTerminalV1(projectionRef.current)) {
+        if (!isAgentTurnTerminalV1(projectionRef.current, turnId)) {
           const rejected = rejectAgentEventStreamV1(
             projectionRef.current,
             errorMessage(
@@ -405,10 +442,8 @@ export function BuilderProvider({ children }: { children: ReactNode }) {
           return
         }
 
-        const previewCandidate = projectionRef.current.canonicalPreviewCandidate
-        const currentTurn = projectionRef.current.activeTurnId
-          ? projectionRef.current.turns[projectionRef.current.activeTurnId]
-          : null
+        const currentTurn = projectionRef.current.turns[turnId] ?? null
+        const previewCandidate = currentTurn?.previewResult ?? null
         if (
           currentTurn?.terminal?.kind === "completed" &&
           currentTurn.terminal.outcome === "built" &&
@@ -535,6 +570,7 @@ export function BuilderProvider({ children }: { children: ReactNode }) {
     setChoices(defaultBuildChoices())
     applyProjection(createAgentEventProjectionV1())
     void startSession().catch((error: unknown) => {
+      if (isAbortError(error)) return
       setSessionStatus("error")
       applyProjection(
         rejectAgentEventStreamV1(

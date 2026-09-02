@@ -8,6 +8,7 @@
     "contracts/builder-v1.ts",
     "lib/siteagent/adapter.ts",
     "lib/siteagent/agent-event-reducer.ts",
+    "lib/siteagent/agent-session-bootstrap.ts",
     "lib/siteagent/build-event-reducer.ts",
     "lib/siteagent/build-choices.ts",
     "lib/siteagent/read-model.ts",

@@ -17,9 +17,14 @@ import {
 import {
   createAgentEventProjectionV1,
   isActiveAgentTurnTerminalV1,
+  isAgentTurnTerminalV1,
   reduceAgentEventV1,
   reduceAgentEventsV1,
 } from "../lib/siteagent/agent-event-reducer.ts"
+import {
+  catchUpAgentEventProjectionV1,
+  loadAgentEventProjectionV1,
+} from "../lib/siteagent/agent-session-bootstrap.ts"
 import {
   reconcileAgentPreviewV1,
   type CanonicalProjectReadModelV1,
@@ -106,6 +111,8 @@ assert.equal(answered.status, "idle")
 assert.equal(answered.lastSequence, 5)
 assert.equal(answered.messages["message:one"]?.content, "Klockan är tolv.")
 assert.equal(isActiveAgentTurnTerminalV1(answered), true)
+assert.equal(isAgentTurnTerminalV1(answered, turnId), true)
+assert.equal(isAgentTurnTerminalV1(answered, secondTurnId), false)
 
 const exactReplay = reduceAgentEventV1(answered, answerEvents[2])
 assert.strictEqual(exactReplay, answered, "exact event replay must be deduplicated")
@@ -443,6 +450,59 @@ assert.equal(
   `/api/siteagent/sessions/${encodeURIComponent(sessionId)}/events?afterSequence=3`,
 )
 
+const bootstrapRequests: string[] = []
+const bootstrapFetch: SiteagentFetchV1 = async (input) => {
+  const url = String(input)
+  bootstrapRequests.push(url)
+  if (url.endsWith("afterSequence=0")) return sseResponse(answerEvents.slice(0, 3))
+  if (url.endsWith("afterSequence=3")) return sseResponse(answerEvents.slice(3))
+  return sseResponse([])
+}
+const bootstrapped = await loadAgentEventProjectionV1(sessionId, {
+  fetchImpl: bootstrapFetch,
+})
+assert.equal(bootstrapped.lastSequence, 5)
+assert.equal(bootstrapped.status, "idle")
+assert.deepEqual(bootstrapRequests, [
+  `/api/siteagent/sessions/${encodeURIComponent(sessionId)}/events?afterSequence=0`,
+  `/api/siteagent/sessions/${encodeURIComponent(sessionId)}/events?afterSequence=3`,
+  `/api/siteagent/sessions/${encodeURIComponent(sessionId)}/events?afterSequence=5`,
+])
+const nextTurn = reduceAgentEventV1(bootstrapped, {
+  ...eventBase("event:accepted00000002", 6),
+  turnId: secondTurnId,
+  type: "turn.accepted",
+  payload: { acceptedAt: occurredAt },
+})
+assert.notEqual(nextTurn.status, "invalid")
+assert.equal(nextTurn.lastSequence, 6)
+
+const throughSequenceThree = reduceAgentEventsV1(
+  createAgentEventProjectionV1(sessionId),
+  answerEvents.slice(0, 3),
+)
+const caughtUp = await catchUpAgentEventProjectionV1(throughSequenceThree, {
+  fetchImpl: async (input) =>
+    String(input).endsWith("afterSequence=3")
+      ? sseResponse(answerEvents.slice(3))
+      : sseResponse([]),
+})
+assert.equal(caughtUp.lastSequence, 5)
+assert.notEqual(reduceAgentEventV1(caughtUp, {
+  ...eventBase("event:accepted00000002", 6),
+  turnId: secondTurnId,
+  type: "turn.accepted",
+  payload: { acceptedAt: occurredAt },
+}).status, "invalid")
+
+await assert.rejects(
+  () =>
+    loadAgentEventProjectionV1(sessionId, {
+      fetchImpl: async () => sseResponse(answerEvents.slice(1)),
+    }),
+  /sekvensgap/,
+)
+
 await assert.rejects(
   () =>
     consumeAgentEventStreamV1(
@@ -468,6 +528,9 @@ assert.match(previewSource, /sandbox=""/)
 assert.doesNotMatch(previewSource, /allow-same-origin/)
 assert.match(adapterSource, /\/sessions\/\$\{encodeURIComponent\(request\.sessionId\)\}\/turns/)
 assert.match(adapterSource, /\/events\?afterSequence=/)
+assert.match(storeSource, /loadAgentEventProjectionV1/)
+assert.match(storeSource, /isAgentTurnTerminalV1\(projectionRef\.current, turnId\)/)
+assert.match(storeSource, /projectionRef\.current\.turns\[turnId\]/)
 assert.match(storeSource, /replyToQuestionId/)
 assert.match(storeSource, /answerSelections/)
 assert.match(storeSource, /reconcileAgentPreviewV1/)

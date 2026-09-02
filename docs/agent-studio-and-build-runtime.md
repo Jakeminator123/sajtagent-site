@@ -1,6 +1,6 @@
 # Agent Studio and local build runtime
 
-Status: authenticated Site proxy, fail-closed vertical slice, 2026-09-02.
+Status: authenticated Site proxy with compile and profile activation, 2026-09-02.
 
 ## What Jakob can use now
 
@@ -36,10 +36,19 @@ npm run dev:runtime
 
 Configure `SITEAGENT_RUNTIME_URL` and `SITEAGENT_RUNTIME_SIGNING_KEY` only on
 the Site server. Open `http://127.0.0.1:3147/agent-studio`, select **Export**,
-or use **Prova profil**. The browser calls an authenticated same-origin Site
-route; Site signs the private Runtime request and returns only a narrow compile
-health projection. Profile compilation does not start a build job or create a
-cloud Sprite.
+then use **Prova profil** or **Aktivera i OpenClaw**. The browser calls
+authenticated same-origin Site routes; Site signs the private Runtime requests
+and returns only narrow compile or activation projections. The Runtime
+materializes the activated bundle in its OpenClaw workspace and returns a
+receipt with revision, activation ID, bundle SHA-256 and `next-run` semantics.
+Profile compilation and activation do not start a build job or create a cloud
+Sprite.
+
+Activation first saves the current browser draft. A changed draft receives a
+new revision and `updatedAt`; unchanged content reuses the already stored draft
+revision. Site generates activation and idempotency IDs server-side. The UI
+sends `expectedActiveRevision` only while it holds a verified activation
+receipt, and discards that receipt after a revision conflict.
 
 ## Product build boundary
 

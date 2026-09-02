@@ -5,6 +5,16 @@ import { createHmac, randomUUID } from "node:crypto"
 import { z } from "zod"
 
 import {
+  AGENT_PROFILE_ACTIVATION_PATH_V1,
+  MAX_AGENT_PROFILE_ACTIVATION_REQUEST_BYTES_V1,
+  AgentProfileActivationConflictCodeV1Schema,
+  AgentProfileActivationProjectionV1Schema,
+  AgentProfileActivationReceiptV1Schema,
+  AgentProfileActivationRequestV1Schema,
+  type AgentProfileActivationConflictCodeV1,
+  type AgentProfileActivationProjectionV1,
+} from "../../../contracts/agent-profile-activation-v1.ts"
+import {
   AgentProfileCompileProjectionV1Schema,
   EffectiveAgentPolicyV1Schema,
   type AgentProfileCompileProjectionV1,
@@ -32,7 +42,38 @@ const RuntimeProfileCompileResponseV1Schema = z
   })
   .passthrough()
 
+const RuntimeProfileActivationErrorV1Schema = z
+  .object({
+    error: AgentProfileActivationConflictCodeV1Schema,
+    message: z.string().min(1).max(500),
+    activeRevision: z.number().int().positive().optional(),
+  })
+  .strict()
+
 type FetchV1 = typeof globalThis.fetch
+
+export class AgentProfileActivationConflictV1 extends Error {
+  readonly code: AgentProfileActivationConflictCodeV1
+  readonly activeRevision?: number
+
+  constructor(
+    code: AgentProfileActivationConflictCodeV1,
+    message: string,
+    activeRevision?: number,
+  ) {
+    super(message)
+    this.name = "AgentProfileActivationConflictV1"
+    this.code = code
+    this.activeRevision = activeRevision
+  }
+}
+
+export class AgentProfileActivationPayloadTooLargeV1 extends Error {
+  constructor() {
+    super("runtime_profile_activation_payload_too_large")
+    this.name = "AgentProfileActivationPayloadTooLargeV1"
+  }
+}
 
 function isAllowedRuntimeUrl(url: URL): boolean {
   if (url.username || url.password || url.search || url.hash) return false
@@ -101,20 +142,33 @@ async function readBoundedJsonV1(response: Response): Promise<unknown> {
 export class SignedAgentProfileRuntimeClientV1 {
   private readonly healthEndpoint: URL
   private readonly compileEndpoint: URL
+  private readonly activateEndpoint: URL
   private readonly signingKey: string
   private readonly fetchImpl: FetchV1
   private readonly now: () => Date
   private readonly createNonce: () => string
+  private readonly createActivationId: () => string
+  private readonly createIdempotencyKey: () => string
 
   constructor(
     baseUrl: string,
     signingKey: string,
-    options: { fetch?: FetchV1; now?: () => Date; createNonce?: () => string } = {},
+    options: {
+      fetch?: FetchV1
+      now?: () => Date
+      createNonce?: () => string
+      createActivationId?: () => string
+      createIdempotencyKey?: () => string
+    } = {},
   ) {
     const normalizedBase = baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`
     this.healthEndpoint = new URL(HEALTH_PATH_V1, normalizedBase)
     this.compileEndpoint = new URL(COMPILE_PATH_V1, normalizedBase)
-    if (!isAllowedRuntimeUrl(this.compileEndpoint)) {
+    this.activateEndpoint = new URL(AGENT_PROFILE_ACTIVATION_PATH_V1, normalizedBase)
+    if (
+      !isAllowedRuntimeUrl(this.compileEndpoint) ||
+      !isAllowedRuntimeUrl(this.activateEndpoint)
+    ) {
       throw new Error("Runtime URL must use HTTPS or loopback HTTP")
     }
     if (signingKey.length < 32) {
@@ -124,6 +178,8 @@ export class SignedAgentProfileRuntimeClientV1 {
     this.fetchImpl = options.fetch ?? fetch
     this.now = options.now ?? (() => new Date())
     this.createNonce = options.createNonce ?? randomUUID
+    this.createActivationId = options.createActivationId ?? randomUUID
+    this.createIdempotencyKey = options.createIdempotencyKey ?? randomUUID
   }
 
   async compile(profile: AgentProfileV1): Promise<AgentProfileCompileProjectionV1> {
@@ -180,6 +236,83 @@ export class SignedAgentProfileRuntimeClientV1 {
       runtime: { service: health.service, mode: health.mode },
       capabilityCount: compiled.effectivePolicy.capabilities.length,
       findingCount: compiled.effectivePolicy.findings.length,
+    })
+  }
+
+  async activate(
+    profile: AgentProfileV1,
+    expectedActiveRevision?: number,
+  ): Promise<AgentProfileActivationProjectionV1> {
+    const requestedAt = this.now().toISOString()
+    const activationRequest = AgentProfileActivationRequestV1Schema.parse({
+      schemaVersion: 1,
+      activationId: this.createActivationId(),
+      idempotencyKey: this.createIdempotencyKey(),
+      requestedAt,
+      ...(expectedActiveRevision === undefined ? {} : { expectedActiveRevision }),
+      profile,
+    })
+    const body = JSON.stringify(activationRequest)
+    if (
+      new TextEncoder().encode(body).byteLength >
+      MAX_AGENT_PROFILE_ACTIVATION_REQUEST_BYTES_V1
+    ) {
+      throw new AgentProfileActivationPayloadTooLargeV1()
+    }
+    const nonce = this.createNonce()
+    const signature = createHmac("sha256", this.signingKey)
+      .update(
+        runtimeSignaturePayloadV1(
+          "POST",
+          this.activateEndpoint.pathname,
+          requestedAt,
+          nonce,
+          body,
+        ),
+      )
+      .digest("hex")
+    const response = await this.fetchImpl(this.activateEndpoint, {
+      method: "POST",
+      headers: {
+        accept: "application/json",
+        "content-type": "application/json",
+        "x-siteagent-timestamp": requestedAt,
+        "x-siteagent-nonce": nonce,
+        "x-siteagent-signature": signature,
+      },
+      body,
+      redirect: "error",
+      cache: "no-store",
+      signal: AbortSignal.timeout(RUNTIME_TIMEOUT_MS_V1),
+    })
+    assertPrivateRuntimeResponse(response, this.activateEndpoint)
+    const responseBody = await readBoundedJsonV1(response)
+
+    if (response.status === 409) {
+      const conflict = RuntimeProfileActivationErrorV1Schema.parse(responseBody)
+      throw new AgentProfileActivationConflictV1(
+        conflict.error,
+        conflict.message,
+        conflict.activeRevision,
+      )
+    }
+    if (response.status !== 200) {
+      throw new Error("runtime_profile_activation_failed")
+    }
+
+    const receipt = AgentProfileActivationReceiptV1Schema.parse(responseBody)
+    return AgentProfileActivationProjectionV1Schema.parse({
+      schemaVersion: receipt.schemaVersion,
+      activated: receipt.activated,
+      profileId: receipt.profileId,
+      revision: receipt.revision,
+      activatedAt: receipt.activatedAt,
+      activationId: receipt.activationId,
+      bundleSha256: receipt.bundleSha256,
+      takesEffect: receipt.takesEffect,
+      capabilityCount: receipt.effectivePolicy.capabilities.length,
+      findingCount: receipt.effectivePolicy.findings.length,
+      runtime: receipt.runtime,
     })
   }
 }

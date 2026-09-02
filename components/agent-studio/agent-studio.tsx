@@ -38,6 +38,16 @@ import {
   type AgentProfileV1,
   type ExecutionCapabilityV1,
 } from "@/contracts/agent-profile-v1"
+import {
+  AgentProfileActivationConflictResponseV1Schema,
+  AgentProfileActivationProjectionV1Schema,
+  type AgentProfileActivationProjectionV1,
+} from "@/contracts/agent-profile-activation-v1"
+import {
+  prepareAgentProfileActivationDraftV1,
+  readStoredAgentProfileDraftV1,
+  rebaseAgentProfileActivationDraftV1,
+} from "@/components/agent-studio/agent-profile-draft-v1"
 
 const STORAGE_KEY = "siteagent.agent-profile-v1"
 
@@ -117,6 +127,12 @@ type RuntimeState =
   | { kind: "ready"; message: string }
   | { kind: "error"; message: string }
 
+type ActivationState =
+  | { kind: "idle"; message: string }
+  | { kind: "activating"; message: string }
+  | { kind: "ready"; message: string }
+  | { kind: "error"; message: string }
+
 function lines(value: string): string[] {
   return value
     .split(/\r?\n/)
@@ -180,6 +196,12 @@ export function AgentStudio() {
     kind: "idle",
     message: "Site ansluter till runtime först när du provar en giltig profil.",
   })
+  const [activationState, setActivationState] = useState<ActivationState>({
+    kind: "idle",
+    message: "Ingen aktiv Runtime-revision är verifierad i den här browsern.",
+  })
+  const [activeReceipt, setActiveReceipt] =
+    useState<AgentProfileActivationProjectionV1 | null>(null)
   const importRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -350,6 +372,95 @@ export function AgentStudio() {
     }
   }
 
+  const activateInRuntime = async () => {
+    if (!validation.success || !storageReady) return
+
+    const preparedAt = new Date()
+    const stored = readStoredAgentProfileDraftV1(
+      window.localStorage.getItem(STORAGE_KEY),
+    )
+    const activationProfile = prepareAgentProfileActivationDraftV1(
+      validation.data,
+      stored,
+      preparedAt,
+    )
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(activationProfile))
+    setProfile(activationProfile)
+    setSaveMessage(
+      `Revision ${activationProfile.revision} sparad som lokalt utkast ${preparedAt.toLocaleTimeString("sv-SE")}`,
+    )
+    setActivationState({
+      kind: "activating",
+      message: `Aktiverar revision ${activationProfile.revision} i OpenClaw-workspacet…`,
+    })
+
+    try {
+      const response = await fetch("/api/siteagent/agent-profiles/activate", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          profile: activationProfile,
+          ...(activeReceipt === null
+            ? {}
+            : { expectedActiveRevision: activeReceipt.revision }),
+        }),
+        credentials: "same-origin",
+        signal: AbortSignal.timeout(7_000),
+      })
+      const payload = (await response.json()) as unknown
+
+      if (response.status === 409) {
+        const conflict = AgentProfileActivationConflictResponseV1Schema.safeParse(payload)
+        setActiveReceipt(null)
+        const activeRuntimeRevision = conflict.success
+          ? conflict.data.error.activeRevision
+          : undefined
+        let retryMessage = ""
+        if (activeRuntimeRevision !== undefined) {
+          const rebasedAt = new Date()
+          const rebasedProfile = rebaseAgentProfileActivationDraftV1(
+            activationProfile,
+            activeRuntimeRevision,
+            rebasedAt,
+          )
+          window.localStorage.setItem(STORAGE_KEY, JSON.stringify(rebasedProfile))
+          setProfile(rebasedProfile)
+          setSaveMessage(
+            `Utkastet flyttades till revision ${rebasedProfile.revision} efter Runtime-konflikt`,
+          )
+          retryMessage = ` Utkastet är nu revision ${rebasedProfile.revision}; tryck Aktivera igen.`
+        }
+        setActivationState({
+          kind: "error",
+          message: conflict.success
+            ? `Aktiveringen stoppades av revisionsskyddet${
+                activeRuntimeRevision === undefined
+                  ? ""
+                  : `; aktiv Runtime-revision är ${activeRuntimeRevision}`
+              }. Det tidigare kvittot är inte längre giltigt.${retryMessage}`
+            : "Aktiveringen stoppades av revisionsskyddet. Det tidigare kvittot är inte längre giltigt.",
+        })
+        return
+      }
+      if (!response.ok) throw new Error(`HTTP ${response.status}`)
+
+      const receipt = AgentProfileActivationProjectionV1Schema.parse(payload)
+      setActiveReceipt(receipt)
+      setActivationState({
+        kind: "ready",
+        message: `Revision ${receipt.revision} är aktiv och gäller från nästa körning. Runtime skapade bundle ${receipt.bundleSha256.slice(0, 12)}….`,
+      })
+    } catch (error) {
+      setActivationState({
+        kind: "error",
+        message:
+          error instanceof Error
+            ? `Aktivering misslyckades: ${error.message}`
+            : "Aktivering misslyckades.",
+      })
+    }
+  }
+
   const validationMessages = validation.success
     ? []
     : validation.error.issues.slice(0, 6).map((issue) => ({
@@ -373,7 +484,7 @@ export function AgentStudio() {
                 <Sparkles className="size-4 text-brand-teal" />
                 <h1 className="text-sm font-semibold tracking-tight">Agent Studio</h1>
                 <Badge variant="outline" className="border-brand-teal/40 text-brand-teal">
-                  lokal profil
+                  lokalt utkast
                 </Badge>
               </div>
               <p className="mt-1 text-xs text-muted-foreground">
@@ -807,8 +918,22 @@ export function AgentStudio() {
                   </div>
                 </div>
                 <div className="flex flex-col gap-3 sm:flex-row">
-                  <Button onClick={() => void compileInRuntime()} disabled={!validation.success || runtimeState.kind === "checking"}>
+                  <Button
+                    variant="outline"
+                    onClick={() => void compileInRuntime()}
+                    disabled={!validation.success || runtimeState.kind === "checking"}
+                  >
                     <Wrench /> Prova profil
+                  </Button>
+                  <Button
+                    onClick={() => void activateInRuntime()}
+                    disabled={
+                      !validation.success ||
+                      !storageReady ||
+                      activationState.kind === "activating"
+                    }
+                  >
+                    <PlugZap /> Aktivera i OpenClaw
                   </Button>
                 </div>
                 <p
@@ -822,6 +947,63 @@ export function AgentStudio() {
                 >
                   {runtimeState.message}
                 </p>
+                <p
+                  className={`mt-3 text-sm ${
+                    activationState.kind === "ready"
+                      ? "text-brand-teal"
+                      : activationState.kind === "error"
+                        ? "text-destructive"
+                        : "text-muted-foreground"
+                  }`}
+                >
+                  {activationState.message}
+                </p>
+                {activeReceipt ? (
+                  <dl className="mt-4 grid gap-3 rounded-xl border border-brand-teal/30 bg-brand-teal/5 p-4 text-xs sm:grid-cols-2">
+                    <div>
+                      <dt className="text-muted-foreground">Aktiv profil</dt>
+                      <dd className="mt-1 font-mono text-foreground">
+                        {activeReceipt.profileId} · rev {activeReceipt.revision}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="text-muted-foreground">Gäller</dt>
+                      <dd className="mt-1 font-mono text-foreground">
+                        nästa körning
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="text-muted-foreground">Aktiverad</dt>
+                      <dd className="mt-1 font-mono text-foreground">
+                        {new Date(activeReceipt.activatedAt).toLocaleString("sv-SE")}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="text-muted-foreground">Runtime</dt>
+                      <dd className="mt-1 font-mono text-foreground">
+                        {activeReceipt.runtime.mode}
+                      </dd>
+                    </div>
+                    <div className="sm:col-span-2">
+                      <dt className="text-muted-foreground">Bundle SHA-256</dt>
+                      <dd className="mt-1 break-all font-mono text-foreground">
+                        {activeReceipt.bundleSha256}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="text-muted-foreground">Effektiv policy</dt>
+                      <dd className="mt-1 font-mono text-foreground">
+                        {activeReceipt.capabilityCount} capabilities · {activeReceipt.findingCount} begränsningar
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="text-muted-foreground">Activation ID</dt>
+                      <dd className="mt-1 break-all font-mono text-foreground">
+                        {activeReceipt.activationId}
+                      </dd>
+                    </div>
+                  </dl>
+                ) : null}
               </div>
             </TabsContent>
           </Tabs>

@@ -26,7 +26,13 @@ export const ReadyAgentTurnRuntimeHealthV1Schema = z
     agentSessionContractVersion: z.literal(1),
     agentTurnStreamTransport: z.literal("sse"),
     agentTurnStreamEnabled: z.literal(true),
-    agentTurnCapabilities: z.tuple([z.literal("conversation.respond")]),
+    agentTurnCapabilities: z.union([
+      z.tuple([z.literal("conversation.respond")]),
+      z.tuple([
+        z.literal("conversation.respond"),
+        z.literal("build.request"),
+      ]),
+    ]),
     artifactReadEnabled: z.boolean(),
   })
   .passthrough()
@@ -139,14 +145,42 @@ function parseAgentTurnSseV1(
     }
     return event
   })
-  const validated = validateAgentTurnAgainstPolicyV1(
+  const terminal = validateAgentTurnAgainstPolicyV1(
     input.session,
     input.policy,
     events,
     { baseSequence: input.baseSequence, requireTerminal: true },
   )
-  if (!validated.success) throw new Error(validated.error)
-  return validated.events
+  if (terminal.success) return terminal.events
+
+  const handoff = validateAgentTurnAgainstPolicyV1(
+    input.session,
+    input.policy,
+    events,
+    { baseSequence: input.baseSequence, requireTerminal: false },
+  )
+  if (!handoff.success) throw new Error(handoff.error)
+  const last = handoff.events.at(-1)
+  const tools = handoff.events.filter((event) => event.type === "tool.started")
+  const forbidden = handoff.events.some(
+    (event) =>
+      event.type === "question.requested" ||
+      event.type === "tool.completed" ||
+      event.type === "build.started" ||
+      event.type === "preview.ready" ||
+      event.type === "turn.completed" ||
+      event.type === "turn.failed",
+  )
+  if (
+    last?.type !== "tool.started" ||
+    last.payload.capability !== "build.request" ||
+    tools.length !== 1 ||
+    forbidden ||
+    input.policy.allowedMutationIntents.length !== 1
+  ) {
+    throw new Error(terminal.error)
+  }
+  return handoff.events
 }
 
 export class SignedAgentSessionRuntimeClientV1
@@ -205,8 +239,17 @@ export class SignedAgentSessionRuntimeClientV1
     } catch {
       throw new Error("Runtime health response is not valid JSON")
     }
-    if (!ReadyAgentTurnRuntimeHealthV1Schema.safeParse(healthValue).success) {
+    const health = ReadyAgentTurnRuntimeHealthV1Schema.safeParse(healthValue)
+    if (!health.success) {
       throw new Error("Runtime is not ready for AgentSession V1")
+    }
+    if (
+      input.policy.capabilities.some(
+        (capability) =>
+          !new Set<string>(health.data.agentTurnCapabilities).has(capability),
+      )
+    ) {
+      throw new Error("Runtime does not advertise every turn capability")
     }
 
     const body = JSON.stringify(input)

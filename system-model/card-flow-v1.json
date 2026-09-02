@@ -45,7 +45,7 @@
       "layer": 0,
       "owner": "sajtagent-site",
       "status": "implemented",
-      "summary": "Binder användare, projekt och AgentSession, skapar svarspolicy och sekvenserar AgentEventV1. BuildJobV1 förblir stängt tills samma session har ett ratificerat godkännande- och tool-join.",
+      "summary": "Binder användare, projekt och AgentSession, mintar en policy med högst en build.request, härleder ett serverägt BuildJobV1 och sekvenserar verifierat resultat tillbaka som AgentEventV1. Liveflödet förblir stängt tills Runtime-verktyget och Site-migrationerna är aktiverade.",
       "failure": {
         "code": "cards.controller-rejected",
         "symptom": "Inget kort får visa en lyckad version.",
@@ -59,7 +59,7 @@
       "layer": 0,
       "owner": "sajtagent-site",
       "status": "prototype",
-      "summary": "Verifierade revisions-, versions- och previewreferenser.",
+      "summary": "Lokalt implementerad transaktion för verifierade revisions-, versions- och previewreferenser; ännu inte applicerad i molndatabasen.",
       "failure": {
         "code": "cards.version-unavailable",
         "symptom": "Versioner stannar i fel- eller väntläge och preview blir inte ready.",
@@ -163,7 +163,7 @@
         "current": "AgentEventV1 response projection",
         "target": "Sajtagent user input, response, question and verified runtime status",
         "produces": ["AgentTurnRequestV1.replyToQuestionId", "AgentTurnRequestV1.answerSelections"],
-        "consumes": ["agent.status", "message.delta", "question.requested", "tool.started", "tool.completed", "turn.failed"]
+        "consumes": ["agent.status", "message.delta", "question.requested", "tool.started", "build.started", "tool.completed", "preview.ready", "turn.completed", "turn.failed"]
       },
       "failure": {
         "code": "card.agent-unavailable",

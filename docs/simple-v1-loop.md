@@ -1,19 +1,20 @@
 # V1: one continuous agent, one verified truth
 
-Status: accepted target loop. Current Site conversation is local and answer-only;
-the mutation join remains deliberately unavailable.
+Status: Site mutation join implemented and focused-tested locally. Live use is
+blocked until the Runtime tool is registered and the reviewed Site migrations
+are applied.
 
 ## The simple rule
 
 The chat card talks to one continuous SiteAgent. A normal answer stays a normal
-answer. The browser cannot start a build. A future site mutation becomes one
-bounded build only after explicit approval and a Site-authorized tool join in
-the same session. Only deterministic SiteAgent checks may turn a worker
-candidate into a version.
+answer. The browser cannot start a build. A site mutation becomes one bounded
+build only when the current authenticated turn yields the exact
+Site-authorized `build.request` handoff. Only deterministic SiteAgent checks
+may turn a worker candidate into a version.
 
 ```text
 Chat -> Site session -> private OpenClaw session -> answer / question
-                                              \-> [planned approval + tool join]
+                                              \-> typed build.request handoff
                                                   -> BuildJobV1 -> candidate
                                                   -> acceptance -> version + preview
 ```
@@ -54,11 +55,13 @@ deployment, runtime and orchestration are not dependencies of this loop.
 1. The browser opens its authenticated starter project and Site-owned session.
 2. Chat sends an `AgentTurnRequestV1`; Site binds user, tenant, project, base
    revision and idempotency and creates `AgentTurnPolicyV1`.
-3. Current OpenClaw turns can answer or ask a question with
-   `conversation.respond` and `maxToolCalls: 0`; they cannot create a build.
-4. A future explicit user approval and Site-authorized tool join in this same
-   session must validate mandate, credits and revision before Site may send one
-   HMAC-signed `BuildJobV1`. Until that join is ratified, execution stops here.
+3. Site may authorize exactly `conversation.respond` plus one `build.request`
+   for the current project, base revision and singleton mutation intent. The
+   browser cannot add capabilities, intent types or job identifiers.
+4. Runtime may either finish a normal answer/question turn or close its private
+   SSE stream at exactly one open `build.request`. Site revalidates that
+   handoff, derives `BuilderIntentV1` from the signed turn and policy, and then
+   sends one HMAC-signed `BuildJobV1`.
 5. The runtime returns one Zod-validated `WorkerReportV1` synchronously.
 6. A candidate must be bound to the same job and base revision. It must have
    exactly one HTML preview artifact with SHA-256, a passed preview receipt
@@ -90,8 +93,9 @@ publishable key. Postgres connections, runtime URL and runtime signing key are
 server-only. Model/provider credentials, OpenClaw credentials, Sprite tokens
 and workspace paths are runtime-only and never belong in this repository.
 
-`SITEAGENT_RUNTIME_URL` and `SITEAGENT_RUNTIME_SIGNING_KEY` remain unset until
-the private ingress is ratified. They must always be configured as a pair.
+`SITEAGENT_RUNTIME_URL` and `SITEAGENT_RUNTIME_SIGNING_KEY` must always be
+configured server-side as a pair. If either is absent, Site stays disconnected
+and fails the turn without fabricating a result.
 
 ## Verification
 

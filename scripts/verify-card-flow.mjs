@@ -201,7 +201,7 @@ const renderDocs = () => {
     "- Chat är användarens inmatningskort; Sajtagent är OpenClaw-agentens svarskort.",
     "- Byggval kan öppnas bredvid dialogen eller vikas ned utan att ändra meddelandevägen.",
     "- Browserkort skapar endast `AgentTurnRequestV1`; inga OpenClaw-, MCP- eller verktygsnamn får läcka in i kortkontraktet.",
-    "- Vanlig chatt har `conversation.respond` och `maxToolCalls: 0`; byggvägen förblir stängd tills samma session har ett ratificerat godkännande- och tool-join.",
+    "- En Site-policy kan ge högst en `build.request` och en mutationstyp; browserkortet kan aldrig skapa jobb eller utöka policyn.",
     "- Versioner och Karta projicerar verifierad produktstate och får inte deklarera framgång från råa modell- eller OpenClaw-events.",
     "",
     "Ändra `system-model/card-flow-v1.json`, kör `npm run cards:docs`, och verifiera sedan med `npm run cards:check`.",

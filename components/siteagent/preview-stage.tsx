@@ -16,6 +16,7 @@ function PreviewFrame({ className }: { className?: string }) {
     <iframe
       src={previewUrl}
       title="Förhandsvisning av sajten"
+      sandbox=""
       className={cn("w-full h-full border-0 bg-white", className)}
     />
   )

@@ -29,12 +29,13 @@ session, one use of an idempotency key per session and globally unique event
 IDs. The repository repeats these checks inside transactions and validates the
 complete turn against `AgentTurnPolicyV1` before terminal events are committed.
 
-The initial Site-minted policy allows only `conversation.respond` with
-`maxToolCalls: 0`, matching the first ratified runtime capability. It does not
-grant `build.request`: that capability stays fail-closed until the Site-owned
-mandate/credit/revision check is joined to the subordinate `BuildJobV1`
-controller. The browser cannot add a tool or capability because its request
-schema is strict and the policy is created only on the server.
+Without a build coordinator, the Site-minted policy remains answer-only with
+`maxToolCalls: 0`. The product route injects the coordinator and may instead
+authorize exactly `conversation.respond`, one `build.request`, one singleton
+mutation intent and `maxToolCalls: 1`, bound to the current project and base
+revision. The browser cannot add a tool, capability, intent type or job ID
+because its request schema is strict and the policy is created only on the
+server.
 
 ## Runtime boundary
 
@@ -45,18 +46,25 @@ policy, baseSequence }` and signs the exact UTF-8 bytes with the shared
 non-loopback endpoint must use HTTPS.
 
 Before dispatch, Site requires `/health` to advertise AgentSession contract 1,
-SSE transport, enabled streaming and exactly `conversation.respond`.
+SSE transport, enabled streaming and either exactly `conversation.respond` or
+the ratified ordered pair `conversation.respond`, `build.request`.
 `artifactReadEnabled` may be false or true because the conversation ingress
 validates its own capability independently from the subordinate build path.
 The turn response must be non-cacheable
 `text/event-stream; charset=utf-8`. Site verifies every `id`, event name and
 full `AgentEventV1`, the 32 KiB frame / 4,096 event / 4 MiB stream bounds,
 consecutive session-global sequence, first `turn.accepted`, policy binding and
-exactly one terminal event before committing the batch.
+exactly one terminal event before committing the batch. The sole non-terminal
+exception must end at one open `tool.started` for `build.request`, with one
+allowed mutation intent and no question, completed tool, build or preview.
 
 Runtime mints the accepted event at `baseSequence + 1`; Site validates and
 persists that incoming event rather than sending an accepted prefix to the
-private POST. Site alone owns durable sequence and browser resume. Until both
+private POST. For the exact build handoff, Site derives the typed intent from
+the original turn and singleton policy, mints and runs the BuildJob, and then
+appends `build.started`, `tool.completed`, `preview.ready` and
+`turn.completed:built` only after canonical acceptance. Site alone owns durable
+sequence and browser resume. Until both
 `SITEAGENT_RUNTIME_URL` and server-only `SITEAGENT_RUNTIME_SIGNING_KEY` are
 configured, a valid browser POST locally persists and streams exactly
 `turn.accepted` followed by `turn.failed`; it never fabricates a model answer,

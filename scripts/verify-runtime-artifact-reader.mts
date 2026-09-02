@@ -206,6 +206,10 @@ function passed(name: string): void {
   assert.equal(healthInit?.cache, "no-store")
   assert(healthInit?.signal)
   assert.equal(
+    new Headers(healthInit?.headers).get("accept-encoding"),
+    "identity",
+  )
+  assert.equal(
     ReadyArtifactReadRuntimeHealthV1Schema.safeParse({
       ...readyHealth,
       unexpected: true,
@@ -284,6 +288,7 @@ passed("health drift, disabled capability, cacheability and redirects fail close
   assert.equal(readInit?.redirect, "error")
   assert.equal(readInit?.cache, "no-store")
   assert(readInit?.signal)
+  assert.equal(headers.get("accept-encoding"), "identity")
   assert.equal(headers.get("x-siteagent-timestamp"), timestamp)
   assert.equal(headers.get("x-siteagent-nonce"), nonce)
   assert.equal(

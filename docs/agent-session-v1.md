@@ -105,6 +105,10 @@ Even `preview.ready` is not enough to change Preview, Versioner or Karta. The
 client re-fetches the owner-bound project state and versions read models and
 requires their revision, version, preview and sitemap references to match
 before projecting ready state. No inline HTML or optimistic version exists.
+On a canonical built outcome, the server advances the idle session base in the
+same transaction as the terminal events, and the client updates its cached
+session only from that reconciled read model. The next message in the same
+Builder cannot reuse the old base.
 
 ## Executable evidence
 

@@ -63,7 +63,7 @@ function candidateReport(job: BuildJobV1): WorkerReportV1 {
     jobId: job.jobId,
     sourceRunId: "run:candidate",
     baseRevisionId: job.baseRevisionId,
-    candidateRevisionId: "revision:candidate",
+    candidateRevisionId: `revision:sha256:${"5".repeat(64)}`,
     changedPaths: ["app/page.tsx"],
     artifacts: [],
     receipts: [],
@@ -155,6 +155,19 @@ assert.equal(
 assert.deepEqual(unavailable.record?.events.map((event) => event.sequence), [1, 2])
 assert.equal(JSON.stringify(unavailable).includes("previewRef"), false)
 passed("missing runtime fails closed without a preview")
+assert.equal(
+  unavailable.record?.job.executionPolicy.capabilities.includes("checks.run"),
+  true,
+)
+assert.equal(
+  unavailable.record?.job.executionPolicy.capabilities.includes("command.execute"),
+  false,
+)
+assert.equal(
+  unavailable.record?.job.executionPolicy.capabilities.includes("packages.install"),
+  false,
+)
+passed("Site issues runtime-owned checks without host execution capabilities")
 
 const existing = await createBuildJobV1(
   request("runtime-missing"),
@@ -219,6 +232,15 @@ assert.equal(
   workerFailure.record?.result?.status === "failed" && workerFailure.record.result.code,
   "worker_failed",
 )
+assert.equal(
+  workerFailure.record?.result?.status === "failed" && workerFailure.record.result.message,
+  "Offline",
+)
+assert.equal(
+  workerFailure.record?.result?.status === "failed" && workerFailure.record.result.retryable,
+  true,
+)
+assert.equal(workerFailure.record?.workerReport?.status, "failed")
 passed("worker failure is persisted as a terminal failure")
 
 const runtimeThrow = await createBuildJobV1(

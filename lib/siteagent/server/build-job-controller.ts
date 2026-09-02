@@ -182,11 +182,15 @@ export async function createBuildJobV1(
 
   const now = (dependencies.now ?? (() => new Date()))()
   const createdAt = now.toISOString()
-  const deadlineAt = new Date(now.getTime() + 8 * 60_000).toISOString()
-  const expiresAt = new Date(now.getTime() + 10 * 60_000).toISOString()
+  const deadlineAt = new Date(now.getTime() + 4 * 60_000).toISOString()
+  const expiresAt = new Date(now.getTime() + 5 * 60_000).toISOString()
   const profilePolicy = deriveEffectiveAgentPolicyV1(
     DEFAULT_AGENT_PROFILE_V1,
     DEFAULT_LOCAL_AGENT_CEILING_V1,
+  )
+  const runtimeCapabilities = profilePolicy.capabilities.filter(
+    (capability) =>
+      capability !== "command.execute" && capability !== "packages.install",
   )
   const job = BuildJobV1Schema.parse({
     schemaVersion: 1,
@@ -204,7 +208,7 @@ export async function createBuildJobV1(
       maxToolCalls: profilePolicy.budgets.maxToolCalls,
       maxModelTokens: profilePolicy.budgets.maxModelTokens,
       maxCostMicros: profilePolicy.budgets.maxCostMicros,
-      capabilities: profilePolicy.capabilities,
+      capabilities: runtimeCapabilities,
       network: profilePolicy.network,
       packages: profilePolicy.packages,
     },

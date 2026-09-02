@@ -198,6 +198,11 @@ const stale = await startAgentTurnV1(
   dependencies,
 )
 check(stale.kind === "stale_revision", "a changed project revision stops a stale turn")
+check(
+  (await repository.getSession(principal, opened.session.sessionId))?.session
+    .activeBaseRevisionId === "revision:refreshed",
+  "turn startup repairs an idle session after canonical project acceptance",
+)
 
 const refreshed = await openAgentSessionV1(
   "project:session-test",
@@ -283,6 +288,7 @@ check(
 
 let buildVerifiedAt = ""
 let observedBuildIntent = ""
+let observedBuildBaseRevision = ""
 const buildCoordinator: AgentTurnBuildCoordinatorV1 = {
   async plan(input) {
     return {
@@ -338,6 +344,7 @@ const buildCoordinator: AgentTurnBuildCoordinatorV1 = {
         packages: { mode: "deny" as const },
       },
     }
+    observedBuildBaseRevision = job.baseRevisionId
     const result = {
       schemaVersion: 1 as const,
       status: "succeeded" as const,
@@ -350,6 +357,11 @@ const buildCoordinator: AgentTurnBuildCoordinatorV1 = {
       verifiedAt: buildVerifiedAt,
       receipts: [receipt],
     }
+    repository.setProjectRevision(
+      principal,
+      input.plan.request.projectId,
+      result.workspaceRevisionId,
+    )
     return {
       httpStatus: 201,
       kind: "created",
@@ -422,6 +434,30 @@ check(
     observedBuildIntent === "site.change",
   "only the singleton Site-authorized mutation intent reaches BuildJob",
 )
+const advancedAfterBuild = await repository.getSession(
+  principal,
+  refreshed.session.sessionId,
+)
+check(
+  advancedAfterBuild?.session.activeBaseRevisionId ===
+    "revision:build00000001",
+  "canonical build acceptance advances the active session base atomically",
+)
+if (!advancedAfterBuild) throw new Error("advanced_build_session_missing")
+const staleAfterBuild = await startAgentTurnV1(
+  request({
+    sessionId: refreshed.session.sessionId,
+    turnId: "turn:0000000000000105",
+    idempotencyKey: "idem:stale-after-build",
+    revisionId: refreshed.session.activeBaseRevisionId,
+  }),
+  principal,
+  dependencies,
+)
+check(
+  staleAfterBuild.kind === "stale_revision",
+  "the pre-build base is rejected immediately after canonical acceptance",
+)
 
 const failedBuildCoordinator: AgentTurnBuildCoordinatorV1 = {
   plan: buildCoordinator.plan,
@@ -486,7 +522,7 @@ const failedBuildRequest = request({
   sessionId: refreshed.session.sessionId,
   turnId: "turn:0000000000000006",
   idempotencyKey: "idem:failed-build",
-  revisionId: refreshed.session.activeBaseRevisionId,
+  revisionId: advancedAfterBuild.session.activeBaseRevisionId,
   message: "Bygg en ny startsida.",
 })
 const failedBuild = await startAgentTurnV1(failedBuildRequest, principal, {
@@ -501,6 +537,10 @@ check(
     "turn.accepted,tool.started,build.started,tool.completed,turn.failed" &&
     failedBuild.events.every((event) => event.type !== "preview.ready"),
   "a failed BuildJob closes the tool without minting preview.ready",
+)
+check(
+  observedBuildBaseRevision === advancedAfterBuild.session.activeBaseRevisionId,
+  "the next BuildJob in the same session uses the accepted workspace revision",
 )
 
 const invalidRuntime: AgentSessionRuntimeClientV1 = {
@@ -521,7 +561,7 @@ const invalidRequest = request({
   sessionId: refreshed.session.sessionId,
   turnId: "turn:0000000000000007",
   idempotencyKey: "idem:invalid-runtime",
-  revisionId: refreshed.session.activeBaseRevisionId,
+  revisionId: advancedAfterBuild.session.activeBaseRevisionId,
 })
 const invalid = await startAgentTurnV1(invalidRequest, principal, {
   ...dependencies,

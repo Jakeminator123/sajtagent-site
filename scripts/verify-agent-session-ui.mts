@@ -26,6 +26,7 @@ import {
   loadAgentEventProjectionV1,
 } from "../lib/siteagent/agent-session-bootstrap.ts"
 import {
+  advanceAgentSessionBaseV1,
   reconcileAgentPreviewV1,
   type CanonicalProjectReadModelV1,
 } from "../lib/siteagent/read-model.ts"
@@ -359,6 +360,27 @@ const session: AgentSessionV1 = {
   createdAt: occurredAt,
   updatedAt: occurredAt,
 }
+const advancedSession = advanceAgentSessionBaseV1(session, canonicalReadModel)
+assert.equal(
+  advancedSession?.activeBaseRevisionId,
+  previewResult.workspaceRevisionId,
+)
+const newerSession = {
+  ...session,
+  createdAt: "2026-09-01T20:00:00.000Z",
+  updatedAt: "2026-09-01T20:00:00.000Z",
+}
+assert.equal(
+  advanceAgentSessionBaseV1(newerSession, canonicalReadModel)?.updatedAt,
+  newerSession.updatedAt,
+)
+assert.equal(
+  advanceAgentSessionBaseV1(
+    { ...session, projectId: "project:other" },
+    canonicalReadModel,
+  ),
+  null,
+)
 const request: AgentTurnRequestV1 = {
   schemaVersion: 1,
   sessionId,

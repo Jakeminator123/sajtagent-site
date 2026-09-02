@@ -61,7 +61,7 @@ function candidateReport(job: BuildJobV1) {
     jobId: job.jobId,
     sourceRunId: "run:join",
     baseRevisionId: job.baseRevisionId,
-    candidateRevisionId: "candidate:join",
+    candidateRevisionId: `revision:sha256:${"6".repeat(64)}`,
     changedPaths: ["index.html"],
     artifacts: [
       {

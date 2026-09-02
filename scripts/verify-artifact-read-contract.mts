@@ -12,7 +12,7 @@ import {
 } from "../contracts/artifact-read-v1.ts"
 
 const EXPECTED_MIRRORED_CONTRACT_DIGEST =
-  "d0a8e579d2c17d29b0eb60d53840a1d6c6160d5a64a7abbd0e095d285e8df55b"
+  "735274e0473357e01d2202a7635af53c85758b1329b648819299a6fe51233609"
 
 const FixtureManifestSchema = z
   .object({

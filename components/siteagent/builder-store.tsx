@@ -34,6 +34,7 @@ import {
 } from "@/lib/siteagent/agent-session-bootstrap"
 import { defaultBuildChoices, type BuildChoices } from "@/lib/siteagent/build-choices"
 import {
+  advanceAgentSessionBaseV1,
   loadCanonicalProjectV1,
   reconcileAgentPreviewV1,
   toSiteVersionV1,
@@ -205,6 +206,11 @@ export function BuilderProvider({ children }: { children: ReactNode }) {
 
   const applyReadModel = useCallback((readModel: CanonicalProjectReadModelV1) => {
     baseRevisionIdRef.current = readModel.project.activeRevisionId
+    if (sessionRef.current) {
+      sessionRef.current =
+        advanceAgentSessionBaseV1(sessionRef.current, readModel) ??
+        sessionRef.current
+    }
     setVersions((previous) =>
       readModel.versions.map((version) => ({
         ...toSiteVersionV1(version),

@@ -132,6 +132,27 @@ function terminalState(events: AgentEventV1[]): {
   return { status: "running", outcome: null, terminalAt: null }
 }
 
+export function acceptedBuildRevisionV1(events: AgentEventV1[]): {
+  baseRevisionId: string
+  workspaceRevisionId: string
+} | null {
+  const terminal = events.at(-1)
+  if (
+    terminal?.type !== "turn.completed" ||
+    terminal.payload.outcome !== "built"
+  ) {
+    return null
+  }
+  const preview = events.find((event) => event.type === "preview.ready")
+  if (!preview || preview.type !== "preview.ready") {
+    throw new Error("built_turn_missing_canonical_preview")
+  }
+  return {
+    baseRevisionId: preview.payload.result.baseRevisionId,
+    workspaceRevisionId: preview.payload.result.workspaceRevisionId,
+  }
+}
+
 /** Focused in-memory implementation used by the deterministic server verifier. */
 export class MemoryAgentSessionRepositoryV1
   implements AgentSessionRepositoryV1
@@ -352,6 +373,23 @@ export class MemoryAgentSessionRepositoryV1
       },
     )
     if (!validated.success) throw new Error(validated.error)
+
+    const acceptedRevision = acceptedBuildRevisionV1(complete)
+    if (acceptedRevision) {
+      const project = this.projects.get(
+        activeProjectKey(principal, sessionStored.session.projectId),
+      )
+      if (
+        acceptedRevision.baseRevisionId !==
+          sessionStored.session.activeBaseRevisionId ||
+        !project ||
+        project.activeRevisionId !== acceptedRevision.workspaceRevisionId
+      ) {
+        throw new Error("agent_session_accepted_revision_mismatch")
+      }
+      sessionStored.session.activeBaseRevisionId =
+        acceptedRevision.workspaceRevisionId
+    }
 
     turn.events = complete
     const state = terminalState(complete)

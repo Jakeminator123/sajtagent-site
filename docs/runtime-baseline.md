@@ -1,6 +1,7 @@
 # Builder runtime baseline
 
-Status: local controller path, fail-closed before preview, 2026-09-01.
+Status: local AgentTurn-to-BuildJob join, fail-closed before canonical preview,
+2026-09-02.
 
 The Builder now uses Sajtagent-owned product routes:
 
@@ -8,8 +9,8 @@ The Builder now uses Sajtagent-owned product routes:
   starter project and base revision;
 - project/session routes open a Site-owned `AgentSessionV1`, turn POST streams
   `AgentEventV1`, and events GET resumes after the last verified sequence;
-- no browser-callable build-job route exists. The internal BuildJob controller
-  and acceptance join remain reusable but are not reachable from product UI;
+- no browser-callable build-job route exists. The AgentTurn route now injects
+  the Site-owned BuildJob controller, ArtifactRead gate and version committer;
 - Supabase SSR cookies and verified claims resolve the server principal;
 - V1 exposes the user's input in a separate Chat card;
 - replies, progress and fail-closed errors appear in the Sajtagent card, which
@@ -71,24 +72,23 @@ owner-bound project state and versions read models. Reload restores Versioner,
 Karta, and Preview from those read models. The preview iframe uses only the
 authenticated Site route; inline `srcDoc` is not part of the product flow.
 
-Chat now uses one continuous Sajtagent `AgentSession`. The browser opens a
+Chat uses one continuous Sajtagent `AgentSession`. The browser opens a
 Site-owned session, POSTs strict `AgentTurnRequestV1`, consumes Site SSE and
 resumes from its last verified global sequence. It never creates `BuildJobV1`:
-that remains a subordinate server-owned mutation envelope. It is unavailable
-until explicit user approval and a Site-authorized tool join are ratified in
-the same session and turn chain.
+that remains a subordinate server-owned mutation envelope minted only after an
+exact `build.request` handoff in the same turn.
 
 ## Still unavailable
 
 - live Runtime/Site configuration and end-to-end proof of the private
   artifact-byte transfer;
-- explicit same-session approval and a Site-authorized build tool join;
+- registered OpenClaw `build.request` tool and deployed Runtime handoff;
 - applied database migration and live use of the local version/preview routes;
 - prompt assist, publish, ZIP export, import, and save actions.
 
 These controls are disabled or return failure. They do not report simulated
-success. A real `job.succeeded` is also held back from the current UI until an
-authenticated preview route exists.
+success. The authenticated preview route and sandboxed Builder iframe exist,
+but they remain empty until a canonical version has been accepted and stored.
 
 ## Configuration boundary
 

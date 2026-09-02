@@ -6,11 +6,17 @@ import {
   AgentEventV1Schema,
   AgentTurnPolicyV1Schema,
   AgentTurnRequestV1Schema,
+  validateAgentTurnAgainstPolicyV1,
   type AgentEventV1,
   type AgentSessionV1,
   type AgentTurnPolicyV1,
   type AgentTurnRequestV1,
 } from "../../../contracts/agent-session-v1.ts"
+import type { EvidenceReceiptV1 } from "../../../contracts/builder-v1.ts"
+import type {
+  AgentTurnBuildCoordinatorV1,
+  AgentTurnBuildPlanV1,
+} from "./agent-turn-build-join.ts"
 import type { BuildPrincipalV1 } from "./build-job-input.ts"
 import type {
   AgentSessionRepositoryV1,
@@ -32,6 +38,7 @@ export type AgentTurnPolicyIssuerV1 = (input: {
   session: AgentSessionV1
   request: AgentTurnRequestV1
   issuedAt: string
+  buildPlan: AgentTurnBuildPlanV1 | null
 }) => AgentTurnPolicyV1
 
 export type AgentSessionControllerDependenciesV1 = {
@@ -41,6 +48,7 @@ export type AgentSessionControllerDependenciesV1 = {
   createId?: () => string
   createSessionSecret?: () => string
   issuePolicy?: AgentTurnPolicyIssuerV1
+  buildCoordinator?: AgentTurnBuildCoordinatorV1 | null
 }
 
 export type OpenAgentSessionResultV1 =
@@ -88,6 +96,7 @@ export function mintDefaultAgentTurnPolicyV1(input: {
   session: AgentSessionV1
   request: AgentTurnRequestV1
   issuedAt: string
+  buildPlan?: AgentTurnBuildPlanV1 | null
 }): AgentTurnPolicyV1 {
   if (
     input.request.sessionId !== input.session.sessionId ||
@@ -95,6 +104,18 @@ export function mintDefaultAgentTurnPolicyV1(input: {
       input.session.activeBaseRevisionId
   ) {
     throw new Error("agent_turn_binding_mismatch")
+  }
+  const buildPlan = input.buildPlan ?? null
+  if (
+    buildPlan &&
+    (buildPlan.request.projectId !== input.session.projectId ||
+      buildPlan.request.baseRevisionId !== input.session.activeBaseRevisionId ||
+      buildPlan.request.intent.intentType !== buildPlan.intentType ||
+      buildPlan.request.intent.message !== input.request.message ||
+      buildPlan.request.intent.context.selectedBaseRevisionId !==
+        input.request.uiContext.selectedBaseRevisionId)
+  ) {
+    throw new Error("agent_build_plan_binding_mismatch")
   }
   return AgentTurnPolicyV1Schema.parse({
     schemaVersion: 1,
@@ -104,12 +125,193 @@ export function mintDefaultAgentTurnPolicyV1(input: {
     baseRevisionId: input.session.activeBaseRevisionId,
     issuedAt: input.issuedAt,
     expiresAt: new Date(Date.parse(input.issuedAt) + 5 * 60_000).toISOString(),
-    capabilities: ["conversation.respond"],
-    allowedMutationIntents: [],
-    maxToolCalls: 0,
+    capabilities: buildPlan
+      ? ["conversation.respond", "build.request"]
+      : ["conversation.respond"],
+    allowedMutationIntents: buildPlan ? [buildPlan.intentType] : [],
+    maxToolCalls: buildPlan ? 1 : 0,
     maxModelTokens: 32_000,
     maxCostMicros: 250_000,
   })
+}
+
+function agentReceipts(receipts: EvidenceReceiptV1[]) {
+  return receipts.slice(0, 64).map((receipt) => ({
+    receiptId: receipt.receiptId,
+    category: receipt.category,
+    safeLabel: receipt.name.trim() || receipt.category,
+    status: receipt.status,
+    startedAt: receipt.startedAt,
+    finishedAt: receipt.finishedAt,
+  }))
+}
+
+function exactBuildHandoff(
+  session: AgentSessionV1,
+  record: StoredAgentTurnV1,
+  events: AgentEventV1[],
+): Extract<AgentEventV1, { type: "tool.started" }> | null {
+  const validated = validateAgentTurnAgainstPolicyV1(
+    session,
+    record.policy,
+    events,
+    { baseSequence: record.baseSequence, requireTerminal: false },
+  )
+  if (!validated.success) throw new Error(validated.error)
+  const last = validated.events.at(-1)
+  const started = validated.events.filter(
+    (event) => event.type === "tool.started",
+  )
+  const forbidden = validated.events.some(
+    (event) =>
+      event.type === "question.requested" ||
+      event.type === "tool.completed" ||
+      event.type === "build.started" ||
+      event.type === "preview.ready" ||
+      event.type === "turn.completed" ||
+      event.type === "turn.failed",
+  )
+  if (
+    last?.type !== "tool.started" ||
+    last.payload.capability !== "build.request" ||
+    started.length !== 1 ||
+    forbidden
+  ) {
+    return null
+  }
+  return last
+}
+
+async function completeBuildHandoff(
+  principal: BuildPrincipalV1,
+  record: StoredAgentTurnV1,
+  runtimeEvents: AgentEventV1[],
+  tool: Extract<AgentEventV1, { type: "tool.started" }>,
+  plan: AgentTurnBuildPlanV1,
+  dependencies: AgentSessionControllerDependenciesV1,
+): Promise<StoredAgentTurnV1> {
+  const coordinator = dependencies.buildCoordinator
+  if (
+    !coordinator ||
+    record.policy.allowedMutationIntents.length !== 1 ||
+    record.policy.allowedMutationIntents[0] !== plan.intentType
+  ) {
+    throw new Error("agent_build_handoff_not_authorized")
+  }
+
+  const result = await coordinator.run({ principal, plan })
+  const buildRecord = result.record
+  const buildResult = buildRecord?.result ?? null
+  let sequence = runtimeEvents.at(-1)!.sequence
+  const events = [...runtimeEvents]
+  const append = (event: unknown) => {
+    events.push(
+      AgentEventV1Schema.parse({
+        ...(event as Record<string, unknown>),
+        eventId: createEventId(dependencies),
+        sequence: ++sequence,
+      }),
+    )
+  }
+
+  if (buildRecord) {
+    append({
+      schemaVersion: 1,
+      sessionId: record.request.sessionId,
+      turnId: record.request.turnId,
+      occurredAt: buildRecord.job.createdAt,
+      type: "build.started",
+      payload: {
+        jobId: buildRecord.job.jobId,
+        toolCallId: tool.payload.toolCallId,
+        intentType: plan.intentType,
+      },
+    })
+  }
+
+  if (buildResult?.status === "succeeded") {
+    append({
+      schemaVersion: 1,
+      sessionId: record.request.sessionId,
+      turnId: record.request.turnId,
+      occurredAt: buildResult.verifiedAt,
+      type: "tool.completed",
+      payload: {
+        toolCallId: tool.payload.toolCallId,
+        status: "passed",
+        receipts: agentReceipts(buildResult.receipts),
+        artifacts: [],
+      },
+    })
+    append({
+      schemaVersion: 1,
+      sessionId: record.request.sessionId,
+      turnId: record.request.turnId,
+      occurredAt: buildResult.verifiedAt,
+      type: "preview.ready",
+      payload: {
+        jobId: buildResult.jobId,
+        result: {
+          schemaVersion: 1,
+          status: "succeeded",
+          jobId: buildResult.jobId,
+          baseRevisionId: buildResult.baseRevisionId,
+          workspaceRevisionId: buildResult.workspaceRevisionId,
+          versionId: buildResult.versionId,
+          previewRef: buildResult.previewRef,
+          sitemapRevision: buildResult.sitemapRevision,
+          verifiedAt: buildResult.verifiedAt,
+        },
+      },
+    })
+    append({
+      schemaVersion: 1,
+      sessionId: record.request.sessionId,
+      turnId: record.request.turnId,
+      occurredAt: buildResult.verifiedAt,
+      type: "turn.completed",
+      payload: { outcome: "built" },
+    })
+  } else {
+    const failedAt =
+      buildResult?.failedAt ??
+      (dependencies.now ?? (() => new Date()))().toISOString()
+    append({
+      schemaVersion: 1,
+      sessionId: record.request.sessionId,
+      turnId: record.request.turnId,
+      occurredAt: failedAt,
+      type: "tool.completed",
+      payload: {
+        toolCallId: tool.payload.toolCallId,
+        status: buildResult?.code === "cancelled" ? "cancelled" : "failed",
+        receipts: agentReceipts(buildResult?.receipts ?? []),
+        artifacts: [],
+      },
+    })
+    append({
+      schemaVersion: 1,
+      sessionId: record.request.sessionId,
+      turnId: record.request.turnId,
+      occurredAt: failedAt,
+      type: "turn.failed",
+      payload: {
+        code: buildResult?.code ?? "build_join_rejected",
+        message:
+          buildResult?.message ??
+          result.error?.message ??
+          "Byggbegäran kunde inte slutföras och ingen preview accepterades.",
+        retryable: buildResult?.retryable ?? result.httpStatus >= 500,
+      },
+    })
+  }
+
+  return dependencies.repository.appendTerminalEvents(
+    principal,
+    record.request.sessionId,
+    record.request.turnId,
+    events,
+  )
 }
 
 export async function openAgentSessionV1(
@@ -195,6 +397,7 @@ async function collectRuntimeEvents(
   principal: BuildPrincipalV1,
   session: AgentSessionV1,
   record: StoredAgentTurnV1,
+  buildPlan: AgentTurnBuildPlanV1 | null,
   dependencies: AgentSessionControllerDependenciesV1,
 ): Promise<StoredAgentTurnV1> {
   if (!dependencies.runtime) {
@@ -230,11 +433,26 @@ async function collectRuntimeEvents(
       events.push(event)
     }
     if (events.length === 0) throw new Error("runtime_event_stream_empty")
-    return await dependencies.repository.appendTerminalEvents(
+    const last = events.at(-1)
+    if (last?.type === "turn.completed" || last?.type === "turn.failed") {
+      return await dependencies.repository.appendTerminalEvents(
+        principal,
+        record.request.sessionId,
+        record.request.turnId,
+        events,
+      )
+    }
+    const handoff = exactBuildHandoff(session, record, events)
+    if (!handoff || !dependencies.buildCoordinator || !buildPlan) {
+      throw new Error("runtime_event_stream_incomplete")
+    }
+    return await completeBuildHandoff(
       principal,
-      record.request.sessionId,
-      record.request.turnId,
+      record,
       events,
+      handoff,
+      buildPlan,
+      dependencies,
     )
   } catch {
     return persistRuntimeFailure(
@@ -266,10 +484,18 @@ export async function startAgentTurnV1(
   }
 
   const createdAt = (dependencies.now ?? (() => new Date()))().toISOString()
+  const buildPlan = dependencies.buildCoordinator
+    ? await dependencies.buildCoordinator.plan({
+        principal,
+        session: sessionRecord.session,
+        request,
+      })
+    : null
   const policy = (dependencies.issuePolicy ?? mintDefaultAgentTurnPolicyV1)({
     session: sessionRecord.session,
     request,
     issuedAt: createdAt,
+    buildPlan,
   })
   const created = await dependencies.repository.reserveTurn(principal, {
     request,
@@ -295,6 +521,7 @@ export async function startAgentTurnV1(
     principal,
     sessionRecord.session,
     created.record,
+    buildPlan,
     dependencies,
   )
   return { kind: "created", events: terminal.events }

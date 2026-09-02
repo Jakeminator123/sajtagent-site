@@ -46,7 +46,13 @@ export const ReadyArtifactReadRuntimeHealthV1Schema = z
     agentSessionContractVersion: z.literal(1),
     agentTurnStreamTransport: z.literal("sse"),
     agentTurnStreamEnabled: z.boolean(),
-    agentTurnCapabilities: z.tuple([z.literal("conversation.respond")]),
+    agentTurnCapabilities: z.union([
+      z.tuple([z.literal("conversation.respond")]),
+      z.tuple([
+        z.literal("conversation.respond"),
+        z.literal("build.request"),
+      ]),
+    ]),
     artifactReadContractVersion: z.literal(
       ARTIFACT_READ_CONTRACT_VERSION_V1,
     ),

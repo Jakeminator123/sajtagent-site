@@ -1,6 +1,7 @@
 import { ZodError } from "zod"
 
 import { AgentTurnRequestV1Schema } from "../../../../../../contracts/agent-session-v1.ts"
+import { PostgresAgentTurnBuildCoordinatorV1 } from "../../../../../../lib/siteagent/server/agent-turn-build-join.ts"
 import { startAgentTurnV1 } from "../../../../../../lib/siteagent/server/agent-session-controller.ts"
 import { createAgentSessionRuntimeClientV1 } from "../../../../../../lib/siteagent/server/agent-session-runtime-env.ts"
 import { agentEventsSseResponseV1 } from "../../../../../../lib/siteagent/server/agent-session-sse.ts"
@@ -97,6 +98,7 @@ export async function POST(
     const result = await startAgentTurnV1(input, principal, {
       repository: new PostgresAgentSessionRepositoryV1(pool),
       runtime: createAgentSessionRuntimeClientV1(),
+      buildCoordinator: new PostgresAgentTurnBuildCoordinatorV1(pool),
     })
     if (result.kind === "created" || result.kind === "existing") {
       return agentEventsSseResponseV1(result.events)

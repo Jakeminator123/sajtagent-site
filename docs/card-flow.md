@@ -48,7 +48,7 @@ flowchart BT
 | --- | --- | --- | --- | --- | --- |
 | Byggval | separate prototype card | keep until first verified version | `AgentTurnRequestV1.uiContext.buildChoices` | - | `card.choices-invalid` |
 | Chatt | Site AgentSession user input | absorbed as user input in Sajtagent after V1 | `AgentTurnRequestV1` | - | `card.chat-unavailable` |
-| Sajtagent | AgentEventV1 response projection | Sajtagent user input, response, question and verified runtime status | `AgentTurnRequestV1.replyToQuestionId`<br/>`AgentTurnRequestV1.answerSelections` | `agent.status`<br/>`message.delta`<br/>`question.requested`<br/>`tool.started`<br/>`tool.completed`<br/>`turn.failed` | `card.agent-unavailable` |
+| Sajtagent | AgentEventV1 response projection | Sajtagent user input, response, question and verified runtime status | `AgentTurnRequestV1.replyToQuestionId`<br/>`AgentTurnRequestV1.answerSelections` | `agent.status`<br/>`message.delta`<br/>`question.requested`<br/>`tool.started`<br/>`build.started`<br/>`tool.completed`<br/>`preview.ready`<br/>`turn.completed`<br/>`turn.failed` | `card.agent-unavailable` |
 | Blocks | free-text follow-up prototype | typed block context in an agent turn | `AgentTurnRequestV1` | `turn.failed` | `card.blocks-stale-ref` |
 | Versioner | prototype projection | verified read model | - | `preview.ready`<br/>`turn.failed` | `card.versions-gap` |
 | Karta | preview-pages prototype | verified sitemap read model | - | `preview.ready` | `card.map-missing` |
@@ -60,7 +60,7 @@ flowchart BT
 - Chat är användarens inmatningskort; Sajtagent är OpenClaw-agentens svarskort.
 - Byggval kan öppnas bredvid dialogen eller vikas ned utan att ändra meddelandevägen.
 - Browserkort skapar endast `AgentTurnRequestV1`; inga OpenClaw-, MCP- eller verktygsnamn får läcka in i kortkontraktet.
-- Vanlig chatt har `conversation.respond` och `maxToolCalls: 0`; byggvägen förblir stängd tills samma session har ett ratificerat godkännande- och tool-join.
+- En Site-policy kan ge högst en `build.request` och en mutationstyp; browserkortet kan aldrig skapa jobb eller utöka policyn.
 - Versioner och Karta projicerar verifierad produktstate och får inte deklarera framgång från råa modell- eller OpenClaw-events.
 
 Ändra `system-model/card-flow-v1.json`, kör `npm run cards:docs`, och verifiera sedan med `npm run cards:check`.

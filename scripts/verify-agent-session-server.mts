@@ -1,5 +1,7 @@
 import assert from "node:assert/strict"
 import { createHmac } from "node:crypto"
+import { readFileSync } from "node:fs"
+import { resolve } from "node:path"
 
 import {
   AgentTurnRequestV1Schema,
@@ -11,6 +13,7 @@ import {
   openAgentSessionV1,
   startAgentTurnV1,
 } from "../lib/siteagent/server/agent-session-controller.ts"
+import type { AgentTurnBuildCoordinatorV1 } from "../lib/siteagent/server/agent-turn-build-join.ts"
 import { MemoryAgentSessionRepositoryV1 } from "../lib/siteagent/server/agent-session-repository.ts"
 import {
   ReadyAgentTurnRuntimeHealthV1Schema,
@@ -278,6 +281,228 @@ check(
   "a normal AgentSession answer produces zero build dispatch events",
 )
 
+let buildVerifiedAt = ""
+let observedBuildIntent = ""
+const buildCoordinator: AgentTurnBuildCoordinatorV1 = {
+  async plan(input) {
+    return {
+      intentType: "site.change",
+      request: {
+        schemaVersion: 1,
+        projectId: input.session.projectId,
+        baseRevisionId: input.session.activeBaseRevisionId,
+        idempotencyKey: `agent:${input.request.turnId.slice(5)}`,
+        intent: {
+          schemaVersion: 1,
+          intentType: "site.change",
+          message: input.request.message,
+          context: {
+            selectedBaseRevisionId:
+              input.request.uiContext.selectedBaseRevisionId,
+            mode: input.request.uiContext.mode,
+          },
+        },
+      },
+    }
+  },
+  async run(input) {
+    observedBuildIntent = input.plan.intentType
+    const createdAt = buildVerifiedAt
+    const expiresAt = new Date(Date.parse(createdAt) + 10 * 60_000).toISOString()
+    const receipt = {
+      receiptId: "receipt:build00000001",
+      category: "preview" as const,
+      name: "Verifierad preview",
+      status: "passed" as const,
+      startedAt: createdAt,
+      finishedAt: createdAt,
+    }
+    const job = {
+      schemaVersion: 1 as const,
+      jobId: "job:build000000000001",
+      tenantId: principal.tenantId,
+      projectId: input.plan.request.projectId,
+      baseRevisionId: input.plan.request.baseRevisionId,
+      idempotencyKey: input.plan.request.idempotencyKey,
+      createdAt,
+      expiresAt,
+      intent: input.plan.request.intent,
+      executionPolicy: {
+        deadlineAt: expiresAt,
+        maxSteps: 10,
+        maxToolCalls: 10,
+        maxModelTokens: 10_000,
+        maxCostMicros: 10_000,
+        capabilities: ["workspace.read" as const],
+        network: { mode: "deny-all" as const },
+        packages: { mode: "deny" as const },
+      },
+    }
+    const result = {
+      schemaVersion: 1 as const,
+      status: "succeeded" as const,
+      jobId: job.jobId,
+      baseRevisionId: job.baseRevisionId,
+      workspaceRevisionId: "revision:build00000001",
+      versionId: "version:build000000001",
+      previewRef: "preview:build00000000001",
+      sitemapRevision: "sitemap:build00000001",
+      verifiedAt: buildVerifiedAt,
+      receipts: [receipt],
+    }
+    return {
+      httpStatus: 201,
+      kind: "created",
+      record: {
+        job,
+        requestHash: "c".repeat(64),
+        status: "succeeded",
+        result,
+        workerReport: null,
+        events: [],
+      },
+    }
+  },
+}
+const buildRuntime: AgentSessionRuntimeClientV1 = {
+  async *streamTurn(input) {
+    buildVerifiedAt = new Date(
+      Date.parse(input.policy.issuedAt) + 2_000,
+    ).toISOString()
+    yield {
+      schemaVersion: 1,
+      sessionId: input.session.sessionId,
+      turnId: input.request.turnId,
+      eventId: "event:buildruntime000001",
+      sequence: input.baseSequence + 1,
+      occurredAt: input.policy.issuedAt,
+      type: "turn.accepted",
+      payload: { acceptedAt: input.policy.issuedAt },
+    }
+    yield {
+      schemaVersion: 1,
+      sessionId: input.session.sessionId,
+      turnId: input.request.turnId,
+      eventId: "event:buildruntime000002",
+      sequence: input.baseSequence + 2,
+      occurredAt: new Date(
+        Date.parse(input.policy.issuedAt) + 1_000,
+      ).toISOString(),
+      type: "tool.started",
+      payload: {
+        toolCallId: "tool:build000000000001",
+        capability: "build.request",
+        safeLabel: "Bygg sajten",
+      },
+    }
+  },
+}
+const buildRequest = request({
+  sessionId: refreshed.session.sessionId,
+  turnId: "turn:0000000000000005",
+  idempotencyKey: "idem:build",
+  revisionId: refreshed.session.activeBaseRevisionId,
+  message: "Ändra startsidan och bygg en verifierad preview.",
+})
+const built = await startAgentTurnV1(buildRequest, principal, {
+  ...dependencies,
+  runtime: buildRuntime,
+  buildCoordinator,
+})
+check(built.kind === "created", "a typed build.request handoff creates a Site build turn")
+if (built.kind !== "created") throw new Error("build_turn_failed")
+check(
+  built.events.map((event) => event.type).join(",") ===
+    "turn.accepted,tool.started,build.started,tool.completed,preview.ready,turn.completed",
+  "Site closes the runtime handoff with a verified canonical preview sequence",
+)
+check(
+  built.events.at(-1)?.type === "turn.completed" &&
+    (built.events.at(-1) as Extract<(typeof built.events)[number], { type: "turn.completed" }>).payload.outcome === "built" &&
+    observedBuildIntent === "site.change",
+  "only the singleton Site-authorized mutation intent reaches BuildJob",
+)
+
+const failedBuildCoordinator: AgentTurnBuildCoordinatorV1 = {
+  plan: buildCoordinator.plan,
+  async run(input) {
+    const success = await buildCoordinator.run(input)
+    if (!success.record) throw new Error("missing_test_build_record")
+    return {
+      httpStatus: 503,
+      kind: "failed",
+      record: {
+        ...success.record,
+        status: "failed",
+        result: {
+          schemaVersion: 1,
+          status: "failed",
+          jobId: success.record.job.jobId,
+          baseRevisionId: success.record.job.baseRevisionId,
+          code: "runtime_unavailable",
+          message: "Runtime-bygget kunde inte slutföras.",
+          retryable: true,
+          failedAt: buildVerifiedAt,
+          receipts: [],
+        },
+      },
+    }
+  },
+}
+const failedBuildRuntime: AgentSessionRuntimeClientV1 = {
+  async *streamTurn(input) {
+    buildVerifiedAt = new Date(
+      Date.parse(input.policy.issuedAt) + 2_000,
+    ).toISOString()
+    yield {
+      schemaVersion: 1,
+      sessionId: input.session.sessionId,
+      turnId: input.request.turnId,
+      eventId: "event:failedruntime00001",
+      sequence: input.baseSequence + 1,
+      occurredAt: input.policy.issuedAt,
+      type: "turn.accepted",
+      payload: { acceptedAt: input.policy.issuedAt },
+    }
+    yield {
+      schemaVersion: 1,
+      sessionId: input.session.sessionId,
+      turnId: input.request.turnId,
+      eventId: "event:failedruntime00002",
+      sequence: input.baseSequence + 2,
+      occurredAt: new Date(
+        Date.parse(input.policy.issuedAt) + 1_000,
+      ).toISOString(),
+      type: "tool.started",
+      payload: {
+        toolCallId: "tool:failedbuild000001",
+        capability: "build.request",
+        safeLabel: "Bygg sajten",
+      },
+    }
+  },
+}
+const failedBuildRequest = request({
+  sessionId: refreshed.session.sessionId,
+  turnId: "turn:0000000000000006",
+  idempotencyKey: "idem:failed-build",
+  revisionId: refreshed.session.activeBaseRevisionId,
+  message: "Bygg en ny startsida.",
+})
+const failedBuild = await startAgentTurnV1(failedBuildRequest, principal, {
+  ...dependencies,
+  runtime: failedBuildRuntime,
+  buildCoordinator: failedBuildCoordinator,
+})
+check(failedBuild.kind === "created", "a failed BuildJob still closes its AgentTurn")
+if (failedBuild.kind !== "created") throw new Error("failed_build_turn_missing")
+check(
+  failedBuild.events.map((event) => event.type).join(",") ===
+    "turn.accepted,tool.started,build.started,tool.completed,turn.failed" &&
+    failedBuild.events.every((event) => event.type !== "preview.ready"),
+  "a failed BuildJob closes the tool without minting preview.ready",
+)
+
 const invalidRuntime: AgentSessionRuntimeClientV1 = {
   async *streamTurn(input) {
     yield {
@@ -294,7 +519,7 @@ const invalidRuntime: AgentSessionRuntimeClientV1 = {
 }
 const invalidRequest = request({
   sessionId: refreshed.session.sessionId,
-  turnId: "turn:0000000000000005",
+  turnId: "turn:0000000000000007",
   idempotencyKey: "idem:invalid-runtime",
   revisionId: refreshed.session.activeBaseRevisionId,
 })
@@ -331,7 +556,7 @@ check(
   !policy.capabilities.includes("build.request") &&
     policy.allowedMutationIntents.length === 0 &&
     policy.maxToolCalls === 0,
-  "the initial route policy is answer-only until the mandate join exists",
+  "a coordinator-free policy remains answer-only",
 )
 check(
   !AgentTurnRequestV1Schema.safeParse({
@@ -340,6 +565,25 @@ check(
     policy: { maxToolCalls: 999 },
   }).success,
   "the strict browser request cannot inject capabilities or policy",
+)
+const turnRouteSource = readFileSync(
+  resolve(process.cwd(), "app/api/siteagent/sessions/[sessionId]/turns/route.ts"),
+  "utf8",
+)
+const buildJoinSource = readFileSync(
+  resolve(process.cwd(), "lib/siteagent/server/agent-turn-build-join.ts"),
+  "utf8",
+)
+check(
+  turnRouteSource.includes("PostgresAgentTurnBuildCoordinatorV1") &&
+    turnRouteSource.includes("buildCoordinator:"),
+  "the product turn route injects the server-owned BuildJob join",
+)
+check(
+  buildJoinSource.startsWith('import "server-only"') &&
+    !buildJoinSource.includes("NEXT_PUBLIC_") &&
+    !turnRouteSource.includes("/api/siteagent/build-jobs"),
+  "the build join remains server-only with no browser-callable job route",
 )
 
 const sseText = await agentEventsSseResponseV1(answered.events).text()
@@ -470,6 +714,91 @@ check(
     capturedHeaders.get("x-siteagent-nonce") === nonce,
   "the adapter signs the exact UTF-8 body with the ratified canonical payload",
 )
+const adapterBuildPlan = await buildCoordinator.plan({
+  principal,
+  session: refreshed.session,
+  request: buildRequest,
+})
+const adapterBuildIssuedAt = "2026-09-01T20:05:00.000Z"
+const adapterBuildNow = "2026-09-01T20:05:01.000Z"
+const adapterBuildPolicy = mintDefaultAgentTurnPolicyV1({
+  session: refreshed.session,
+  request: buildRequest,
+  issuedAt: adapterBuildIssuedAt,
+  buildPlan: adapterBuildPlan,
+})
+const adapterBuildEvents = [
+  {
+    schemaVersion: 1 as const,
+    sessionId: refreshed.session.sessionId,
+    turnId: buildRequest.turnId,
+    eventId: "event:adapterbuild000001",
+    sequence: 21,
+    occurredAt: adapterBuildIssuedAt,
+    type: "turn.accepted" as const,
+    payload: { acceptedAt: adapterBuildIssuedAt },
+  },
+  {
+    schemaVersion: 1 as const,
+    sessionId: refreshed.session.sessionId,
+    turnId: buildRequest.turnId,
+    eventId: "event:adapterbuild000002",
+    sequence: 22,
+    occurredAt: adapterBuildNow,
+    type: "tool.started" as const,
+    payload: {
+      toolCallId: "tool:adapterbuild00001",
+      capability: "build.request" as const,
+      safeLabel: "Bygg sajten",
+    },
+  },
+]
+const adapterBuildSse = adapterBuildEvents
+  .map(
+    (event) =>
+      `id: ${event.sequence}\nevent: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`,
+  )
+  .join("")
+const buildFetch: typeof fetch = async (input) => {
+  if (String(input).endsWith("/health")) {
+    return Response.json({
+      agentSessionContractVersion: 1,
+      agentTurnStreamTransport: "sse",
+      agentTurnStreamEnabled: true,
+      agentTurnCapabilities: ["conversation.respond", "build.request"],
+      artifactReadEnabled: true,
+    })
+  }
+  return new Response(adapterBuildSse, {
+    status: 200,
+    headers: {
+      "content-type": "text/event-stream; charset=utf-8",
+      "cache-control": "no-store",
+    },
+  })
+}
+const buildClient = new SignedAgentSessionRuntimeClientV1(
+  "http://127.0.0.1:4317",
+  signingKey,
+  {
+    fetch: buildFetch,
+    now: () => new Date(adapterBuildNow),
+    createNonce: () => "nonce:adapterbuild0001",
+  },
+)
+const receivedBuildHandoff = []
+for await (const event of buildClient.streamTurn({
+  session: refreshed.session,
+  request: buildRequest,
+  policy: adapterBuildPolicy,
+  baseSequence: 20,
+})) {
+  receivedBuildHandoff.push(event)
+}
+check(
+  JSON.stringify(receivedBuildHandoff) === JSON.stringify(adapterBuildEvents),
+  "the signed adapter accepts only the exact open build.request handoff",
+)
 check(
   [false, true].every((artifactReadEnabled) =>
     ReadyAgentTurnRuntimeHealthV1Schema.safeParse({
@@ -481,6 +810,16 @@ check(
     }).success,
   ),
   "conversation ingress remains valid with ArtifactReadV1 disabled or enabled",
+)
+check(
+  ReadyAgentTurnRuntimeHealthV1Schema.safeParse({
+    agentSessionContractVersion: 1,
+    agentTurnStreamTransport: "sse",
+    agentTurnStreamEnabled: true,
+    agentTurnCapabilities: ["conversation.respond", "build.request"],
+    artifactReadEnabled: true,
+  }).success,
+  "health can advertise the ratified build.request handoff only as the second capability",
 )
 check(
   !ReadyAgentTurnRuntimeHealthV1Schema.safeParse({

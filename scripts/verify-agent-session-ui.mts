@@ -464,6 +464,8 @@ for (const source of [adapterSource, storeSource]) {
 for (const source of [adapterSource, storeSource, previewSource]) {
   assert.doesNotMatch(source, /srcDoc/)
 }
+assert.match(previewSource, /sandbox=""/)
+assert.doesNotMatch(previewSource, /allow-same-origin/)
 assert.match(adapterSource, /\/sessions\/\$\{encodeURIComponent\(request\.sessionId\)\}\/turns/)
 assert.match(adapterSource, /\/events\?afterSequence=/)
 assert.match(storeSource, /replyToQuestionId/)

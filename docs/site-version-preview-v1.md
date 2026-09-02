@@ -1,6 +1,7 @@
 # Site-owned version and preview V1
 
-Status: locally wired behind artifact capability guard, not cloud-applied, 2026-09-01.
+Status: locally joined to AgentTurn and guarded ArtifactRead, not cloud-applied,
+2026-09-02.
 
 ## Purpose
 
@@ -44,8 +45,8 @@ Public receipts retain deterministic status and timestamps but drop both
 free-text summaries and runtime evidence refs.
 This repository fetches only the ratified private preview response through its
 server-only ArtifactReadV1 adapter; persistence still does not know Runtime
-ingress or parse Sprite refs. The build-job route injects this repository as
-the atomic success committer and enables dispatch only after strict Runtime
+ingress or parse Sprite refs. The AgentTurn server join injects this repository
+as the atomic success committer and enables BuildJob dispatch only after strict Runtime
 health proves the reviewed artifact-byte reader is available. See
 [`build-job-server-join-v1.md`](build-job-server-join-v1.md).
 No revision, version, preview, active pointer, success result, or terminal event

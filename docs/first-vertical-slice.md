@@ -87,10 +87,10 @@ unrestricted command output.
 
 1. The Builder sends only `AgentTurnRequestV1` to its Site-owned session route.
 2. The site authenticates the user and resolves tenant/project/base revision.
-   Current answer-only turns stop here without creating a build job.
-3. A future explicit approval and Site-authorized tool join in the same session
-   may normalize an internal `BuilderIntentV1` and create one idempotent job.
-   No browser-callable build-job route exists.
+   A normal answer stops here without creating a build job.
+3. An exact Site-authorized `build.request` handoff in the same turn normalizes
+   an internal `BuilderIntentV1` and creates one idempotent job. No
+   browser-callable build-job route exists.
 4. The site sends the signed `BuildJobV1` to the runtime adapter through a
    narrow server-to-server endpoint.
 5. The adapter binds the job to one OpenClaw session and private workspace,

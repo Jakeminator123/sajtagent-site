@@ -54,10 +54,10 @@ receipt, and discards that receipt after a revision conflict.
 
 There is no browser-callable build-job route. The strict BuildJob controller,
 server-resolved principal checks, candidate acceptance and signed runtime
-adapter remain internal seams. Product dispatch stays fail-closed until an
-explicit user approval and a Site-authorized build tool join are ratified in
-the same AgentSession turn chain. Local header identity remains disabled unless
-an explicit development-only loopback mode is selected.
+adapter remain internal seams. The AgentTurn route now authorizes at most one
+mutation intent and joins an exact `build.request` handoff to those seams.
+Local header identity remains disabled unless an explicit development-only
+loopback mode is selected.
 
 The runtime worker report is non-authoritative. A candidate deliberately ends
 as a failure until the implemented deterministic acceptance core, private
@@ -66,9 +66,9 @@ have all been injected into the internal join together. The acceptance rules
 are documented in
 [`candidate-acceptance-v1.md`](candidate-acceptance-v1.md).
 Missing persistence, missing runtime, transport errors, or an unconnected
-OpenClaw Gateway never produce a preview or successful version. A normal
-conversation turn has only `conversation.respond`, `maxToolCalls: 0`, and
-cannot dispatch that join.
+OpenClaw Gateway never produce a preview or successful version. Runtime may
+finish a normal conversation without using its single authorized tool call;
+only the exact handoff can dispatch the join.
 
 ## Database boundary
 

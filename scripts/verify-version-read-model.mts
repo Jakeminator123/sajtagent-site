@@ -5,6 +5,7 @@ import { readFileSync } from "node:fs"
 import {
   MAX_INLINE_PREVIEW_BYTES_V1,
   PreparedAcceptedCandidateV1Schema,
+  buildJobsCanonicallyEqualV1,
   previewResponseHeadersV1,
   publicVerificationReceiptsV1,
   validateInlinePreviewArtifactV1,
@@ -84,6 +85,41 @@ const input = {
 }
 
 const { job, ...prepared } = input
+
+const jobWithBuildChoices = {
+  ...job,
+  intent: {
+    ...job.intent,
+    context: {
+      buildChoices: {
+        siteKind: "website",
+        siteType: "landing",
+        pageCount: 3,
+      },
+    },
+  },
+}
+const jsonbOrderedJob = {
+  ...jobWithBuildChoices,
+  intent: {
+    ...jobWithBuildChoices.intent,
+    context: {
+      buildChoices: {
+        pageCount: 3,
+        siteKind: "website",
+        siteType: "landing",
+      },
+    },
+  },
+}
+assert.equal(buildJobsCanonicallyEqualV1(jobWithBuildChoices, jsonbOrderedJob), true)
+assert.equal(
+  buildJobsCanonicallyEqualV1(jobWithBuildChoices, {
+    ...jsonbOrderedJob,
+    intent: { ...jsonbOrderedJob.intent, message: "Ett annat uppdrag." },
+  }),
+  false,
+)
 
 assert.equal(validateInlinePreviewArtifactV1({
   mediaType: prepared.preview.mediaType,
@@ -198,4 +234,4 @@ assert.match(migration, /site_versions_preview_owner_fk/)
 assert.match(rlsTest, /authenticated owners must use the preview route/)
 assert.match(rlsTest, /cross-tenant version is invisible/)
 
-console.log("PASS: 23 canonical version, preview, and static RLS checks")
+console.log("PASS: 25 canonical version, preview, and static RLS checks")

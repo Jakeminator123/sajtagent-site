@@ -92,6 +92,29 @@ export type StoredInlinePreviewV1 = InlinePreviewArtifactV1 & {
   previewRef: string
 }
 
+function canonicalJsonV1(value: unknown): string {
+  if (Array.isArray(value)) {
+    return `[${value.map((item) => canonicalJsonV1(item)).join(",")}]`
+  }
+  if (value && typeof value === "object") {
+    const record = value as Record<string, unknown>
+    return `{${Object.keys(record)
+      .sort()
+      .map((key) => `${JSON.stringify(key)}:${canonicalJsonV1(record[key])}`)
+      .join(",")}}`
+  }
+  return JSON.stringify(value)
+}
+
+export function buildJobsCanonicallyEqualV1(
+  leftValue: unknown,
+  rightValue: unknown,
+): boolean {
+  const left = BuildJobV1Schema.parse(leftValue)
+  const right = BuildJobV1Schema.parse(rightValue)
+  return canonicalJsonV1(left) === canonicalJsonV1(right)
+}
+
 function previewDigest(content: string): string {
   return createHash("sha256").update(Buffer.from(content, "utf8")).digest("hex")
 }

@@ -20,6 +20,7 @@ import {
   CanonicalProjectStateV1Schema,
   CanonicalVersionSummaryV1Schema,
   SiteOpaqueIdV1Schema,
+  buildJobsCanonicallyEqualV1,
   publicVerificationReceiptsV1,
   validateInlinePreviewArtifactV1,
   validatePreparedAcceptedCandidateV1,
@@ -284,7 +285,7 @@ export class PostgresSiteVersionRepositoryV1 implements SiteVersionRepositoryV1 
         intent: sourceJobRow.intent,
         executionPolicy: sourceJobRow.execution_policy,
       })
-      if (JSON.stringify(storedJob) !== JSON.stringify(job)) {
+      if (!buildJobsCanonicallyEqualV1(storedJob, job)) {
         throw new Error("source_job_mismatch")
       }
       const previousSequence = await client.query<{ maximum: number }>(

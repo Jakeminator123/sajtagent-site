@@ -1,7 +1,7 @@
 # Builder runtime baseline
 
-Status: local AgentTurn-to-BuildJob join, fail-closed before canonical preview,
-2026-09-02.
+Status: integrated AgentTurn-to-BuildJob join, fail-closed before canonical
+preview, 2026-09-02.
 
 The Builder now uses Sajtagent-owned product routes:
 
@@ -19,8 +19,8 @@ The Builder now uses Sajtagent-owned product routes:
 - the old `/api/engine/chats/stream` request and simulated HTML fallback no
   longer exist in production code.
 
-The current local environment remains deliberately disconnected unless its
-server-only runtime URL and signing key are configured and strict Runtime
+Each deployment remains deliberately disconnected unless its server-only
+runtime URL and signing key are configured and strict Runtime
 health advertises both signed jobs and ArtifactReadV1. A missing or unhealthy
 runtime and an unverified worker candidate end as `job.failed`. The browser
 cannot convert that state into a preview or ready version.
@@ -32,10 +32,11 @@ Site preview health, and exposes one atomic success-commit seam. The product
 join has a server-only ArtifactReadV1 adapter, while candidate acceptance,
 staged Site preview health and the transactional version repository are
 assembled behind the explicit dispatch guard documented in
-[`build-job-server-join-v1.md`](build-job-server-join-v1.md). The local
-repository and owner-bound routes exist and are documented in
-[`site-version-preview-v1.md`](site-version-preview-v1.md); they are not proof
-that the migration has been applied or the controller join is live.
+[`build-job-server-join-v1.md`](build-job-server-join-v1.md). The repository
+and owner-bound routes are documented in
+[`site-version-preview-v1.md`](site-version-preview-v1.md). Repository checks
+alone are not proof that a particular deployment has its migration, private
+runtime configuration, or current end-to-end path healthy.
 
 This build gate is subordinate to the mutating tool path. It does not define
 the ordinary Chat-to-Sajtagent conversation protocol, and conversation alone
@@ -80,10 +81,8 @@ exact `build.request` handoff in the same turn.
 
 ## Still unavailable
 
-- live Runtime/Site configuration and end-to-end proof of the private
-  artifact-byte transfer;
-- registered OpenClaw `build.request` tool and deployed Runtime handoff;
-- applied database migration and live use of the local version/preview routes;
+- production-durable revision backup/restore and a persistent Runtime replay
+  journal beyond the current Sprite-local Git refs;
 - prompt assist, publish, ZIP export, import, and save actions.
 
 These controls are disabled or return failure. They do not report simulated
@@ -93,12 +92,12 @@ but they remain empty until a canonical version has been accepted and stored.
 ## Configuration boundary
 
 Magic-link login uses only `NEXT_PUBLIC_SUPABASE_URL` and
-`NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`. Database writes still require the
-separate server-only Postgres connection and the reviewed local migration.
-No cloud migration is applied by this checkpoint.
+`NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`. Database writes require the separate
+server-only Postgres connection and the reviewed migration in every target
+environment.
 
 The shared private artifact-byte protocol and Site adapter are implemented and
-covered locally. Live enablement still requires the server-only environment,
-strict healthy Runtime capability, applied Site persistence, and an end-to-end
-proof. The accepted end-to-end contract remains
+covered locally. Every release still requires the server-only environment,
+strict healthy Runtime capability, applied Site persistence, and a fresh
+end-to-end proof. The accepted end-to-end contract remains
 [`first-vertical-slice.md`](first-vertical-slice.md).

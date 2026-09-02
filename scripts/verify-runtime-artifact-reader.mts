@@ -12,6 +12,7 @@ import {
 import {
   BuildJobV1Schema,
   WorkerCandidateReportV1Schema,
+  WorkerFailureReportV1Schema,
 } from "../contracts/builder-v1.ts"
 import { runtimeSignaturePayloadV1 } from "../lib/siteagent/server/runtime-protocol-v1.ts"
 
@@ -74,7 +75,7 @@ const report = WorkerCandidateReportV1Schema.parse({
   jobId: job.jobId,
   sourceRunId: "openclaw:artifact-reader",
   baseRevisionId: job.baseRevisionId,
-  candidateRevisionId: "candidate:artifact-reader",
+  candidateRevisionId: `revision:sha256:${"3".repeat(64)}`,
   changedPaths: ["index.html"],
   artifacts: [
     {
@@ -88,6 +89,23 @@ const report = WorkerCandidateReportV1Schema.parse({
   diagnostics: [],
   reportedAt: timestamp,
 })
+
+function failureReport(
+  status: "failed" | "cancelled" | "timed_out",
+  code: string,
+  binding: { jobId?: string; baseRevisionId?: string } = {},
+) {
+  return WorkerFailureReportV1Schema.parse({
+    schemaVersion: 1,
+    status,
+    jobId: binding.jobId ?? job.jobId,
+    sourceRunId: `openclaw:${code}`,
+    baseRevisionId: binding.baseRevisionId ?? job.baseRevisionId,
+    receipts: [],
+    diagnostics: [{ code, message: `Runtime diagnostic: ${code}`, retryable: true }],
+    reportedAt: timestamp,
+  })
+}
 
 const readyHealth = {
   service: "sajtagent-sprites-runtime",
@@ -124,6 +142,23 @@ function privateJsonResponse(
       ...options.headers,
     },
   })
+}
+
+function runtimeClientWithBuildResponse(buildResponse: () => Response) {
+  return new SignedBuildRuntimeClientV1(
+    "https://runtime.example",
+    signingKey,
+    {
+      now: () => new Date(timestamp),
+      createNonce: () => nonce,
+      fetch: (async (input, init) => {
+        assert.equal(init?.redirect, "error")
+        return String(input).endsWith("/health")
+          ? privateJsonResponse(readyHealth)
+          : buildResponse()
+      }) as typeof fetch,
+    },
+  )
 }
 
 function artifactResponseFromRequest(
@@ -398,12 +433,17 @@ passed("server-only configuration rejects unsafe input and accepts IPv6 loopback
 
 {
   const calls: Array<{ url: string; init: RequestInit | undefined }> = []
+  const timeoutMilliseconds: number[] = []
   const client = new SignedBuildRuntimeClientV1(
     "https://runtime.example",
     signingKey,
     {
       now: () => new Date(timestamp),
       createNonce: () => nonce,
+      createTimeoutSignal: (milliseconds) => {
+        timeoutMilliseconds.push(milliseconds)
+        return new AbortController().signal
+      },
       fetch: (async (input, init) => {
         const url = String(input)
         calls.push({ url, init })
@@ -417,6 +457,81 @@ passed("server-only configuration rejects unsafe input and accepts IPv6 loopback
   assert.equal(calls.length, 2)
   assert.equal(calls[0]?.init?.redirect, "error")
   assert.equal(calls[1]?.init?.redirect, "error")
+  assert.deepEqual(timeoutMilliseconds, [
+    5_000,
+    Date.parse(job.executionPolicy.deadlineAt) - Date.parse(timestamp),
+  ])
+  assert(timeoutMilliseconds[1]! > 30_000)
+
+  for (const [status, workerReport] of [
+    [503, failureReport("failed", "openclaw_gateway_error")],
+    [409, failureReport("failed", "idempotency_conflict")],
+    [409, failureReport("cancelled", "job_cancelled")],
+    [504, failureReport("timed_out", "job_deadline_elapsed")],
+  ] as const) {
+    const result = await runtimeClientWithBuildResponse(
+      () => privateJsonResponse(workerReport, { status }),
+    ).run(job)
+    assert.deepEqual(result, workerReport)
+  }
+  passed("signed runtime preserves valid terminal WorkerReports across contract statuses")
+
+  for (const [status, workerReport] of [
+    [200, failureReport("failed", "openclaw_gateway_error")],
+    [503, report],
+    [409, failureReport("failed", "openclaw_gateway_error")],
+    [504, failureReport("cancelled", "job_cancelled")],
+    [503, failureReport("timed_out", "job_deadline_elapsed")],
+  ] as const) {
+    await assert.rejects(
+      runtimeClientWithBuildResponse(
+        () => privateJsonResponse(workerReport, { status }),
+      ).run(job),
+      /Runtime report\/status mismatch/,
+    )
+  }
+
+  await assert.rejects(
+    runtimeClientWithBuildResponse(
+      () => privateJsonResponse(
+        failureReport("failed", "openclaw_gateway_error", { jobId: "job:other" }),
+        { status: 503 },
+      ),
+    ).run(job),
+    /different job or base revision/,
+  )
+  await assert.rejects(
+    runtimeClientWithBuildResponse(
+      () => privateJsonResponse(
+        failureReport("failed", "openclaw_gateway_error", {
+          baseRevisionId: "revision:other",
+        }),
+        { status: 503 },
+      ),
+    ).run(job),
+    /different job or base revision/,
+  )
+  await assert.rejects(
+    runtimeClientWithBuildResponse(
+      () => new Response("{", { status: 503 }),
+    ).run(job),
+    /invalid report \(HTTP 503\)/,
+  )
+  await assert.rejects(
+    runtimeClientWithBuildResponse(
+      () => privateJsonResponse({ error: "unavailable" }, { status: 503 }),
+    ).run(job),
+    /invalid report \(HTTP 503\)/,
+  )
+  await assert.rejects(
+    runtimeClientWithBuildResponse(
+      () => privateJsonResponse(failureReport("failed", "openclaw_gateway_error"), {
+        status: 502,
+      }),
+    ).run(job),
+    /Runtime build job failed \(HTTP 502\)/,
+  )
+  passed("runtime reports fail closed on status, schema and job-binding mismatches")
 
   let buildCalls = 0
   const redirectingClient = new SignedBuildRuntimeClientV1(

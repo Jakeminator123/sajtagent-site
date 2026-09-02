@@ -9,6 +9,7 @@ import {
   BuildJobV1Schema,
   BuildResultSuccessV1Schema,
   BuildResultV1Schema,
+  CandidateRevisionIdV1Schema,
   WorkerCandidateReportV1Schema,
   WorkerReportV1Schema,
   type BuildJobV1,
@@ -213,6 +214,9 @@ export class PostgresSiteVersionRepositoryV1 implements SiteVersionRepositoryV1 
       preparedValue,
     )
     if (job.tenantId !== principal.tenantId) throw new Error("tenant_mismatch")
+    if (!CandidateRevisionIdV1Schema.safeParse(prepared.report.candidateRevisionId).success) {
+      throw new Error("candidate_revision_projection_invalid")
+    }
     if (!Number.isSafeInteger(expectedSequence) || expectedSequence < 1) {
       throw new Error("invalid_event_sequence")
     }
@@ -294,7 +298,7 @@ export class PostgresSiteVersionRepositoryV1 implements SiteVersionRepositoryV1 
       }
 
       const idSuffix = randomUUID()
-      const workspaceRevisionId = `revision:${idSuffix}`
+      const workspaceRevisionId = prepared.report.candidateRevisionId
       const versionId = `version:${idSuffix}`
       const previewRef = prepared.preview.previewRef
       const sitemapRevision = `sitemap:${idSuffix}`

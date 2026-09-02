@@ -1,6 +1,9 @@
 import { z } from "zod"
 
-import type { AgentEventV1 } from "../../contracts/agent-session-v1.ts"
+import type {
+  AgentEventV1,
+  AgentSessionV1,
+} from "../../contracts/agent-session-v1.ts"
 import type { BuildResultV1 } from "../../contracts/builder-v1.ts"
 import type { SiteVersion } from "./types"
 
@@ -58,6 +61,25 @@ export type CanonicalProjectReadModelV1 = {
 export type LoadCanonicalProjectResultV1 =
   | { ok: true; readModel: CanonicalProjectReadModelV1 }
   | { ok: false; error: string }
+
+export function advanceAgentSessionBaseV1(
+  session: AgentSessionV1,
+  readModel: CanonicalProjectReadModelV1,
+): AgentSessionV1 | null {
+  if (session.projectId !== readModel.project.projectId) return null
+  const updatedAt = new Date(
+    Math.max(
+      Date.parse(session.createdAt),
+      Date.parse(session.updatedAt),
+      Date.parse(readModel.project.updatedAt),
+    ),
+  ).toISOString()
+  return {
+    ...session,
+    activeBaseRevisionId: readModel.project.activeRevisionId,
+    updatedAt,
+  }
+}
 
 async function responsePayload(response: Response): Promise<unknown> {
   try {

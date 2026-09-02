@@ -57,7 +57,7 @@ const input = {
     jobId: "job-001",
     sourceRunId: "run-001",
     baseRevisionId: "revision-001",
-    candidateRevisionId: "candidate-001",
+    candidateRevisionId: `revision:sha256:${"2".repeat(64)}`,
     changedPaths: ["index.html"],
     artifacts: [
       {

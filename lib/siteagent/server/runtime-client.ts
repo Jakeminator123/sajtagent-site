@@ -15,6 +15,7 @@ import {
 
 const RUNTIME_PATH = "/v1/build-jobs"
 const HEALTH_PATH = "/health"
+const WORKER_REPORT_HTTP_STATUSES_V1 = new Set([200, 409, 503, 504])
 type FetchV1 = typeof globalThis.fetch
 
 function isAllowedRuntimeUrl(url: URL): boolean {
@@ -34,6 +35,16 @@ function assertExactRuntimeEndpoint(response: Response, endpoint: URL): void {
   }
 }
 
+function expectedWorkerReportStatusV1(report: WorkerReportV1): number {
+  if (report.status === "candidate") return 200
+  if (report.status === "cancelled") return 409
+  if (report.status === "timed_out") return 504
+  const code = report.diagnostics[0]?.code
+  return code === "stale_revision" || code === "idempotency_conflict"
+    ? 409
+    : 503
+}
+
 export class SignedBuildRuntimeClientV1 implements BuildRuntimeClientV1 {
   private readonly endpoint: URL
   private readonly healthEndpoint: URL
@@ -41,6 +52,7 @@ export class SignedBuildRuntimeClientV1 implements BuildRuntimeClientV1 {
   private readonly fetchImpl: FetchV1
   private readonly now: () => Date
   private readonly createNonce: () => string
+  private readonly createTimeoutSignal: (milliseconds: number) => AbortSignal
 
   constructor(
     baseUrl: string,
@@ -49,6 +61,7 @@ export class SignedBuildRuntimeClientV1 implements BuildRuntimeClientV1 {
       fetch?: FetchV1
       now?: () => Date
       createNonce?: () => string
+      createTimeoutSignal?: (milliseconds: number) => AbortSignal
     } = {},
   ) {
     const endpoint = new URL(RUNTIME_PATH, baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`)
@@ -64,6 +77,7 @@ export class SignedBuildRuntimeClientV1 implements BuildRuntimeClientV1 {
     this.fetchImpl = options.fetch ?? fetch
     this.now = options.now ?? (() => new Date())
     this.createNonce = options.createNonce ?? randomUUID
+    this.createTimeoutSignal = options.createTimeoutSignal ?? AbortSignal.timeout
   }
 
   async run(job: BuildJobV1): Promise<WorkerReportV1> {
@@ -71,7 +85,7 @@ export class SignedBuildRuntimeClientV1 implements BuildRuntimeClientV1 {
       method: "GET",
       redirect: "error",
       cache: "no-store",
-      signal: AbortSignal.timeout(5_000),
+      signal: this.createTimeoutSignal(5_000),
     })
     assertExactRuntimeEndpoint(healthResponse, this.healthEndpoint)
     if (healthResponse.status !== 200) {
@@ -103,16 +117,30 @@ export class SignedBuildRuntimeClientV1 implements BuildRuntimeClientV1 {
       body,
       redirect: "error",
       cache: "no-store",
-      signal: AbortSignal.timeout(Math.min(remainingMs, 30_000)),
+      signal: this.createTimeoutSignal(remainingMs),
     })
     assertExactRuntimeEndpoint(response, this.endpoint)
-    if (response.status !== 200) {
+    if (!WORKER_REPORT_HTTP_STATUSES_V1.has(response.status)) {
       throw new Error(`Runtime build job failed (HTTP ${response.status})`)
     }
-    const value = await response.json() as unknown
+    let value: unknown
+    try {
+      value = await response.json() as unknown
+    } catch {
+      throw new Error(`Runtime returned an invalid report (HTTP ${response.status})`)
+    }
     const parsed = WorkerReportV1Schema.safeParse(value)
     if (!parsed.success) {
       throw new Error(`Runtime returned an invalid report (HTTP ${response.status})`)
+    }
+    if (
+      parsed.data.jobId !== job.jobId ||
+      parsed.data.baseRevisionId !== job.baseRevisionId
+    ) {
+      throw new Error("Runtime returned a report for a different job or base revision")
+    }
+    if (expectedWorkerReportStatusV1(parsed.data) !== response.status) {
+      throw new Error(`Runtime report/status mismatch (HTTP ${response.status})`)
     }
     return parsed.data
   }

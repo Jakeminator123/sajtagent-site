@@ -470,11 +470,25 @@ export async function startAgentTurnV1(
   dependencies: AgentSessionControllerDependenciesV1,
 ): Promise<StartAgentTurnResultV1> {
   const request = AgentTurnRequestV1Schema.parse(requestInput)
-  const sessionRecord = await dependencies.repository.getSession(
+  const storedSession = await dependencies.repository.getSession(
     principal,
     request.sessionId,
   )
-  if (!sessionRecord) return { kind: "session_not_found" }
+  if (!storedSession) return { kind: "session_not_found" }
+  const sessionRecord = await dependencies.repository.ensureActiveSession(
+    principal,
+    {
+      sessionId: storedSession.session.sessionId,
+      projectId: storedSession.session.projectId,
+      now: (dependencies.now ?? (() => new Date()))().toISOString(),
+    },
+  )
+  if (
+    !sessionRecord ||
+    sessionRecord.session.sessionId !== request.sessionId
+  ) {
+    return { kind: "session_not_found" }
+  }
   if (
     sessionRecord.session.status !== "active" ||
     request.uiContext.selectedBaseRevisionId !==

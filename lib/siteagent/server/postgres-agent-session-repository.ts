@@ -15,14 +15,14 @@ import {
   type AgentTurnRequestV1,
 } from "../../../contracts/agent-session-v1.ts"
 import type { BuildPrincipalV1 } from "./build-job-input.ts"
-import type {
-  AgentSessionRepositoryV1,
-  ReserveAgentTurnV1,
-  ReadAgentEventsV1,
-  StoredAgentSessionV1,
-  StoredAgentTurnV1,
+import {
+  acceptedBuildRevisionV1,
+  type AgentSessionRepositoryV1,
+  type ReserveAgentTurnV1,
+  type ReadAgentEventsV1,
+  type StoredAgentSessionV1,
+  type StoredAgentTurnV1,
 } from "./agent-session-repository.ts"
-
 type SessionRow = {
   id: string
   project_id: string
@@ -461,6 +461,41 @@ export class PostgresAgentSessionRepositoryV1
       )
       if ((terminalUpdate.rowCount ?? 0) !== 1) {
         throw new Error("agent_turn_terminal_update_failed")
+      }
+      const acceptedRevision = acceptedBuildRevisionV1(complete)
+      if (acceptedRevision) {
+        if (
+          acceptedRevision.baseRevisionId !==
+          sessionRow.active_base_revision_id
+        ) {
+          throw new Error("agent_session_accepted_revision_mismatch")
+        }
+        const advanced = await client.query(
+          `update public.agent_sessions s
+              set active_base_revision_id = $1, updated_at = $2
+            where s.id = $3 and s.tenant_id = $4
+              and s.owner_user_id = $5::uuid
+              and s.active_base_revision_id = $6
+              and exists (
+                select 1
+                  from public.site_projects p
+                 where p.id = s.project_id
+                   and p.tenant_id = s.tenant_id
+                   and p.owner_user_id = s.owner_user_id
+                   and p.active_revision_id = $1
+              )`,
+          [
+            acceptedRevision.workspaceRevisionId,
+            terminal.occurredAt,
+            sessionId,
+            principal.tenantId,
+            principal.userId,
+            acceptedRevision.baseRevisionId,
+          ],
+        )
+        if ((advanced.rowCount ?? 0) !== 1) {
+          throw new Error("agent_session_accepted_revision_mismatch")
+        }
       }
       const stored = await loadTurn(client, principal, turnId)
       await client.query("commit")

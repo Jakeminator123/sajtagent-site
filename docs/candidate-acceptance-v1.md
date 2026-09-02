@@ -27,6 +27,10 @@ this path only after typed product intent authorizes a workspace mutation.
 ## Stable acceptance rules
 
 - `jobId` and `baseRevisionId` must match the issued `BuildJobV1` exactly.
+- A candidate revision must use the strict Runtime projection form
+  `revision:sha256:<64 lowercase hex>`. Site persists that exact accepted ID as
+  the next `workspaceRevisionId`; it never substitutes a browser- or
+  controller-minted revision ID.
 - The base revision is checked as active both before artifact access and after
   preview health, immediately before the prepared candidate is returned.
 - Reports outside the job lifetime, no-op candidates, duplicate changed paths,
@@ -63,6 +67,12 @@ That method owns one transaction which must:
 4. construct and persist `BuildResultV1`;
 5. set the job to `succeeded`; and
 6. append the terminal `job.succeeded` event.
+
+After the canonical result is joined into a terminal `preview.ready` /
+`turn.completed` sequence, the Site-owned agent session advances from the old
+base to that exact accepted workspace revision in the same terminal-event
+transaction. A second turn in the same open Builder therefore starts from the
+accepted tree; the pre-build base becomes stale immediately.
 
 There is no public or controller path that first creates a visible version and
 then appends success separately. A thrown transaction or invalid returned event

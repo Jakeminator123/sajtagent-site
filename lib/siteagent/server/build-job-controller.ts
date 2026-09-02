@@ -47,6 +47,35 @@ export interface AcceptedCandidateCommitterV1 {
 
 type BuildResultFailureV1 = Extract<BuildResultV1, { status: "failed" }>
 
+const SAFE_PERSISTENCE_ERROR_VALUE_V1 = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,159}$/
+
+function safePersistenceErrorV1(error: unknown): {
+  errorCode: string
+  constraint?: string
+} {
+  const record =
+    error && typeof error === "object"
+      ? (error as Record<string, unknown>)
+      : null
+  const code = record?.code
+  const constraint = record?.constraint
+  const message = error instanceof Error ? error.message : null
+  return {
+    errorCode:
+      typeof code === "string" && SAFE_PERSISTENCE_ERROR_VALUE_V1.test(code)
+        ? code
+        : message && SAFE_PERSISTENCE_ERROR_VALUE_V1.test(message)
+          ? message
+          : error instanceof Error
+            ? error.name
+            : "unknown",
+    ...(typeof constraint === "string" &&
+    SAFE_PERSISTENCE_ERROR_VALUE_V1.test(constraint)
+      ? { constraint }
+      : {}),
+  }
+}
+
 export type CreateBuildJobControllerResultV1 = {
   httpStatus: number
   kind:
@@ -432,7 +461,11 @@ export async function createBuildJobV1(
         decision.prepared,
         3,
       )
-    } catch {
+    } catch (error) {
+      console.error(
+        "[siteagent/build-job] accepted candidate persistence failed",
+        safePersistenceErrorV1(error),
+      )
       const result = failureResult(
         job,
         "persistence_failed",

@@ -76,6 +76,12 @@ Raw command output and upstream receipt summaries are not event fields. Large
 bytes live behind high-entropy opaque refs. `preview.ready` contains only the
 Site-accepted product result, never a runtime candidate URL.
 
+Runtime-controlled progress text is not public text: Site replaces status,
+tool and receipt labels with deterministic product labels. A build handoff may
+not carry model message deltas; after canonical acceptance Site emits one
+deterministic completion message. Explicit analysis/reasoning markup in a
+conversation delta fails closed instead of being persisted or streamed.
+
 ## Terminal matrix
 
 | Outcome | Required | Forbidden |

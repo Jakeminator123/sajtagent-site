@@ -107,7 +107,12 @@ export type CandidateAcceptancePolicyV1 = {
 }
 
 export const DEFAULT_CANDIDATE_ACCEPTANCE_POLICY_V1: CandidateAcceptancePolicyV1 = {
-  allowedPreviewPaths: ["dist/index.html", "build/index.html", "index.html"],
+  allowedPreviewPaths: [
+    ".siteagent-preview.html",
+    "dist/index.html",
+    "build/index.html",
+    "index.html",
+  ],
   maxPreviewBytes: 1024 * 1024,
   requiredCheckNames: [],
 }

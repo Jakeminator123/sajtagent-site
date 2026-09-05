@@ -12,7 +12,7 @@ import {
 } from "../contracts/artifact-read-v1.ts"
 
 const EXPECTED_MIRRORED_CONTRACT_DIGEST =
-  "735274e0473357e01d2202a7635af53c85758b1329b648819299a6fe51233609"
+  "7e6c21da9d587217fe2b0bafd76d54f878c32af9d3918a20da4868af1286b6a7"
 
 const FixtureManifestSchema = z
   .object({
@@ -82,6 +82,28 @@ for (const fixture of fixtures.bindingCases) {
     failures.push(
       `${fixture.name}: expected valid=${fixture.expectValid}, received valid=${result.success}`,
     )
+  }
+}
+
+const validResponseFixture = fixtures.schemaCases.find(
+  (fixture) => fixture.schema === "response" && fixture.expectValid,
+)
+if (!validResponseFixture) {
+  failures.push("self-contained preview path: missing valid response fixture")
+} else {
+  const value = validResponseFixture.value as {
+    artifact?: Record<string, unknown>
+  }
+  const selfContainedPath = ArtifactReadResponseV1Schema.safeParse({
+    ...value,
+    artifact: {
+      ...value.artifact,
+      relativePath: ".siteagent-preview.html",
+    },
+  })
+  assertionCount += 1
+  if (!selfContainedPath.success) {
+    failures.push("self-contained preview path: expected valid=true, received valid=false")
   }
 }
 

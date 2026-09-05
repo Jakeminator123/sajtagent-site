@@ -5,7 +5,14 @@ import { cn } from "@/lib/utils"
 import { useBuilder } from "./builder-store"
 
 export function VersionList() {
-  const { agentProjection, versions, activeVersionId, restoreVersion, togglePin } = useBuilder()
+  const {
+    agentProjection,
+    versions,
+    activeVersionId,
+    restoreVersion,
+    togglePin,
+    downloadZip,
+  } = useBuilder()
   const activeTurn = agentProjection.activeTurnId
     ? agentProjection.turns[agentProjection.activeTurnId]
     : null
@@ -90,9 +97,9 @@ export function VersionList() {
               </button>
               <button
                 type="button"
-                disabled
-                title="ZIP-export är inte ansluten ännu"
-                className="flex items-center gap-1 rounded border border-workflow-border-subtle px-2 py-1 font-mono text-[10px] text-workflow-text-muted opacity-40"
+                onClick={() => downloadZip(version.id)}
+                title={`Hämta ${version.label} som ZIP`}
+                className="flex items-center gap-1 rounded border border-workflow-border-subtle px-2 py-1 font-mono text-[10px] text-workflow-text-muted transition-colors duration-150 hover:text-workflow-text"
               >
                 <Download className="h-3 w-3" /> ZIP
               </button>

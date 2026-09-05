@@ -15,11 +15,13 @@
     "lib/siteagent/server/principal.ts",
     "lib/siteagent/server/principal-claims.ts",
     "lib/siteagent/server/version-model.ts",
+    "lib/siteagent/server/version-archive.ts",
     "lib/siteagent/server/version-repository.ts",
     "lib/supabase/**/*.ts",
     "app/api/siteagent/projects/[projectId]/state/route.ts",
     "app/api/siteagent/projects/[projectId]/versions/route.ts",
     "app/api/siteagent/previews/[previewRef]/route.ts",
+    "app/api/siteagent/versions/[versionId]/download/route.ts",
     "scripts/verify-version-read-model.mts"
   ]
 }

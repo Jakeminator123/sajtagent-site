@@ -56,6 +56,10 @@ type PreviewRow = {
   html_content: string
 }
 
+type VersionExportRow = VersionRow & Omit<PreviewRow, "id"> & {
+  artifact_id: string
+}
+
 type BuildJobRow = {
   id: string
   tenant_id: string
@@ -199,6 +203,13 @@ export interface SiteVersionRepositoryV1 {
     principal: BuildPrincipalV1,
     previewRef: string,
   ): Promise<StoredInlinePreviewV1 | null>
+  getVerifiedVersionExport(
+    principal: BuildPrincipalV1,
+    versionId: string,
+  ): Promise<{
+    version: CanonicalVersionSummaryV1
+    preview: StoredInlinePreviewV1
+  } | null>
 }
 
 export class PostgresSiteVersionRepositoryV1 implements SiteVersionRepositoryV1 {
@@ -555,5 +566,39 @@ export class PostgresSiteVersionRepositoryV1 implements SiteVersionRepositoryV1 
       content: row.html_content,
     })
     return { previewRef: row.id, ...preview }
+  }
+
+  async getVerifiedVersionExport(
+    principal: BuildPrincipalV1,
+    versionId: string,
+  ): Promise<{
+    version: CanonicalVersionSummaryV1
+    preview: StoredInlinePreviewV1
+  } | null> {
+    SiteOpaqueIdV1Schema.parse(versionId)
+    const result = await this.pool.query<VersionExportRow>(
+      `select v.id, v.project_id, v.workspace_revision_id, v.preview_ref,
+              v.sitemap_revision, v.version_number, v.verified_at, v.created_at,
+              a.id as artifact_id, a.media_type, a.sha256, a.size_bytes, a.html_content
+         from public.site_versions v
+         join public.site_preview_artifacts a
+           on a.id = v.preview_ref and a.tenant_id = v.tenant_id
+          and a.project_id = v.project_id and a.owner_user_id = v.owner_user_id
+          and a.workspace_revision_id = v.workspace_revision_id
+        where v.id = $1 and v.tenant_id = $2 and v.owner_user_id = $3::uuid`,
+      [versionId, principal.tenantId, principal.userId],
+    )
+    const row = result.rows[0]
+    if (!row) return null
+    const preview = validateInlinePreviewArtifactV1({
+      mediaType: row.media_type,
+      sha256: row.sha256,
+      sizeBytes: row.size_bytes,
+      content: row.html_content,
+    })
+    return {
+      version: toVersionSummary(row),
+      preview: { previewRef: row.artifact_id, ...preview },
+    }
   }
 }

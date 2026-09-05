@@ -56,14 +56,19 @@ full `AgentEventV1`, the 32 KiB frame / 4,096 event / 4 MiB stream bounds,
 consecutive session-global sequence, first `turn.accepted`, policy binding and
 exactly one terminal event before committing the batch. The sole non-terminal
 exception must end at one open `tool.started` for `build.request`, with one
-allowed mutation intent and no question, completed tool, build or preview.
+allowed mutation intent and no message, question, completed tool, build or
+preview. Runtime-provided status and tool labels are replaced with a small
+Site-owned vocabulary before persistence. Explicit analysis/reasoning markup
+in a message delta fails closed, and runtime failure text is replaced with a
+bounded generic product message.
 
 Runtime mints the accepted event at `baseSequence + 1`; Site validates and
 persists that incoming event rather than sending an accepted prefix to the
 private POST. For the exact build handoff, Site derives the typed intent from
 the original turn and singleton policy, mints and runs the BuildJob, and then
-appends `build.started`, `tool.completed`, `preview.ready` and
-`turn.completed:built` only after canonical acceptance. Site alone owns durable
+appends `build.started`, `tool.completed`, `preview.ready`, one deterministic
+user-facing completion message and `turn.completed:built` only after canonical
+acceptance. Site alone owns durable
 sequence and browser resume. Until both
 `SITEAGENT_RUNTIME_URL` and server-only `SITEAGENT_RUNTIME_SIGNING_KEY` are
 configured, a valid browser POST locally persists and streams exactly

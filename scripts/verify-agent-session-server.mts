@@ -239,8 +239,8 @@ const answerRuntime: AgentSessionRuntimeClientV1 = {
       eventId: "event:runtime0000000002",
       sequence: input.baseSequence + 2,
       occurredAt: new Date(Date.parse(input.policy.issuedAt) + 1_000).toISOString(),
-      type: "message.delta",
-      payload: { messageId: "message:answer", delta: "Allt ser bra ut." },
+      type: "agent.status",
+      payload: { state: "thinking", label: "analysis: private runtime progress" },
     }
     yield {
       schemaVersion: 1,
@@ -249,6 +249,16 @@ const answerRuntime: AgentSessionRuntimeClientV1 = {
       eventId: "event:runtime0000000003",
       sequence: input.baseSequence + 3,
       occurredAt: new Date(Date.parse(input.policy.issuedAt) + 2_000).toISOString(),
+      type: "message.delta",
+      payload: { messageId: "message:answer", delta: "Allt ser bra ut." },
+    }
+    yield {
+      schemaVersion: 1,
+      sessionId: input.session.sessionId,
+      turnId: input.request.turnId,
+      eventId: "event:runtime0000000004",
+      sequence: input.baseSequence + 4,
+      occurredAt: new Date(Date.parse(input.policy.issuedAt) + 3_000).toISOString(),
       type: "turn.completed",
       payload: { outcome: "answered" },
     }
@@ -270,6 +280,14 @@ check(
   answered.events.slice(-2).map((event) => event.type).join(",") ===
     "message.delta,turn.completed",
   "only sanitized runtime drafts become Site-owned events",
+)
+check(
+  answered.events.some(
+    (event) =>
+      event.type === "agent.status" &&
+      event.payload.label === "Sajtagent arbetar…",
+  ) && !JSON.stringify(answered.events).includes("private runtime progress"),
+  "runtime status labels are replaced by deterministic public progress",
 )
 check(
   answerRuntimeCalls === 1 &&
@@ -318,7 +336,7 @@ const buildCoordinator: AgentTurnBuildCoordinatorV1 = {
     const receipt = {
       receiptId: "receipt:build00000001",
       category: "preview" as const,
-      name: "Verifierad preview",
+        name: "runtime/check command details",
       status: "passed" as const,
       startedAt: createdAt,
       finishedAt: createdAt,
@@ -404,7 +422,7 @@ const buildRuntime: AgentSessionRuntimeClientV1 = {
       payload: {
         toolCallId: "tool:build000000000001",
         capability: "build.request",
-        safeLabel: "Bygg sajten",
+        safeLabel: "siteagent_build_request internal stdout",
       },
     }
   },
@@ -425,8 +443,24 @@ check(built.kind === "created", "a typed build.request handoff creates a Site bu
 if (built.kind !== "created") throw new Error("build_turn_failed")
 check(
   built.events.map((event) => event.type).join(",") ===
-    "turn.accepted,tool.started,build.started,tool.completed,preview.ready,turn.completed",
+    "turn.accepted,tool.started,build.started,tool.completed,preview.ready,message.delta,turn.completed",
   "Site closes the runtime handoff with a verified canonical preview sequence",
+)
+check(
+  built.events.some(
+    (event) =>
+      event.type === "tool.started" &&
+      event.payload.safeLabel === "Sajtagent förbereder bygget…",
+  ) &&
+    built.events.some(
+      (event) =>
+        event.type === "message.delta" &&
+        event.payload.delta ===
+          "Klart — sidan är byggd och verifierad. Previewn är redo.",
+    ) &&
+    !JSON.stringify(built.events).includes("internal stdout") &&
+    !JSON.stringify(built.events).includes("runtime/check command details"),
+  "build progress and final response expose only Site-owned public text",
 )
 check(
   built.events.at(-1)?.type === "turn.completed" &&
@@ -476,7 +510,7 @@ const failedBuildCoordinator: AgentTurnBuildCoordinatorV1 = {
           jobId: success.record.job.jobId,
           baseRevisionId: success.record.job.baseRevisionId,
           code: "runtime_unavailable",
-          message: "Runtime-bygget kunde inte slutföras.",
+          message: "<analysis>private runtime failure details</analysis>",
           retryable: true,
           failedAt: buildVerifiedAt,
           receipts: [],
@@ -535,7 +569,14 @@ if (failedBuild.kind !== "created") throw new Error("failed_build_turn_missing")
 check(
   failedBuild.events.map((event) => event.type).join(",") ===
     "turn.accepted,tool.started,build.started,tool.completed,turn.failed" &&
-    failedBuild.events.every((event) => event.type !== "preview.ready"),
+    failedBuild.events.every((event) => event.type !== "preview.ready") &&
+    failedBuild.events.some(
+      (event) =>
+        event.type === "turn.failed" &&
+        event.payload.message ===
+          "Bygget kunde inte slutföras. Ingen preview accepterades.",
+    ) &&
+    !JSON.stringify(failedBuild.events).includes("private runtime failure"),
   "a failed BuildJob closes the tool without minting preview.ready",
 )
 check(
@@ -573,6 +614,62 @@ check(
   invalid.events.map((event) => event.type).join(",") ===
     "turn.accepted,turn.failed",
   "invalid runtime output is discarded before a safe terminal failure",
+)
+
+const privateReasoningRequest = request({
+  sessionId: refreshed.session.sessionId,
+  turnId: "turn:0000000000000008",
+  idempotencyKey: "idem:private-reasoning",
+  revisionId: advancedAfterBuild.session.activeBaseRevisionId,
+})
+const privateReasoningRuntime: AgentSessionRuntimeClientV1 = {
+  async *streamTurn(input) {
+    yield {
+      schemaVersion: 1,
+      sessionId: input.session.sessionId,
+      turnId: input.request.turnId,
+      eventId: "event:reasoning00000001",
+      sequence: input.baseSequence + 1,
+      occurredAt: input.policy.issuedAt,
+      type: "turn.accepted",
+      payload: { acceptedAt: input.policy.issuedAt },
+    }
+    yield {
+      schemaVersion: 1,
+      sessionId: input.session.sessionId,
+      turnId: input.request.turnId,
+      eventId: "event:reasoning00000002",
+      sequence: input.baseSequence + 2,
+      occurredAt: input.policy.issuedAt,
+      type: "message.delta",
+      payload: {
+        messageId: "message:reasoning",
+        delta: "<analysis>private reasoning</analysis>Publikt svar",
+      },
+    }
+    yield {
+      schemaVersion: 1,
+      sessionId: input.session.sessionId,
+      turnId: input.request.turnId,
+      eventId: "event:reasoning00000003",
+      sequence: input.baseSequence + 3,
+      occurredAt: input.policy.issuedAt,
+      type: "turn.completed",
+      payload: { outcome: "answered" },
+    }
+  },
+}
+const privateReasoning = await startAgentTurnV1(
+  privateReasoningRequest,
+  principal,
+  { ...dependencies, runtime: privateReasoningRuntime },
+)
+check(
+  privateReasoning.kind === "created" &&
+    privateReasoning.events.map((event) => event.type).join(",") ===
+      "turn.accepted,turn.failed" &&
+    !JSON.stringify(privateReasoning.events).includes("private reasoning"),
+  "explicit private reasoning markers fail closed before persistence",
 )
 
 const allEvents = await repository.readEvents(

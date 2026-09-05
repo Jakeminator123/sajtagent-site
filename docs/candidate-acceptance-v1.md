@@ -46,9 +46,10 @@ this path only after typed product intent authorizes a workspace mutation.
 - The private artifact reader must return the same opaque source reference,
   media type, digest, byte count, bounded portable path, and bytes. SiteAgent
   recomputes SHA-256 and verifies a UTF-8 HTML document itself.
-- V1 accepts only `dist/index.html`, `build/index.html`, or `index.html`, with a
-  default maximum of 1 MiB shared with preview persistence. Both limits are
-  explicit acceptance policy.
+- V1 prefers the runtime-generated `.siteagent-preview.html` bundle and keeps
+  `dist/index.html`, `build/index.html`, and `index.html` as explicit legacy
+  inputs. The default maximum remains 1 MiB shared with preview persistence.
+  Both path and byte limits are explicit acceptance policy.
 - Materialization returns a staged `preview:<UUID>` reference plus the same
   bounded content, digest, media type, and size. It is Site-owned but not yet a
   visible product version.

@@ -33,6 +33,22 @@ const ProjectIdV1Schema = z
 const MAX_RUNTIME_EVENTS_V1 = 4_096
 const MAX_RUNTIME_EVENT_BYTES_V1 = 32 * 1024
 const MAX_RUNTIME_STREAM_BYTES_V1 = 4 * 1024 * 1024
+const RAW_REASONING_MARKER_V1 =
+  /<\s*\/?\s*(?:analysis|thinking|reasoning|chain[-_ ]of[-_ ]thought)\b|(?:^|\n)\s*(?:analysis|reasoning|chain[- ]of[- ]thought)\s*:/i
+
+const SAFE_AGENT_STATUS_LABEL_V1 = {
+  idle: "Redo",
+  thinking: "Sajtagent arbetar…",
+  waiting_for_user: "Sajtagent behöver ditt svar.",
+  using_tool: "Sajtagent använder ett avgränsat verktyg…",
+  checking: "Sajtagent kontrollerar resultatet…",
+} as const
+
+const SAFE_TOOL_LABEL_V1 = {
+  "project.read": "Sajtagent läser projektet…",
+  "checks.run": "Sajtagent kontrollerar sidan…",
+  "build.request": "Sajtagent förbereder bygget…",
+} as const
 
 export type AgentTurnPolicyIssuerV1 = (input: {
   session: AgentSessionV1
@@ -92,6 +108,48 @@ function createEventId(dependencies: AgentSessionControllerDependenciesV1): stri
   return `event:${(dependencies.createId ?? randomUUID)()}`
 }
 
+function createMessageId(dependencies: AgentSessionControllerDependenciesV1): string {
+  return `message:${(dependencies.createId ?? randomUUID)()}`
+}
+
+function sanitizeRuntimeEventV1(event: AgentEventV1): AgentEventV1 {
+  if (event.type === "agent.status") {
+    return AgentEventV1Schema.parse({
+      ...event,
+      payload: {
+        state: event.payload.state,
+        label: SAFE_AGENT_STATUS_LABEL_V1[event.payload.state],
+      },
+    })
+  }
+  if (event.type === "tool.started") {
+    return AgentEventV1Schema.parse({
+      ...event,
+      payload: {
+        ...event.payload,
+        safeLabel: SAFE_TOOL_LABEL_V1[event.payload.capability],
+      },
+    })
+  }
+  if (event.type === "turn.failed") {
+    return AgentEventV1Schema.parse({
+      ...event,
+      payload: {
+        ...event.payload,
+        message: "Sajtagent kunde inte slutföra svaret.",
+      },
+    })
+  }
+  if (
+    event.type === "message.delta" &&
+    (RAW_REASONING_MARKER_V1.test(event.payload.delta) ||
+      event.payload.delta.includes("\0"))
+  ) {
+    throw new Error("runtime_message_contains_private_reasoning")
+  }
+  return event
+}
+
 export function mintDefaultAgentTurnPolicyV1(input: {
   session: AgentSessionV1
   request: AgentTurnRequestV1
@@ -136,10 +194,16 @@ export function mintDefaultAgentTurnPolicyV1(input: {
 }
 
 function agentReceipts(receipts: EvidenceReceiptV1[]) {
+  const safeLabel = {
+    tool: "Verktyg verifierat",
+    check: "Kontroll godkänd",
+    preview: "Preview verifierad",
+    policy: "Policy verifierad",
+  } as const
   return receipts.slice(0, 64).map((receipt) => ({
     receiptId: receipt.receiptId,
     category: receipt.category,
-    safeLabel: receipt.name.trim() || receipt.category,
+    safeLabel: safeLabel[receipt.category],
     status: receipt.status,
     startedAt: receipt.startedAt,
     finishedAt: receipt.finishedAt,
@@ -164,6 +228,7 @@ function exactBuildHandoff(
   )
   const forbidden = validated.events.some(
     (event) =>
+      event.type === "message.delta" ||
       event.type === "question.requested" ||
       event.type === "tool.completed" ||
       event.type === "build.started" ||
@@ -269,6 +334,17 @@ async function completeBuildHandoff(
       sessionId: record.request.sessionId,
       turnId: record.request.turnId,
       occurredAt: buildResult.verifiedAt,
+      type: "message.delta",
+      payload: {
+        messageId: createMessageId(dependencies),
+        delta: "Klart — sidan är byggd och verifierad. Previewn är redo.",
+      },
+    })
+    append({
+      schemaVersion: 1,
+      sessionId: record.request.sessionId,
+      turnId: record.request.turnId,
+      occurredAt: buildResult.verifiedAt,
       type: "turn.completed",
       payload: { outcome: "built" },
     })
@@ -297,10 +373,7 @@ async function completeBuildHandoff(
       type: "turn.failed",
       payload: {
         code: buildResult?.code ?? "build_join_rejected",
-        message:
-          buildResult?.message ??
-          result.error?.message ??
-          "Byggbegäran kunde inte slutföras och ingen preview accepterades.",
+        message: "Bygget kunde inte slutföras. Ingen preview accepterades.",
         retryable: buildResult?.retryable ?? result.httpStatus >= 500,
       },
     })
@@ -421,7 +494,7 @@ async function collectRuntimeEvents(
       if (events.length >= MAX_RUNTIME_EVENTS_V1) {
         throw new Error("runtime_event_limit_exceeded")
       }
-      const event = AgentEventV1Schema.parse(value)
+      const event = sanitizeRuntimeEventV1(AgentEventV1Schema.parse(value))
       const eventBytes = Buffer.byteLength(JSON.stringify(event), "utf8")
       if (eventBytes > MAX_RUNTIME_EVENT_BYTES_V1) {
         throw new Error("runtime_event_bytes_exceeded")

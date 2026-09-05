@@ -250,30 +250,3 @@ export async function promptAssist(): Promise<string> {
 export async function publish(): Promise<{ ok: boolean; url?: string }> {
   return { ok: false }
 }
-
-export async function downloadZip(versionId: string): Promise<void> {
-  if (!versionId.trim()) throw new Error("Versionen saknar ett giltigt ID.")
-  const response = await fetch(
-    `/api/siteagent/versions/${encodeURIComponent(versionId)}/download`,
-    { cache: "no-store" },
-  )
-  if (!response.ok) {
-    const payload = await responsePayload(response)
-    throw new Error(apiMessage(payload, "ZIP-exporten kunde inte hämtas."))
-  }
-  if (response.headers.get("content-type")?.toLowerCase() !== "application/zip") {
-    throw new Error("ZIP-exporten returnerade ett oväntat format.")
-  }
-  const objectUrl = URL.createObjectURL(await response.blob())
-  try {
-    const anchor = document.createElement("a")
-    anchor.href = objectUrl
-    anchor.download = "siteagent-version.zip"
-    anchor.hidden = true
-    document.body.append(anchor)
-    anchor.click()
-    anchor.remove()
-  } finally {
-    URL.revokeObjectURL(objectUrl)
-  }
-}

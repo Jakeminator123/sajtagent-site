@@ -79,11 +79,16 @@ resumes from its last verified global sequence. It never creates `BuildJobV1`:
 that remains a subordinate server-owned mutation envelope minted only after an
 exact `build.request` handoff in the same turn.
 
+Every verified version can be downloaded through its owner-bound Site route as
+a deterministic ZIP containing one self-contained `index.html`. The Versions
+card uses a direct same-origin download link so browser cookies reach the
+authenticated route without a client-side Blob handoff.
+
 ## Still unavailable
 
 - production-durable revision backup/restore and a persistent Runtime replay
   journal beyond the current Sprite-local Git refs;
-- prompt assist, publish, ZIP export, import, and save actions.
+- prompt assist, publish, import, and save actions.
 
 These controls are disabled or return failure. They do not report simulated
 success. The authenticated preview route and sandboxed Builder iframe exist,

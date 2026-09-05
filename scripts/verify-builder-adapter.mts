@@ -232,8 +232,13 @@ assert.match(storeSource, /reconcileAgentPreviewV1/)
 assert.match(storeSource, /projectionRef\.current\.turns\[turnId\]/)
 assert.match(storeSource, /currentTurn\?\.previewResult/)
 assert.match(versionListSource, /Ingen version skapas före verifierad framgång/)
-assert.match(adapterSource, /\/api\/siteagent\/versions\/\$\{encodeURIComponent\(versionId\)\}\/download/)
-assert.match(versionListSource, /onClick=\{\(\) => downloadZip\(version\.id\)\}/)
+assert.match(
+  versionListSource,
+  /href=\{`\/api\/siteagent\/versions\/\$\{encodeURIComponent\(version\.id\)\}\/download`\}/,
+)
+assert.match(versionListSource, /<a[\s\S]*?\sdownload[\s\S]*?>[\s\S]*?ZIP[\s\S]*?<\/a>/)
+assert.doesNotMatch(versionListSource, /onClick=\{\(\) => downloadZip\(version\.id\)\}/)
+assert.doesNotMatch(adapterSource, /URL\.createObjectURL|response\.blob\(\)|anchor\.click\(\)/)
 assert.doesNotMatch(versionListSource, /ZIP-export är inte ansluten ännu/)
 assert.match(previewSource, /previewStatus === "ready" && Boolean\(previewUrl\)/)
 

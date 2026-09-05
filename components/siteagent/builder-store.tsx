@@ -66,7 +66,6 @@ interface BuilderStore {
   activeVersionId: string | null
   restoreVersion: (id: string) => void
   togglePin: (id: string) => void
-  downloadZip: (id: string) => void
 
   newChat: () => void
   publishState: PublishState
@@ -553,15 +552,6 @@ export function BuilderProvider({ children }: { children: ReactNode }) {
     )
   }, [])
 
-  const downloadZip = useCallback(
-    (id: string) => {
-      void adapter.downloadZip(id).catch((error: unknown) => {
-        pushLog(`fel: ${errorMessage(error, "ZIP-export är inte tillgänglig.")}`)
-      })
-    },
-    [pushLog],
-  )
-
   const newChat = useCallback(() => {
     requestGenerationRef.current += 1
     abortRef.current?.abort()
@@ -614,7 +604,6 @@ export function BuilderProvider({ children }: { children: ReactNode }) {
       activeVersionId,
       restoreVersion,
       togglePin,
-      downloadZip,
       newChat,
       publishState,
       publish,
@@ -637,7 +626,6 @@ export function BuilderProvider({ children }: { children: ReactNode }) {
       activeVersionId,
       restoreVersion,
       togglePin,
-      downloadZip,
       newChat,
       publishState,
       publish,

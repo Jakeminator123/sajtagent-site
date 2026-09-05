@@ -11,10 +11,12 @@ import {
 import {
   mintDefaultAgentTurnPolicyV1,
   openAgentSessionV1,
+  prepareAgentTurnV1,
   startAgentTurnV1,
 } from "../lib/siteagent/server/agent-session-controller.ts"
 import type { AgentTurnBuildCoordinatorV1 } from "../lib/siteagent/server/agent-turn-build-join.ts"
 import { MemoryAgentSessionRepositoryV1 } from "../lib/siteagent/server/agent-session-repository.ts"
+import type { StoredBuildJobV1 } from "../lib/siteagent/server/build-job-repository.ts"
 import {
   ReadyAgentTurnRuntimeHealthV1Schema,
   SignedAgentSessionRuntimeClientV1,
@@ -22,7 +24,10 @@ import {
   type AgentSessionRuntimeClientV1,
   type RuntimeAgentTurnIngressV1,
 } from "../lib/siteagent/server/agent-session-runtime-client.ts"
-import { agentEventsSseResponseV1 } from "../lib/siteagent/server/agent-session-sse.ts"
+import {
+  agentEventStreamSseResponseV1,
+  agentEventsSseResponseV1,
+} from "../lib/siteagent/server/agent-session-sse.ts"
 import type { BuildPrincipalV1 } from "../lib/siteagent/server/build-job-input.ts"
 import { runtimeSignaturePayloadV1 } from "../lib/siteagent/server/runtime-protocol-v1.ts"
 
@@ -728,6 +733,342 @@ check(
   sseText.includes(`id: ${answered.events[0]?.eventId}`) &&
     sseText.includes(`data: ${JSON.stringify(answered.events[0])}`),
   "SSE frames contain the raw AgentEventV1 without an authority envelope",
+)
+
+const streamingRepository = new MemoryAgentSessionRepositoryV1()
+streamingRepository.addProject(
+  principal,
+  "project:streaming-turn",
+  "revision:streaming",
+)
+const streamingNow = clock(Date.parse("2026-09-01T19:30:00.000Z"))
+const streamingOpened = await openAgentSessionV1(
+  "project:streaming-turn",
+  principal,
+  {
+    repository: streamingRepository,
+    runtime: null,
+    now: streamingNow,
+    createId: ids(),
+    createSessionSecret: () => "streamingABCDEFGHIJKLMNOPQRSTUVWXYZ",
+  },
+)
+if (streamingOpened.kind !== "opened") {
+  throw new Error("streaming_session_open_failed")
+}
+const streamingRequest = request({
+  sessionId: streamingOpened.session.sessionId,
+  turnId: "turn:streaming00000001",
+  idempotencyKey: "idem:streaming",
+  revisionId: streamingOpened.session.activeBaseRevisionId,
+})
+const streamingEncoder = new TextEncoder()
+let releaseRuntimeStream!: () => void
+let runtimeStreamEnded = false
+const streamingFetch: typeof fetch = async (input, init) => {
+  if (String(input).endsWith("/health")) {
+    return Response.json({
+      agentSessionContractVersion: 1,
+      agentTurnStreamTransport: "sse",
+      agentTurnStreamEnabled: true,
+      agentTurnCapabilities: ["conversation.respond"],
+      artifactReadEnabled: false,
+    })
+  }
+  const ingress = JSON.parse(String(init?.body)) as RuntimeAgentTurnIngressV1
+  const accepted = {
+    schemaVersion: 1 as const,
+    sessionId: ingress.session.sessionId,
+    turnId: ingress.turn.turnId,
+    eventId: "event:streaming00000001",
+    sequence: ingress.baseSequence + 1,
+    occurredAt: ingress.policy.issuedAt,
+    type: "turn.accepted" as const,
+    payload: { acceptedAt: ingress.policy.issuedAt },
+  }
+  const message = {
+    schemaVersion: 1 as const,
+    sessionId: ingress.session.sessionId,
+    turnId: ingress.turn.turnId,
+    eventId: "event:streaming00000002",
+    sequence: ingress.baseSequence + 2,
+    occurredAt: new Date(Date.parse(ingress.policy.issuedAt) + 1_000).toISOString(),
+    type: "message.delta" as const,
+    payload: { messageId: "message:streaming", delta: "Live från Sajtagent." },
+  }
+  const completed = {
+    schemaVersion: 1 as const,
+    sessionId: ingress.session.sessionId,
+    turnId: ingress.turn.turnId,
+    eventId: "event:streaming00000003",
+    sequence: ingress.baseSequence + 3,
+    occurredAt: new Date(Date.parse(ingress.policy.issuedAt) + 2_000).toISOString(),
+    type: "turn.completed" as const,
+    payload: { outcome: "answered" as const },
+  }
+  const frame = (event: typeof accepted | typeof message | typeof completed) =>
+    `id: ${event.sequence}\nevent: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`
+  return new Response(
+    new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(streamingEncoder.encode(frame(accepted)))
+        releaseRuntimeStream = () => {
+          controller.enqueue(streamingEncoder.encode(frame(message) + frame(completed)))
+          runtimeStreamEnded = true
+          controller.close()
+        }
+      },
+    }),
+    {
+      status: 200,
+      headers: {
+        "content-type": "text/event-stream; charset=utf-8",
+        "cache-control": "no-store",
+      },
+    },
+  )
+}
+const streamingClient = new SignedAgentSessionRuntimeClientV1(
+  "http://127.0.0.1:4317",
+  "streaming-siteagent-signing-key-32-bytes",
+  {
+    fetch: streamingFetch,
+    now: () => new Date("2026-09-01T19:30:02.000Z"),
+    createNonce: () => "nonce:streaming000001",
+  },
+)
+const streamingPrepared = await prepareAgentTurnV1(
+  streamingRequest,
+  principal,
+  {
+    repository: streamingRepository,
+    runtime: streamingClient,
+    now: streamingNow,
+    createId: ids(),
+  },
+)
+if (streamingPrepared.kind !== "created") {
+  throw new Error("streaming_turn_prepare_failed")
+}
+const streamingResponse = agentEventStreamSseResponseV1(
+  streamingPrepared.events,
+)
+const streamingReader = streamingResponse.body!.getReader()
+const firstStreamingChunk = await streamingReader.read()
+const firstStreamingText = new TextDecoder().decode(firstStreamingChunk.value)
+check(
+  !firstStreamingChunk.done &&
+    firstStreamingText.includes("event: turn.accepted") &&
+    !runtimeStreamEnded,
+  "the browser receives the first persisted SSE event before Runtime ends",
+)
+const persistedWhileOpen = await streamingRepository.readEvents(
+  principal,
+  streamingOpened.session.sessionId,
+  0,
+)
+check(
+  persistedWhileOpen.kind === "found" &&
+    persistedWhileOpen.events.map((event) => event.type).join(",") ===
+      "turn.accepted" &&
+    !runtimeStreamEnded,
+  "Site persists progress while the private Runtime stream remains open",
+)
+releaseRuntimeStream()
+let remainingStreamingText = ""
+while (true) {
+  const chunk = await streamingReader.read()
+  if (chunk.done) break
+  remainingStreamingText += new TextDecoder().decode(chunk.value)
+}
+check(
+  runtimeStreamEnded &&
+    remainingStreamingText.includes("event: message.delta") &&
+    remainingStreamingText.includes("event: turn.completed"),
+  "the same response continues through the real terminal Runtime event",
+)
+const persistedStreamingTurn = await streamingRepository.readEvents(
+  principal,
+  streamingOpened.session.sessionId,
+  0,
+)
+check(
+  persistedStreamingTurn.kind === "found" &&
+    persistedStreamingTurn.lastSequence === 3 &&
+    persistedStreamingTurn.events.map((event) => event.type).join(",") ===
+      "turn.accepted,message.delta,turn.completed",
+  "two separately persisted progress batches remain contiguous before terminal closure",
+)
+
+const liveBuildRepository = new MemoryAgentSessionRepositoryV1()
+liveBuildRepository.addProject(
+  principal,
+  "project:live-build",
+  "revision:live-build",
+)
+const liveBuildNow = clock(Date.parse("2026-09-01T19:40:00.000Z"))
+const liveBuildOpened = await openAgentSessionV1(
+  "project:live-build",
+  principal,
+  {
+    repository: liveBuildRepository,
+    runtime: null,
+    now: liveBuildNow,
+    createId: ids(),
+    createSessionSecret: () => "livebuildABCDEFGHIJKLMNOPQRSTUVWXYZ",
+  },
+)
+if (liveBuildOpened.kind !== "opened") {
+  throw new Error("live_build_session_open_failed")
+}
+const liveBuildRequest = request({
+  sessionId: liveBuildOpened.session.sessionId,
+  turnId: "turn:livebuild00000001",
+  idempotencyKey: "idem:live-build",
+  revisionId: liveBuildOpened.session.activeBaseRevisionId,
+  message: "Bygg en ny verifierad sida.",
+})
+const liveBuildRuntime: AgentSessionRuntimeClientV1 = {
+  async *streamTurn(input) {
+    yield {
+      schemaVersion: 1,
+      sessionId: input.session.sessionId,
+      turnId: input.request.turnId,
+      eventId: "event:livebuild00000001",
+      sequence: input.baseSequence + 1,
+      occurredAt: input.policy.issuedAt,
+      type: "turn.accepted",
+      payload: { acceptedAt: input.policy.issuedAt },
+    }
+    yield {
+      schemaVersion: 1,
+      sessionId: input.session.sessionId,
+      turnId: input.request.turnId,
+      eventId: "event:livebuild00000002",
+      sequence: input.baseSequence + 2,
+      occurredAt: new Date(Date.parse(input.policy.issuedAt) + 1_000).toISOString(),
+      type: "tool.started",
+      payload: {
+        toolCallId: "tool:livebuild00000001",
+        capability: "build.request",
+        safeLabel: "internal build label",
+      },
+    }
+  },
+}
+let releaseBuildCoordinator!: () => void
+let buildCoordinatorFinished = false
+const buildCoordinatorGate = new Promise<void>((resolve) => {
+  releaseBuildCoordinator = resolve
+})
+const liveBuildCoordinator: AgentTurnBuildCoordinatorV1 = {
+  plan: buildCoordinator.plan,
+  async run(input) {
+    const createdAt = "2026-09-01T19:40:03.000Z"
+    const job = {
+      schemaVersion: 1 as const,
+      jobId: "job:livebuild000000001",
+      tenantId: principal.tenantId,
+      projectId: input.plan.request.projectId,
+      baseRevisionId: input.plan.request.baseRevisionId,
+      idempotencyKey: input.plan.request.idempotencyKey,
+      createdAt,
+      expiresAt: "2026-09-01T19:45:03.000Z",
+      intent: input.plan.request.intent,
+      executionPolicy: {
+        deadlineAt: "2026-09-01T19:44:03.000Z",
+        maxSteps: 10,
+        maxToolCalls: 10,
+        maxModelTokens: 10_000,
+        maxCostMicros: 10_000,
+        capabilities: ["workspace.read" as const],
+        network: { mode: "deny-all" as const },
+        packages: { mode: "deny" as const },
+      },
+    }
+    const acceptedRecord: StoredBuildJobV1 = {
+      job,
+      requestHash: "d".repeat(64),
+      status: "accepted",
+      result: null,
+      workerReport: null,
+      events: [],
+    }
+    await input.onStarted?.(acceptedRecord)
+    await buildCoordinatorGate
+    buildCoordinatorFinished = true
+    const result = {
+      schemaVersion: 1 as const,
+      status: "failed" as const,
+      jobId: job.jobId,
+      baseRevisionId: job.baseRevisionId,
+      code: "worker_failed" as const,
+      message: "Deliberate blocked-coordinator verifier failure.",
+      retryable: false,
+      failedAt: "2026-09-01T19:40:04.000Z",
+      receipts: [],
+    }
+    return {
+      httpStatus: 502,
+      kind: "failed" as const,
+      record: { ...acceptedRecord, status: "failed" as const, result },
+    }
+  },
+}
+const liveBuildPrepared = await prepareAgentTurnV1(
+  liveBuildRequest,
+  principal,
+  {
+    repository: liveBuildRepository,
+    runtime: liveBuildRuntime,
+    buildCoordinator: liveBuildCoordinator,
+    now: liveBuildNow,
+    createId: ids(),
+  },
+)
+if (liveBuildPrepared.kind !== "created") {
+  throw new Error("live_build_turn_prepare_failed")
+}
+const liveBuildReader = agentEventStreamSseResponseV1(
+  liveBuildPrepared.events,
+).body!.getReader()
+let liveBuildPrefix = ""
+while (!liveBuildPrefix.includes("event: build.started")) {
+  const chunk = await liveBuildReader.read()
+  if (chunk.done) throw new Error("live_build_stream_closed_before_started")
+  liveBuildPrefix += new TextDecoder().decode(chunk.value)
+}
+check(
+  !buildCoordinatorFinished &&
+    liveBuildPrefix.includes("event: turn.accepted") &&
+    liveBuildPrefix.includes("event: tool.started") &&
+    liveBuildPrefix.includes("event: build.started"),
+  "build.started reaches the browser while the real coordinator run is blocked",
+)
+const persistedBlockedBuild = await liveBuildRepository.readEvents(
+  principal,
+  liveBuildOpened.session.sessionId,
+  0,
+)
+check(
+  persistedBlockedBuild.kind === "found" &&
+    persistedBlockedBuild.events.map((event) => event.type).join(",") ===
+      "turn.accepted,tool.started,build.started" &&
+    !buildCoordinatorFinished,
+  "Site persists build.started before the blocked coordinator can finish",
+)
+releaseBuildCoordinator()
+let liveBuildTerminal = ""
+while (true) {
+  const chunk = await liveBuildReader.read()
+  if (chunk.done) break
+  liveBuildTerminal += new TextDecoder().decode(chunk.value)
+}
+check(
+  buildCoordinatorFinished &&
+    liveBuildTerminal.includes("event: tool.completed") &&
+    liveBuildTerminal.includes("event: turn.failed"),
+  "the same build response continues from live start to the actual terminal result",
 )
 
 const adapterIssuedAt = "2026-09-01T20:00:00.000Z"

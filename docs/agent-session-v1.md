@@ -28,6 +28,8 @@ OpenClaw, Sprite or model tools directly.
   product session.
 - `POST /api/siteagent/sessions/{sessionId}/turns` starts a turn and
   fetch-streams its first events.
+- Site persists every validated progress event before forwarding it. Runtime
+  completion is not awaited before the first browser chunk is delivered.
 - `GET /api/siteagent/sessions/{sessionId}/events?afterSequence=N` resumes
   persisted events.
 - Site owns one strictly increasing sequence for the whole product session.

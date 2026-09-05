@@ -39,18 +39,58 @@ export function isSelfContainedPreviewHtmlV1(content: string): boolean {
       normalized === "about:blank"
     )
   }
+  const isInlineSrcset = (value: string): boolean => {
+    let offset = 0
+    let candidates = 0
+    while (offset < value.length) {
+      while (offset < value.length && /[\s,]/.test(value[offset]!)) offset += 1
+      if (offset >= value.length) break
+
+      const start = offset
+      const dataUrl = value.slice(offset, offset + 5).toLowerCase() === "data:"
+      let dataCommaSeen = false
+      while (offset < value.length) {
+        const character = value[offset]!
+        if (/\s/.test(character)) break
+        if (character === ",") {
+          if (dataUrl && !dataCommaSeen) {
+            dataCommaSeen = true
+          } else {
+            break
+          }
+        }
+        offset += 1
+      }
+      if (!isInlineResource(value.slice(start, offset))) return false
+      candidates += 1
+
+      while (offset < value.length && /\s/.test(value[offset]!)) offset += 1
+      if (value[offset] === ",") {
+        offset += 1
+        continue
+      }
+      while (offset < value.length && value[offset] !== ",") offset += 1
+      if (value[offset] === ",") offset += 1
+    }
+    return candidates > 0
+  }
   const resourceAttributes = [
-    /<script\b[^>]*\bsrc\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/gi,
-    /<link\b[^>]*\bhref\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/gi,
-    /<(?:img|source|video|audio|iframe|embed|input)\b[^>]*\bsrc\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/gi,
-    /<video\b[^>]*\bposter\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/gi,
-    /<object\b[^>]*\bdata\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/gi,
-    /\bsrcset\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/gi,
+    /<script\b[^>]*\ssrc\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/gi,
+    /<link\b[^>]*\shref\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/gi,
+    /<(?:img|source|video|audio|iframe|embed|input)\b[^>]*\ssrc\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/gi,
+    /<video\b[^>]*\sposter\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/gi,
+    /<object\b[^>]*\sdata\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/gi,
   ]
   for (const pattern of resourceAttributes) {
     for (const match of content.matchAll(pattern)) {
       if (!isInlineResource(match[1] ?? match[2] ?? match[3] ?? "")) return false
     }
+  }
+  for (const match of content.matchAll(
+    /\ssrcset\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/gi,
+  )) {
+    const value = match[1] ?? match[2] ?? match[3] ?? ""
+    if (!isInlineSrcset(value)) return false
   }
   for (const match of content.matchAll(/url\(\s*(["']?)([^"')]+)\1\s*\)/gi)) {
     if (!isInlineResource(match[2] ?? "")) return false

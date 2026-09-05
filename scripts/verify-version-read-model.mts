@@ -236,6 +236,30 @@ assert.equal(
   false,
 )
 assert.equal(isSelfContainedPreviewHtmlV1("<script src=script.js></script>"), false)
+assert.equal(
+  isSelfContainedPreviewHtmlV1(
+    '<img srcset="data:image/png;base64,AA== 1x, https://remote.example/image.png 2x">',
+  ),
+  false,
+)
+assert.equal(
+  isSelfContainedPreviewHtmlV1(
+    '<img srcset="data:image/png;base64,AA== 1x,https://remote.example/image.png 2x">',
+  ),
+  false,
+)
+assert.equal(
+  isSelfContainedPreviewHtmlV1(
+    '<img srcset="data:image/png;base64,AA== 1x,data:image/png;base64,BB== 2x">',
+  ),
+  true,
+)
+assert.equal(
+  isSelfContainedPreviewHtmlV1(
+    '<img data-src="https://remote.example/lazy.png" src="data:image/png;base64,AA==">',
+  ),
+  true,
+)
 const zip = createSingleHtmlZipV1(html, prepared.verifiedAt)
 assert.equal(Buffer.from(zip).readUInt32LE(0), 0x04034b50)
 const zipNameLength = Buffer.from(zip).readUInt16LE(26)

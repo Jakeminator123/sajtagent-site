@@ -400,11 +400,13 @@ export class PostgresAgentSessionRepositoryV1
       }
 
       const record = await loadTurn(client, principal, turnId)
-      if (sessionRow.last_sequence !== record.baseSequence) {
+      const previousSequence =
+        record.events.at(-1)?.sequence ?? record.baseSequence
+      if (sessionRow.last_sequence !== previousSequence) {
         throw new Error("agent_turn_base_sequence_changed")
       }
       const batch = validateAgentEventBatchV1(values, {
-        afterSequence: sessionRow.last_sequence,
+        afterSequence: previousSequence,
         expectedSessionId: sessionId,
       })
       if (!batch.success) throw new Error(batch.error)
@@ -496,6 +498,97 @@ export class PostgresAgentSessionRepositoryV1
         if ((advanced.rowCount ?? 0) !== 1) {
           throw new Error("agent_session_accepted_revision_mismatch")
         }
+      }
+      const stored = await loadTurn(client, principal, turnId)
+      await client.query("commit")
+      return stored
+    } catch (error) {
+      await client.query("rollback")
+      throw error
+    } finally {
+      client.release()
+    }
+  }
+
+  async appendProgressEvents(
+    principal: BuildPrincipalV1,
+    sessionId: string,
+    turnId: string,
+    values: AgentEventV1[],
+  ): Promise<StoredAgentTurnV1> {
+    const client = await this.pool.connect()
+    try {
+      await client.query("begin")
+      const sessionResult = await client.query<SessionRow>(
+        `select id, project_id, active_base_revision_id, status, last_sequence,
+                created_at, updated_at
+           from public.agent_sessions
+          where id = $1 and tenant_id = $2 and owner_user_id = $3::uuid
+          for update`,
+        [sessionId, principal.tenantId, principal.userId],
+      )
+      const sessionRow = sessionResult.rows[0]
+      if (!sessionRow) throw new Error("agent_session_not_found")
+      const turnLock = await client.query<{ status: string }>(
+        `select status
+           from public.agent_turns
+          where id = $1 and session_id = $2 and tenant_id = $3
+            and owner_user_id = $4::uuid
+          for update`,
+        [turnId, sessionId, principal.tenantId, principal.userId],
+      )
+      if (!turnLock.rows[0]) throw new Error("agent_turn_not_found")
+      if (turnLock.rows[0].status !== "running") {
+        throw new Error("agent_turn_terminal")
+      }
+
+      const record = await loadTurn(client, principal, turnId)
+      const previousSequence =
+        record.events.at(-1)?.sequence ?? record.baseSequence
+      if (sessionRow.last_sequence !== previousSequence) {
+        throw new Error("agent_turn_base_sequence_changed")
+      }
+      const batch = validateAgentEventBatchV1(values, {
+        afterSequence: previousSequence,
+        expectedSessionId: sessionId,
+      })
+      if (!batch.success) throw new Error(batch.error)
+      if (
+        batch.events.length === 0 ||
+        batch.events.some(
+          (event) =>
+            event.type === "turn.completed" || event.type === "turn.failed",
+        )
+      ) {
+        throw new Error("agent_turn_progress_must_be_non_terminal")
+      }
+      const complete = [...record.events, ...batch.events]
+      const validated = validateAgentTurnAgainstPolicyV1(
+        toSession(sessionRow),
+        record.policy,
+        complete,
+        { baseSequence: record.baseSequence, requireTerminal: false },
+      )
+      if (!validated.success) throw new Error(validated.error)
+
+      for (const event of batch.events) {
+        await client.query(
+          `insert into public.agent_events (
+             session_id, sequence, event_id, turn_id, tenant_id, project_id,
+             owner_user_id, event, occurred_at
+           ) values ($1, $2, $3, $4, $5, $6, $7::uuid, $8::jsonb, $9)`,
+          [
+            event.sessionId,
+            event.sequence,
+            event.eventId,
+            event.turnId,
+            principal.tenantId,
+            sessionRow.project_id,
+            principal.userId,
+            JSON.stringify(event),
+            event.occurredAt,
+          ],
+        )
       }
       const stored = await loadTurn(client, principal, turnId)
       await client.query("commit")

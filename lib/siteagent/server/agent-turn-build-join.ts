@@ -12,6 +12,7 @@ import type {
   AgentSessionV1,
   AgentTurnRequestV1,
 } from "../../../contracts/agent-session-v1.ts"
+import type { StoredBuildJobV1 } from "./build-job-repository.ts"
 import {
   createBuildJobV1,
   type CreateBuildJobControllerResultV1,
@@ -45,6 +46,7 @@ export interface AgentTurnBuildCoordinatorV1 {
   run(input: {
     principal: BuildPrincipalV1
     plan: AgentTurnBuildPlanV1
+    onStarted?: (record: StoredBuildJobV1) => Promise<void>
   }): Promise<CreateBuildJobControllerResultV1>
 }
 
@@ -136,11 +138,13 @@ export class PostgresAgentTurnBuildCoordinatorV1
   async run(input: {
     principal: BuildPrincipalV1
     plan: AgentTurnBuildPlanV1
+    onStarted?: (record: StoredBuildJobV1) => Promise<void>
   }): Promise<CreateBuildJobControllerResultV1> {
     return createBuildJobV1(
       input.plan.request,
       input.principal,
       this.dependencies,
+      { onStarted: input.onStarted },
     )
   }
 }

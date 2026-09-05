@@ -11,7 +11,6 @@ export function VersionList() {
     activeVersionId,
     restoreVersion,
     togglePin,
-    downloadZip,
   } = useBuilder()
   const activeTurn = agentProjection.activeTurnId
     ? agentProjection.turns[agentProjection.activeTurnId]
@@ -95,14 +94,15 @@ export function VersionList() {
               >
                 <RotateCcw className="h-3 w-3" /> Visa
               </button>
-              <button
-                type="button"
-                onClick={() => downloadZip(version.id)}
+              <a
+                href={`/api/siteagent/versions/${encodeURIComponent(version.id)}/download`}
+                download
                 title={`Hämta ${version.label} som ZIP`}
+                aria-label={`Hämta ${version.label} som ZIP`}
                 className="flex items-center gap-1 rounded border border-workflow-border-subtle px-2 py-1 font-mono text-[10px] text-workflow-text-muted transition-colors duration-150 hover:text-workflow-text"
               >
                 <Download className="h-3 w-3" /> ZIP
-              </button>
+              </a>
             </div>
           </div>
         ))

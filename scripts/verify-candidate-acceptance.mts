@@ -380,8 +380,26 @@ function passed(name: string): void {
 {
   const buildJob = job()
   const { acceptance, boundary } = setup()
-  boundary.loaded = { ...boundary.loaded, relativePath: "../index.html" }
-  const wrongPath = await acceptance.accept({
+  boundary.loaded = { ...boundary.loaded, relativePath: ".siteagent-preview.html" }
+  const selfContainedPath = await acceptance.accept({
+    principal,
+    job: buildJob,
+    report: candidateReport(buildJob),
+  })
+  assert.equal(selfContainedPath.accepted, true)
+
+  const legacy = setup()
+  legacy.boundary.loaded = { ...legacy.boundary.loaded, relativePath: "index.html" }
+  const legacyPath = await legacy.acceptance.accept({
+    principal,
+    job: buildJob,
+    report: candidateReport(buildJob),
+  })
+  assert.equal(legacyPath.accepted, true)
+
+  const invalid = setup()
+  invalid.boundary.loaded = { ...invalid.boundary.loaded, relativePath: "../index.html" }
+  const wrongPath = await invalid.acceptance.accept({
     principal,
     job: buildJob,
     report: candidateReport(buildJob),
@@ -405,7 +423,7 @@ function passed(name: string): void {
     report: candidateReport(buildJob),
   })
   assert.equal(!wrongHash.accepted && wrongHash.code, "verification_failed")
-  passed("path, byte size and SHA boundaries are exact")
+  passed("self-contained and legacy paths are explicit; byte size and SHA stay exact")
 }
 
 {

@@ -96,62 +96,48 @@ async function readBoundedBytesV1(
   return result
 }
 
-function parseAgentTurnSseV1(
-  bytes: Uint8Array,
-  input: RuntimeAgentTurnIngressV1,
-): AgentEventV1[] {
-  let text: string
+function parseAgentTurnSseFrameV1(frame: string): AgentEventV1 {
+  if (Buffer.byteLength(`${frame}\n\n`, "utf8") > MAX_AGENT_EVENT_SSE_BYTES_V1) {
+    throw new Error("runtime_sse_frame_too_large")
+  }
+  const lines = frame.split("\n")
+  if (
+    lines.length !== 3 ||
+    !lines[0]?.startsWith("id: ") ||
+    !lines[1]?.startsWith("event: ") ||
+    !lines[2]?.startsWith("data: ")
+  ) {
+    throw new Error("runtime_sse_frame_invalid")
+  }
+  const id = lines[0].slice(4)
+  const eventName = lines[1].slice(7)
+  if (!/^[1-9][0-9]*$/.test(id)) {
+    throw new Error("runtime_sse_id_invalid")
+  }
+  let value: unknown
   try {
-    text = new TextDecoder("utf-8", { fatal: true }).decode(bytes)
+    value = JSON.parse(lines[2].slice(6)) as unknown
   } catch {
-    throw new Error("runtime_sse_invalid_utf8")
+    throw new Error("runtime_sse_data_invalid_json")
   }
-  const normalized = text.replace(/\r\n/g, "\n")
-  if (!normalized.endsWith("\n\n")) {
-    throw new Error("runtime_sse_incomplete_frame")
+  const event = AgentEventV1Schema.parse(value)
+  if (String(event.sequence) !== id || event.type !== eventName) {
+    throw new Error("runtime_sse_envelope_mismatch")
   }
-  const frames = normalized.slice(0, -2).split("\n\n")
-  if (frames.length < 1 || frames.length > MAX_AGENT_TURN_EVENTS_V1) {
-    throw new Error("runtime_sse_event_limit")
-  }
+  return event
+}
 
-  const events = frames.map((frame) => {
-    if (Buffer.byteLength(`${frame}\n\n`, "utf8") > MAX_AGENT_EVENT_SSE_BYTES_V1) {
-      throw new Error("runtime_sse_frame_too_large")
-    }
-    const lines = frame.split("\n")
-    if (
-      lines.length !== 3 ||
-      !lines[0]?.startsWith("id: ") ||
-      !lines[1]?.startsWith("event: ") ||
-      !lines[2]?.startsWith("data: ")
-    ) {
-      throw new Error("runtime_sse_frame_invalid")
-    }
-    const id = lines[0].slice(4)
-    const eventName = lines[1].slice(7)
-    if (!/^[1-9][0-9]*$/.test(id)) {
-      throw new Error("runtime_sse_id_invalid")
-    }
-    let value: unknown
-    try {
-      value = JSON.parse(lines[2].slice(6)) as unknown
-    } catch {
-      throw new Error("runtime_sse_data_invalid_json")
-    }
-    const event = AgentEventV1Schema.parse(value)
-    if (String(event.sequence) !== id || event.type !== eventName) {
-      throw new Error("runtime_sse_envelope_mismatch")
-    }
-    return event
-  })
+function validateCompleteAgentTurnSseV1(
+  events: AgentEventV1[],
+  input: RuntimeAgentTurnIngressV1,
+): void {
   const terminal = validateAgentTurnAgainstPolicyV1(
     input.session,
     input.policy,
     events,
     { baseSequence: input.baseSequence, requireTerminal: true },
   )
-  if (terminal.success) return terminal.events
+  if (terminal.success) return
 
   const handoff = validateAgentTurnAgainstPolicyV1(
     input.session,
@@ -180,7 +166,92 @@ function parseAgentTurnSseV1(
   ) {
     throw new Error(terminal.error)
   }
-  return handoff.events
+}
+
+async function* parseAgentTurnSseV1(
+  response: Response,
+  input: RuntimeAgentTurnIngressV1,
+): AsyncGenerator<AgentEventV1> {
+  if (!response.body) throw new Error("runtime_response_body_missing")
+  const reader = response.body.getReader()
+  const decoder = new TextDecoder("utf-8", { fatal: true })
+  const events: AgentEventV1[] = []
+  let buffer = ""
+  let totalBytes = 0
+  let terminalPending: AgentEventV1 | null = null
+
+  const takeFrames = (): string[] => {
+    buffer = buffer.replace(/\r\n/g, "\n")
+    const frames: string[] = []
+    let boundary = buffer.indexOf("\n\n")
+    while (boundary >= 0) {
+      frames.push(buffer.slice(0, boundary))
+      buffer = buffer.slice(boundary + 2)
+      boundary = buffer.indexOf("\n\n")
+    }
+    return frames
+  }
+
+  const acceptFrame = (frame: string): AgentEventV1 => {
+    if (events.length >= MAX_AGENT_TURN_EVENTS_V1) {
+      throw new Error("runtime_sse_event_limit")
+    }
+    if (terminalPending) {
+      throw new Error("runtime_sse_event_after_terminal")
+    }
+    const event = parseAgentTurnSseFrameV1(frame)
+    const prefix = [...events, event]
+    const validated = validateAgentTurnAgainstPolicyV1(
+      input.session,
+      input.policy,
+      prefix,
+      { baseSequence: input.baseSequence, requireTerminal: false },
+    )
+    if (!validated.success) throw new Error(validated.error)
+    events.push(event)
+    if (event.type === "turn.completed" || event.type === "turn.failed") {
+      terminalPending = event
+    }
+    return event
+  }
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      totalBytes += value.byteLength
+      if (totalBytes > MAX_AGENT_TURN_SSE_BYTES_V1) {
+        throw new Error("runtime_response_too_large")
+      }
+      try {
+        buffer += decoder.decode(value, { stream: true })
+      } catch {
+        throw new Error("runtime_sse_invalid_utf8")
+      }
+      for (const frame of takeFrames()) {
+        const event = acceptFrame(frame)
+        if (event !== terminalPending) yield event
+      }
+    }
+    try {
+      buffer += decoder.decode()
+    } catch {
+      throw new Error("runtime_sse_invalid_utf8")
+    }
+    for (const frame of takeFrames()) {
+      const event = acceptFrame(frame)
+      if (event !== terminalPending) yield event
+    }
+    if (buffer.length > 0) throw new Error("runtime_sse_incomplete_frame")
+    if (events.length === 0) throw new Error("runtime_sse_event_limit")
+    validateCompleteAgentTurnSseV1(events, input)
+    if (terminalPending) yield terminalPending
+  } catch (error) {
+    await reader.cancel().catch(() => undefined)
+    throw error
+  } finally {
+    reader.releaseLock()
+  }
 }
 
 export class SignedAgentSessionRuntimeClientV1
@@ -220,7 +291,9 @@ export class SignedAgentSessionRuntimeClientV1
     this.createNonce = options.createNonce ?? randomUUID
   }
 
-  private async runTurn(input: RuntimeAgentTurnIngressV1): Promise<AgentEventV1[]> {
+  private async *runTurn(
+    input: RuntimeAgentTurnIngressV1,
+  ): AsyncGenerator<AgentEventV1> {
     const healthResponse = await this.fetchImpl(this.healthEndpoint, {
       method: "GET",
       cache: "no-store",
@@ -302,11 +375,7 @@ export class SignedAgentSessionRuntimeClientV1
     ) {
       throw new Error("Agent turn runtime response is not no-store")
     }
-    const bytes = await readBoundedBytesV1(
-      response,
-      MAX_AGENT_TURN_SSE_BYTES_V1,
-    )
-    return parseAgentTurnSseV1(bytes, input)
+    yield* parseAgentTurnSseV1(response, input)
   }
 
   async *streamTurn(input: {
@@ -315,14 +384,13 @@ export class SignedAgentSessionRuntimeClientV1
     policy: AgentTurnPolicyV1
     baseSequence: number
   }): AsyncIterable<unknown> {
-    const events = await this.runTurn({
+    yield* this.runTurn({
       schemaVersion: 1,
       session: input.session,
       turn: input.request,
       policy: input.policy,
       baseSequence: input.baseSequence,
     })
-    for (const event of events) yield event
   }
 }
 

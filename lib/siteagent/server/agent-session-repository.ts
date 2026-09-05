@@ -70,6 +70,12 @@ export interface AgentSessionRepositoryV1 {
       createdAt: string
     },
   ): Promise<ReserveAgentTurnV1>
+  appendProgressEvents(
+    principal: BuildPrincipalV1,
+    sessionId: string,
+    turnId: string,
+    events: AgentEventV1[],
+  ): Promise<StoredAgentTurnV1>
   appendTerminalEvents(
     principal: BuildPrincipalV1,
     sessionId: string,
@@ -351,15 +357,18 @@ export class MemoryAgentSessionRepositoryV1
     }
     if (turn.status !== "running") throw new Error("agent_turn_terminal")
 
+    const previousSequence = turn.events.at(-1)?.sequence ?? turn.baseSequence
+    if (sessionStored.lastSequence !== previousSequence) {
+      throw new Error("agent_turn_base_sequence_changed")
+    }
     const batch = validateAgentEventBatchV1(values, {
-      afterSequence: sessionStored.lastSequence,
+      afterSequence: previousSequence,
       expectedSessionId: sessionId,
     })
     if (!batch.success) throw new Error(batch.error)
     const complete = [...turn.events, ...batch.events]
     if (
-      complete.length === 0 ||
-      sessionStored.lastSequence !== turn.baseSequence
+      complete.length === 0
     ) {
       throw new Error("agent_turn_base_sequence_changed")
     }
@@ -396,6 +405,60 @@ export class MemoryAgentSessionRepositoryV1
     turn.status = state.status
     turn.outcome = state.outcome
     turn.terminalAt = state.terminalAt
+    const final = complete.at(-1)!
+    sessionStored.lastSequence = final.sequence
+    sessionStored.session.updatedAt = final.occurredAt
+    return structuredClone(turn)
+  }
+
+  async appendProgressEvents(
+    principal: BuildPrincipalV1,
+    sessionId: string,
+    turnId: string,
+    values: AgentEventV1[],
+  ): Promise<StoredAgentTurnV1> {
+    const sessionStored = this.sessions.get(sessionId)
+    const turn = this.turns.get(turnId)
+    if (
+      !sessionStored ||
+      !turn ||
+      sessionStored.principal.userId !== principal.userId ||
+      sessionStored.principal.tenantId !== principal.tenantId ||
+      turn.principal.userId !== principal.userId ||
+      turn.principal.tenantId !== principal.tenantId
+    ) {
+      throw new Error("agent_turn_not_found")
+    }
+    if (turn.status !== "running") throw new Error("agent_turn_terminal")
+
+    const previousSequence = turn.events.at(-1)?.sequence ?? turn.baseSequence
+    if (sessionStored.lastSequence !== previousSequence) {
+      throw new Error("agent_turn_base_sequence_changed")
+    }
+    const batch = validateAgentEventBatchV1(values, {
+      afterSequence: previousSequence,
+      expectedSessionId: sessionId,
+    })
+    if (!batch.success) throw new Error(batch.error)
+    if (
+      batch.events.length === 0 ||
+      batch.events.some(
+        (event) =>
+          event.type === "turn.completed" || event.type === "turn.failed",
+      )
+    ) {
+      throw new Error("agent_turn_progress_must_be_non_terminal")
+    }
+    const complete = [...turn.events, ...batch.events]
+    const validated = validateAgentTurnAgainstPolicyV1(
+      sessionStored.session,
+      turn.policy,
+      complete,
+      { baseSequence: turn.baseSequence, requireTerminal: false },
+    )
+    if (!validated.success) throw new Error(validated.error)
+
+    turn.events = complete
     const final = complete.at(-1)!
     sessionStored.lastSequence = final.sequence
     sessionStored.session.updatedAt = final.occurredAt

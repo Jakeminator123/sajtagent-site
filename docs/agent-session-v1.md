@@ -28,6 +28,8 @@ OpenClaw, Sprite or model tools directly.
   product session.
 - `POST /api/siteagent/sessions/{sessionId}/turns` starts a turn and
   fetch-streams its first events.
+- Site persists every validated progress event before forwarding it. Runtime
+  completion is not awaited before the first browser chunk is delivered.
 - `GET /api/siteagent/sessions/{sessionId}/events?afterSequence=N` resumes
   persisted events.
 - Site owns one strictly increasing sequence for the whole product session.
@@ -75,6 +77,12 @@ options, and optional multi-select/other flags. Secret fields fail closed.
 Raw command output and upstream receipt summaries are not event fields. Large
 bytes live behind high-entropy opaque refs. `preview.ready` contains only the
 Site-accepted product result, never a runtime candidate URL.
+
+Runtime-controlled progress text is not public text: Site replaces status,
+tool and receipt labels with deterministic product labels. A build handoff may
+not carry model message deltas; after canonical acceptance Site emits one
+deterministic completion message. Explicit analysis/reasoning markup in a
+conversation delta fails closed instead of being persisted or streamed.
 
 ## Terminal matrix
 

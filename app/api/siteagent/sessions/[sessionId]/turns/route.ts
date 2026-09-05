@@ -2,9 +2,12 @@ import { ZodError } from "zod"
 
 import { AgentTurnRequestV1Schema } from "../../../../../../contracts/agent-session-v1.ts"
 import { PostgresAgentTurnBuildCoordinatorV1 } from "../../../../../../lib/siteagent/server/agent-turn-build-join.ts"
-import { startAgentTurnV1 } from "../../../../../../lib/siteagent/server/agent-session-controller.ts"
+import { prepareAgentTurnV1 } from "../../../../../../lib/siteagent/server/agent-session-controller.ts"
 import { createAgentSessionRuntimeClientV1 } from "../../../../../../lib/siteagent/server/agent-session-runtime-env.ts"
-import { agentEventsSseResponseV1 } from "../../../../../../lib/siteagent/server/agent-session-sse.ts"
+import {
+  agentEventStreamSseResponseV1,
+  agentEventsSseResponseV1,
+} from "../../../../../../lib/siteagent/server/agent-session-sse.ts"
 import { PostgresAgentSessionRepositoryV1 } from "../../../../../../lib/siteagent/server/postgres-agent-session-repository.ts"
 import { resolveBuildPrincipalV1 } from "../../../../../../lib/siteagent/server/principal.ts"
 import {
@@ -96,14 +99,13 @@ export async function POST(
         },
       })
     }
-    const result = await startAgentTurnV1(input, principal, {
+    const result = await prepareAgentTurnV1(input, principal, {
       repository: new PostgresAgentSessionRepositoryV1(pool),
       runtime: createAgentSessionRuntimeClientV1(),
       buildCoordinator: new PostgresAgentTurnBuildCoordinatorV1(pool),
     })
-    if (result.kind === "created" || result.kind === "existing") {
-      return agentEventsSseResponseV1(result.events)
-    }
+    if (result.kind === "created") return agentEventStreamSseResponseV1(result.events)
+    if (result.kind === "existing") return agentEventsSseResponseV1(result.events)
     if (result.kind === "session_not_found") {
       return jsonResponse(404, {
         schemaVersion: 1,

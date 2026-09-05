@@ -11,10 +11,32 @@ export function agentEventSseChunkV1(event: AgentEventV1): Uint8Array {
 export function agentEventsSseResponseV1(
   events: readonly AgentEventV1[],
 ): Response {
+  return agentEventStreamSseResponseV1(
+    (async function* () {
+      yield* events
+    })(),
+  )
+}
+
+export function agentEventStreamSseResponseV1(
+  events: AsyncIterable<AgentEventV1>,
+): Response {
+  let cancelled = false
   const body = new ReadableStream<Uint8Array>({
     start(controller) {
-      for (const event of events) controller.enqueue(agentEventSseChunkV1(event))
-      controller.close()
+      void (async () => {
+        try {
+          for await (const event of events) {
+            if (!cancelled) controller.enqueue(agentEventSseChunkV1(event))
+          }
+          if (!cancelled) controller.close()
+        } catch (error) {
+          if (!cancelled) controller.error(error)
+        }
+      })()
+    },
+    cancel() {
+      cancelled = true
     },
   })
   return new Response(body, {

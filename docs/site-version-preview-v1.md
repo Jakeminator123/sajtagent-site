@@ -95,12 +95,19 @@ owner, are dynamic, and respond with `private, no-store` caching:
   50 canonical versions.
 - `GET /api/siteagent/previews/:previewRef` resolves the opaque ref for the
   current owner, rechecks bytes and SHA-256, and returns HTML.
+- `GET /api/siteagent/versions/:versionId/download` resolves the owner-bound
+  canonical version and its verified preview, rechecks bytes and SHA-256, and
+  returns a no-store ZIP containing `index.html`. Export fails closed when the
+  stored HTML still references relative or remote resource files; only a
+  genuinely self-contained preview is downloadable.
 
 Missing and cross-tenant preview refs are indistinguishable (`404`). Corrupt or
 unverifiable stored bytes return a generic `503` and are never rendered.
 
-The HTML response uses `Content-Security-Policy: sandbox` with scripts,
-connections, objects, forms, base URLs, and workers disabled. It also sets
+The HTML response uses an opaque-origin `Content-Security-Policy` sandbox. It
+allows only inline script needed by the self-contained artifact; it does not
+grant `allow-same-origin`, network connections, objects, forms, base URLs, or
+workers. It also sets
 `frame-ancestors 'self'`, `X-Frame-Options: SAMEORIGIN`, `nosniff`, same-origin
 resource policy, no referrer, a restrictive permissions policy, and no-store
 headers. The Builder constructs the route from the opaque `BuildResultV1`

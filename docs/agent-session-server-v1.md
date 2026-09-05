@@ -26,8 +26,10 @@ advances `agent_sessions.last_sequence` and rejects every gap or replay.
 
 The database also enforces one active session per project, one running turn per
 session, one use of an idempotency key per session and globally unique event
-IDs. The repository repeats these checks inside transactions and validates the
-complete turn against `AgentTurnPolicyV1` before terminal events are committed.
+IDs. The repository repeats these checks inside transactions. Each
+non-terminal suffix is validated against the persisted turn prefix before it
+is committed; the terminal suffix is validated against the complete turn
+before closure.
 
 Without a build coordinator, the Site-minted policy remains answer-only with
 `maxToolCalls: 0`. The product route injects the coordinator and may instead
@@ -51,20 +53,29 @@ the ratified ordered pair `conversation.respond`, `build.request`.
 `artifactReadEnabled` may be false or true because the conversation ingress
 validates its own capability independently from the subordinate build path.
 The turn response must be non-cacheable
-`text/event-stream; charset=utf-8`. Site verifies every `id`, event name and
-full `AgentEventV1`, the 32 KiB frame / 4,096 event / 4 MiB stream bounds,
-consecutive session-global sequence, first `turn.accepted`, policy binding and
-exactly one terminal event before committing the batch. The sole non-terminal
+`text/event-stream; charset=utf-8`. Site parses the Runtime body incrementally,
+verifies every `id`, event name and full `AgentEventV1`, the 32 KiB frame /
+4,096 event / 4 MiB stream bounds, consecutive session-global sequence, first
+`turn.accepted` and policy binding. Each verified non-terminal event is
+persisted before it is forwarded on the same browser response. A terminal
+event is held until Runtime closes cleanly, then complete-turn validation and
+terminal persistence happen before it is forwarded. The sole non-terminal
 exception must end at one open `tool.started` for `build.request`, with one
-allowed mutation intent and no question, completed tool, build or preview.
+allowed mutation intent and no message, question, completed tool, build or
+preview. Runtime-provided status and tool labels are replaced with a small
+Site-owned vocabulary before persistence. Explicit analysis/reasoning markup
+in a message delta fails closed, and runtime failure text is replaced with a
+bounded generic product message.
 
 Runtime mints the accepted event at `baseSequence + 1`; Site validates and
 persists that incoming event rather than sending an accepted prefix to the
 private POST. For the exact build handoff, Site derives the typed intent from
-the original turn and singleton policy, mints and runs the BuildJob, and then
-appends `build.started`, `tool.completed`, `preview.ready` and
-`turn.completed:built` only after canonical acceptance. Site alone owns durable
-sequence and browser resume. Until both
+the original turn and singleton policy, mints and runs the BuildJob, and
+appends `build.started` as soon as the real BuildJob record exists. Completion,
+preview and terminal events are appended only from the actual coordinator
+result; canonical acceptance adds `tool.completed`, `preview.ready`, one
+deterministic user-facing completion message and `turn.completed:built`. Site
+alone owns durable sequence and browser resume. Until both
 `SITEAGENT_RUNTIME_URL` and server-only `SITEAGENT_RUNTIME_SIGNING_KEY` are
 configured, a valid browser POST locally persists and streams exactly
 `turn.accepted` followed by `turn.failed`; it never fabricates a model answer,

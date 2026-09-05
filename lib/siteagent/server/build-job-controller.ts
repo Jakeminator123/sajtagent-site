@@ -98,6 +98,10 @@ export type BuildJobControllerDependenciesV1 = {
   createId?: () => string
 }
 
+export type CreateBuildJobOptionsV1 = {
+  onStarted?: (record: StoredBuildJobV1) => Promise<void>
+}
+
 function canonicalJson(value: unknown): string {
   if (Array.isArray(value)) {
     return `[${value.map((item) => canonicalJson(item)).join(",")}]`
@@ -191,6 +195,7 @@ export async function createBuildJobV1(
   requestInput: unknown,
   principal: BuildPrincipalV1,
   dependencies: BuildJobControllerDependenciesV1,
+  options: CreateBuildJobOptionsV1 = {},
 ): Promise<CreateBuildJobControllerResultV1> {
   const request = CreateBuildJobRequestV1Schema.parse(requestInput)
   const ownsRevision = await dependencies.repository.hasProjectRevision(
@@ -279,6 +284,8 @@ export async function createBuildJobV1(
       record: created.record,
     }
   }
+
+  await options.onStarted?.(created.record)
 
   if (!dependencies.runtime) {
     const result = failureResult(

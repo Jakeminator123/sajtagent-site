@@ -11,6 +11,11 @@ import {
   validateInlinePreviewArtifactV1,
   validatePreparedAcceptedCandidateV1,
 } from "../lib/siteagent/server/version-model.ts"
+import {
+  createSingleHtmlZipV1,
+  isSelfContainedPreviewHtmlV1,
+  versionArchiveHeadersV1,
+} from "../lib/siteagent/server/version-archive.ts"
 
 const html = "<!doctype html><main>Verifierad preview</main>"
 const htmlBytes = new TextEncoder().encode(html)
@@ -212,10 +217,66 @@ assert.equal(JSON.stringify(publicReceipts).includes("sprite-worktree:"), false)
 const headers = previewResponseHeadersV1(prepared.preview.sizeBytes)
 assert.match(headers.get("cache-control") ?? "", /no-store/)
 assert.match(headers.get("content-security-policy") ?? "", /sandbox/)
-assert.match(headers.get("content-security-policy") ?? "", /script-src 'none'/)
+assert.match(headers.get("content-security-policy") ?? "", /sandbox allow-scripts/)
+assert.match(headers.get("content-security-policy") ?? "", /script-src 'unsafe-inline'/)
+assert.doesNotMatch(headers.get("content-security-policy") ?? "", /allow-same-origin/)
+assert.match(headers.get("content-security-policy") ?? "", /connect-src 'none'/)
 assert.equal(headers.get("x-content-type-options"), "nosniff")
 assert.equal(headers.get("cross-origin-resource-policy"), "same-origin")
 assert.equal(headers.get("content-type"), "text/html; charset=utf-8")
+
+assert.equal(
+  isSelfContainedPreviewHtmlV1(
+    '<!doctype html><style>body{background:url("data:image/png;base64,AA==")}</style><img src="data:image/png;base64,AA==">',
+  ),
+  true,
+)
+assert.equal(
+  isSelfContainedPreviewHtmlV1('<link rel="stylesheet" href="style.css"><img src="assets/look.jpg">'),
+  false,
+)
+assert.equal(isSelfContainedPreviewHtmlV1("<script src=script.js></script>"), false)
+assert.equal(
+  isSelfContainedPreviewHtmlV1(
+    '<img srcset="data:image/png;base64,AA== 1x, https://remote.example/image.png 2x">',
+  ),
+  false,
+)
+assert.equal(
+  isSelfContainedPreviewHtmlV1(
+    '<img srcset="data:image/png;base64,AA== 1x,https://remote.example/image.png 2x">',
+  ),
+  false,
+)
+assert.equal(
+  isSelfContainedPreviewHtmlV1(
+    '<img srcset="data:image/png;base64,AA== 1x,data:image/png;base64,BB== 2x">',
+  ),
+  true,
+)
+assert.equal(
+  isSelfContainedPreviewHtmlV1(
+    '<img data-src="https://remote.example/lazy.png" src="data:image/png;base64,AA==">',
+  ),
+  true,
+)
+const zip = createSingleHtmlZipV1(html, prepared.verifiedAt)
+assert.equal(Buffer.from(zip).readUInt32LE(0), 0x04034b50)
+const zipNameLength = Buffer.from(zip).readUInt16LE(26)
+const zipExtraLength = Buffer.from(zip).readUInt16LE(28)
+const zipContentOffset = 30 + zipNameLength + zipExtraLength
+assert.equal(Buffer.from(zip).subarray(30, 30 + zipNameLength).toString("utf8"), "index.html")
+assert.equal(
+  Buffer.from(zip)
+    .subarray(zipContentOffset, zipContentOffset + Buffer.byteLength(html, "utf8"))
+    .toString("utf8"),
+  html,
+)
+assert.equal(Buffer.from(zip).readUInt32LE(zip.byteLength - 22), 0x06054b50)
+const archiveHeaders = versionArchiveHeadersV1(5, zip.byteLength)
+assert.equal(archiveHeaders.get("content-type"), "application/zip")
+assert.match(archiveHeaders.get("content-disposition") ?? "", /siteagent-version-5\.zip/)
+assert.match(archiveHeaders.get("cache-control") ?? "", /no-store/)
 
 const migration = readFileSync(
   new URL("../supabase/migrations/20260901184058_create_site_versions_and_previews.sql", import.meta.url),
@@ -223,6 +284,10 @@ const migration = readFileSync(
 )
 const rlsTest = readFileSync(
   new URL("../supabase/tests/site_versions_rls_test.sql", import.meta.url),
+  "utf8",
+)
+const archiveRoute = readFileSync(
+  new URL("../app/api/siteagent/versions/[versionId]/download/route.ts", import.meta.url),
   "utf8",
 )
 assert.match(migration, /alter table public\.site_preview_artifacts enable row level security/)
@@ -233,5 +298,9 @@ assert.match(migration, /site_preview_artifacts_size_bounded/)
 assert.match(migration, /site_versions_preview_owner_fk/)
 assert.match(rlsTest, /authenticated owners must use the preview route/)
 assert.match(rlsTest, /cross-tenant version is invisible/)
+assert.match(archiveRoute, /resolveBuildPrincipalV1/)
+assert.match(archiveRoute, /getVerifiedVersionExport/)
+assert.match(archiveRoute, /isSelfContainedPreviewHtmlV1/)
+assert.doesNotMatch(archiveRoute, /NEXT_PUBLIC_|SITEAGENT_RUNTIME|sprite-worktree:/)
 
-console.log("PASS: 25 canonical version, preview, and static RLS checks")
+console.log("PASS: canonical version, self-contained ZIP, preview, and static RLS checks")

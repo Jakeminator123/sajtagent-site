@@ -12,7 +12,9 @@
     "contracts/builder-v1.ts",
     "lib/db/client.ts",
     "lib/db/env.ts",
+    "lib/siteagent/agent-turn-mode.ts",
     "lib/siteagent/server/agent-session-*.ts",
+    "lib/siteagent/server/agent-turn-build-join.ts",
     "lib/siteagent/server/build-job-input.ts",
     "lib/siteagent/server/postgres-agent-session-repository.ts",
     "lib/siteagent/server/principal.ts",
@@ -23,6 +25,7 @@
     "app/api/siteagent/projects/[projectId]/sessions/route.ts",
     "app/api/siteagent/sessions/[sessionId]/turns/route.ts",
     "app/api/siteagent/sessions/[sessionId]/events/route.ts",
-    "scripts/verify-agent-session-server.mts"
+    "scripts/verify-agent-session-server.mts",
+    "scripts/verify-agent-turn-mode.mts"
   ]
 }

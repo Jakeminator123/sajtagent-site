@@ -14,6 +14,7 @@ import {
   prepareAgentTurnV1,
   startAgentTurnV1,
 } from "../lib/siteagent/server/agent-session-controller.ts"
+import { classifyAgentTurnModeV1 } from "../lib/siteagent/agent-turn-mode.ts"
 import type { AgentTurnBuildCoordinatorV1 } from "../lib/siteagent/server/agent-turn-build-join.ts"
 import { MemoryAgentSessionRepositoryV1 } from "../lib/siteagent/server/agent-session-repository.ts"
 import type { StoredBuildJobV1 } from "../lib/siteagent/server/build-job-repository.ts"
@@ -53,6 +54,8 @@ function request(input: {
   idempotencyKey: string
   revisionId: string
   message?: string
+  replyToQuestionId?: string
+  answerSelections?: string[]
 }) {
   return AgentTurnRequestV1Schema.parse({
     schemaVersion: 1,
@@ -60,6 +63,12 @@ function request(input: {
     turnId: input.turnId,
     idempotencyKey: input.idempotencyKey,
     message: input.message ?? "Vad är statusen för min sajt?",
+    ...(input.replyToQuestionId
+      ? {
+          replyToQuestionId: input.replyToQuestionId,
+          answerSelections: input.answerSelections ?? ["fortsatt"],
+        }
+      : {}),
     uiContext: {
       selectedBaseRevisionId: input.revisionId,
       mode: "freeform",
@@ -1376,6 +1385,162 @@ const competing = await activeRepository.reserveTurn(principal, {
 check(
   competing.kind === "active_turn_conflict",
   "the repository permits only one active turn per session",
+)
+
+const doctrineRepository = new MemoryAgentSessionRepositoryV1()
+doctrineRepository.addProject(principal, "project:doctrine", "revision:doctrine")
+const doctrineNow = clock(Date.parse("2026-09-01T22:00:00.000Z"))
+const doctrineIds = ids()
+const doctrineOpened = await openAgentSessionV1(
+  "project:doctrine",
+  principal,
+  {
+    repository: doctrineRepository,
+    runtime: null,
+    now: doctrineNow,
+    createId: doctrineIds,
+    createSessionSecret: () => "doctrineABCDEFGHIJKLMNOPQRSTUVWX",
+  },
+)
+check(doctrineOpened.kind === "opened", "doctrine fixture opens a session")
+if (doctrineOpened.kind !== "opened") throw new Error("doctrine_session_open_failed")
+
+const observedDoctrinePolicies: Array<{
+  capabilities: string
+  maxToolCalls: number
+}> = []
+let doctrineRunCalls = 0
+function doctrineAnswerRuntime(prefix: string): AgentSessionRuntimeClientV1 {
+  return {
+    async *streamTurn(input) {
+      observedDoctrinePolicies.push({
+        capabilities: input.policy.capabilities.join(","),
+        maxToolCalls: input.policy.maxToolCalls,
+      })
+      yield {
+        schemaVersion: 1,
+        sessionId: input.session.sessionId,
+        turnId: input.request.turnId,
+        eventId: `event:${prefix}accepted00001`,
+        sequence: input.baseSequence + 1,
+        occurredAt: input.policy.issuedAt,
+        type: "turn.accepted",
+        payload: { acceptedAt: input.policy.issuedAt },
+      }
+      yield {
+        schemaVersion: 1,
+        sessionId: input.session.sessionId,
+        turnId: input.request.turnId,
+        eventId: `event:${prefix}message0000001`,
+        sequence: input.baseSequence + 2,
+        occurredAt: input.policy.issuedAt,
+        type: "message.delta",
+        payload: { messageId: `message:${prefix}answer`, delta: "Svar utan bygge." },
+      }
+      yield {
+        schemaVersion: 1,
+        sessionId: input.session.sessionId,
+        turnId: input.request.turnId,
+        eventId: `event:${prefix}complete000001`,
+        sequence: input.baseSequence + 3,
+        occurredAt: input.policy.issuedAt,
+        type: "turn.completed",
+        payload: { outcome: "answered" },
+      }
+    },
+  }
+}
+const doctrineCoordinator: AgentTurnBuildCoordinatorV1 = {
+  async plan(input) {
+    if (classifyAgentTurnModeV1(input.request) !== "build.request") return null
+    return buildCoordinator.plan(input)
+  },
+  async run() {
+    doctrineRunCalls += 1
+    throw new Error("conversation_turn_must_not_run_build")
+  },
+}
+
+const questionWithCoordinator = await startAgentTurnV1(
+  request({
+    sessionId: doctrineOpened.session.sessionId,
+    turnId: "turn:doctrinequestion01",
+    idempotencyKey: "idem:doctrine-question",
+    revisionId: doctrineOpened.session.activeBaseRevisionId,
+    message: "Vad är statusen för min sajt?",
+  }),
+  principal,
+  {
+    repository: doctrineRepository,
+    runtime: doctrineAnswerRuntime("qst"),
+    now: doctrineNow,
+    createId: doctrineIds,
+    buildCoordinator: doctrineCoordinator,
+  },
+)
+check(
+  questionWithCoordinator.kind === "created" &&
+    observedDoctrinePolicies[0]?.capabilities === "conversation.respond" &&
+    observedDoctrinePolicies[0]?.maxToolCalls === 0 &&
+    doctrineRunCalls === 0 &&
+    questionWithCoordinator.events.every(
+      (event) => event.type !== "tool.started" && !event.type.startsWith("build."),
+    ),
+  "a coordinator-backed question stays conversation-only and never starts a BuildJob",
+)
+
+const briefWithCoordinator = await startAgentTurnV1(
+  request({
+    sessionId: doctrineOpened.session.sessionId,
+    turnId: "turn:doctrinebrief00001",
+    idempotencyKey: "idem:doctrine-brief",
+    revisionId: doctrineOpened.session.activeBaseRevisionId,
+    message: "hemsida med parallax, responsiv",
+  }),
+  principal,
+  {
+    repository: doctrineRepository,
+    runtime: doctrineAnswerRuntime("brf"),
+    now: doctrineNow,
+    createId: doctrineIds,
+    buildCoordinator: doctrineCoordinator,
+  },
+)
+check(
+  briefWithCoordinator.kind === "created" &&
+    observedDoctrinePolicies[1]?.capabilities ===
+      "conversation.respond,build.request" &&
+    observedDoctrinePolicies[1]?.maxToolCalls === 1 &&
+    doctrineRunCalls === 0 &&
+    briefWithCoordinator.events.at(-1)?.type === "turn.completed",
+  "a clear build brief authorizes build.request without minting a job unless Runtime hands off",
+)
+
+const replyWithCoordinator = await startAgentTurnV1(
+  request({
+    sessionId: doctrineOpened.session.sessionId,
+    turnId: "turn:doctrinereply00001",
+    idempotencyKey: "idem:doctrine-reply",
+    revisionId: doctrineOpened.session.activeBaseRevisionId,
+    message: "Blått tema",
+    replyToQuestionId: "color_choice",
+    answerSelections: ["Blått tema"],
+  }),
+  principal,
+  {
+    repository: doctrineRepository,
+    runtime: doctrineAnswerRuntime("rpl"),
+    now: doctrineNow,
+    createId: doctrineIds,
+    buildCoordinator: doctrineCoordinator,
+  },
+)
+check(
+  replyWithCoordinator.kind === "created" &&
+    observedDoctrinePolicies[2]?.capabilities ===
+      "conversation.respond,build.request" &&
+    doctrineRunCalls === 0,
+  "a structured question reply keeps build.request so Runtime can continue without a second confirm",
 )
 
 console.log(`Agent session server: ${checks} checks passed.`)

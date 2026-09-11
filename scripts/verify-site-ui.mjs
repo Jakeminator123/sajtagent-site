@@ -11,6 +11,7 @@ const agentFaceSource = readFileSync(resolve(root, "components/siteagent/faces/a
 const layoutSource = readFileSync(resolve(root, "components/siteagent/use-layout-prefs.ts"), "utf8")
 const builderAdapterSource = readFileSync(resolve(root, "lib/siteagent/adapter.ts"), "utf8")
 const builderStoreSource = readFileSync(resolve(root, "components/siteagent/builder-store.tsx"), "utf8")
+const previewStageSource = readFileSync(resolve(root, "components/siteagent/preview-stage.tsx"), "utf8")
 const cubeStageSource = readFileSync(resolve(root, "components/siteagent/cube-stage.tsx"), "utf8")
 const engineBackSource = readFileSync(resolve(root, "components/siteagent/faces/back-faces.tsx"), "utf8")
 const builderHeaderSource = readFileSync(resolve(root, "components/siteagent/builder-header.tsx"), "utf8")
@@ -77,6 +78,26 @@ assert.doesNotMatch(
 assert.match(engineBackSource, /activeTurn\?\.buildJobId/, "Build status must derive from a verified build event")
 assert.match(builderHeaderSource, />\s*Ny chatt\s*</, "the reset action must describe a new chat")
 assert.doesNotMatch(builderHeaderSource, /Nytt bygge/, "ordinary chat reset must not claim to start a build")
+assert.doesNotMatch(
+  builderStoreSource,
+  /agentProjection\.status === "failed"/,
+  "a failed conversation turn must not flip Preview into a build error",
+)
+assert.match(
+  builderStoreSource,
+  /latestTurn\?\.buildJobId/,
+  "Preview error requires a failed BuildJob, not a chat answer",
+)
+assert.match(
+  previewStageSource,
+  /const hasContent = Boolean\(previewUrl\)/,
+  "a verified preview iframe stays mounted for follow-up prompts",
+)
+assert.match(
+  previewStageSource,
+  /Previewn stannar här så du kan fortsätta prompta/,
+  "Preview copy must describe continued conversation, not a one-shot build",
+)
 assert.match(heroSource, /lokal beta/, "the hero must label the current product state as beta")
 assert.doesNotMatch(heroSource, /färdig webbplats|bygger sidan|tio sekunder/, "the hero must not claim unavailable build automation")
 assert.match(agendaSource, /Byggstarten förblir stängd/, "the agenda must describe the fail-closed build boundary")

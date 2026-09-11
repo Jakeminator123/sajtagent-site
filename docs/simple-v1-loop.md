@@ -55,8 +55,9 @@ deployment, runtime and orchestration are not dependencies of this loop.
 1. The browser opens its authenticated starter project and Site-owned session.
 2. Chat sends an `AgentTurnRequestV1`; Site binds user, tenant, project, base
    revision and idempotency and creates `AgentTurnPolicyV1`.
-3. Site may authorize exactly `conversation.respond` plus one `build.request`
-   for the current project, base revision and singleton mutation intent. The
+3. Site always authorizes `conversation.respond`. A clear build brief or a
+   structured question-reply may also authorize one `build.request` and one
+   singleton mutation intent. Ordinary questions stay answer-only. The
    browser cannot add capabilities, intent types or job identifiers.
 4. Runtime may either finish a normal answer/question turn or close its private
    SSE stream at exactly one open `build.request`. Site revalidates that

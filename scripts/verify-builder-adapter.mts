@@ -240,6 +240,7 @@ assert.match(versionListSource, /<a[\s\S]*?\sdownload[\s\S]*?>[\s\S]*?ZIP[\s\S]*
 assert.doesNotMatch(versionListSource, /onClick=\{\(\) => downloadZip\(version\.id\)\}/)
 assert.doesNotMatch(adapterSource, /URL\.createObjectURL|response\.blob\(\)|anchor\.click\(\)/)
 assert.doesNotMatch(versionListSource, /ZIP-export är inte ansluten ännu/)
-assert.match(previewSource, /previewStatus === "ready" && Boolean\(previewUrl\)/)
+assert.match(previewSource, /const hasContent = Boolean\(previewUrl\)/)
+assert.match(previewSource, /Previewn stannar här så du kan fortsätta prompta/)
 
 console.log("Builder projection: PASS (dedupe, sequence/terminal lock, canonical ready boundary)")

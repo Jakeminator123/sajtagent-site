@@ -24,7 +24,7 @@ function PreviewFrame({ className }: { className?: string }) {
 
 export function PreviewStage() {
   const { previewStatus, previewUrl } = useBuilder()
-  const hasContent = previewStatus === "ready" && Boolean(previewUrl)
+  const hasContent = Boolean(previewUrl)
 
   return (
     <div className="absolute inset-0 bg-workflow-canvas transition-colors duration-200">
@@ -82,30 +82,40 @@ export function PreviewStage() {
 
           {/* Innehåll */}
           <div className="flex-1 min-h-0 bg-white">
-            {previewStatus === "idle" && (
+            {previewStatus === "idle" && !hasContent && (
               <div className="w-full h-full flex flex-col items-center justify-center gap-3 text-center px-8">
                 <Monitor className="w-10 h-10 text-zinc-300" />
                 <p className="font-mono text-base text-zinc-600">Din sajt visas här</p>
                 <p className="text-sm text-zinc-400 leading-relaxed max-w-sm text-pretty">
-                  Skriv till Sajtagent i Chatt-kortet. Sajten fyller hela scenen — plattorna runt om kan
-                  vikas ner till kuben nere till höger.
+                  Skriv till Sajtagent i Chatt-kortet. Frågor får svar utan bygge. En tydlig
+                  sajtbeställning startar bygget. Previewn stannar här så du kan fortsätta prompta.
                 </p>
               </div>
             )}
-            {previewStatus === "building" && (
+            {previewStatus === "building" && !hasContent && (
               <div className="w-full h-full flex flex-col items-center justify-center gap-2">
                 <Loader2 className="w-7 h-7 animate-spin text-zinc-400" />
                 <p className="font-mono text-sm text-zinc-500">Sajtagent bygger…</p>
                 <p className="text-xs text-zinc-400">Preview öppnas först efter verifierad framgång.</p>
               </div>
             )}
-            {previewStatus === "error" && (
+            {previewStatus === "error" && !hasContent && (
               <div className="w-full h-full flex flex-col items-center justify-center gap-2">
                 <TriangleAlert className="w-7 h-7 text-amber-500" />
-                <p className="font-mono text-sm text-zinc-500">Bygget stoppades — inget resultat skapades.</p>
+                <p className="font-mono text-sm text-zinc-500">Bygget stoppades — ingen preview accepterades.</p>
               </div>
             )}
-            {hasContent && <PreviewFrame />}
+            {hasContent && (
+              <div className="relative w-full h-full">
+                <PreviewFrame />
+                {previewStatus === "building" && (
+                  <div className="absolute inset-x-0 top-0 flex items-center justify-center gap-2 bg-white/80 py-2">
+                    <Loader2 className="w-4 h-4 animate-spin text-zinc-400" />
+                    <p className="font-mono text-xs text-zinc-500">Ny version byggs — nuvarande preview stannar.</p>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>

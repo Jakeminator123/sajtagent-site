@@ -20,7 +20,7 @@ export function PreviewNode() {
   const { previewStatus, previewUrl } = useBuilder()
   const [fullscreen, setFullscreen] = useState(false)
 
-  const hasContent = previewStatus === "ready" && Boolean(previewUrl)
+  const hasContent = Boolean(previewUrl)
 
   return (
     <div className="w-[560px] rounded-lg border-2 border-rose-500/50 bg-workflow-node-bg shadow-lg flex flex-col">
@@ -59,26 +59,26 @@ export function PreviewNode() {
       </div>
 
       <div className="h-[380px] bg-workflow-node-input rounded-b-md overflow-hidden">
-        {previewStatus === "idle" && (
+        {previewStatus === "idle" && !hasContent && (
           <div className="w-full h-full flex flex-col items-center justify-center gap-2 text-center px-8">
             <Monitor className="w-8 h-8 text-workflow-text-subtle" />
             <p className="font-mono text-sm text-workflow-text-muted">Ingen preview ännu</p>
             <p className="text-xs text-workflow-text-subtle leading-relaxed">
-              Skriv till Sajtagent i Chatt-kortet. Första versionen visas här.
+              Skriv till Sajtagent. Första verifierade versionen visas här och stannar kvar.
             </p>
           </div>
         )}
-        {previewStatus === "building" && (
+        {previewStatus === "building" && !hasContent && (
           <div className="w-full h-full flex flex-col items-center justify-center gap-2">
             <Loader2 className="w-6 h-6 animate-spin text-workflow-text-muted" />
             <p className="font-mono text-xs text-workflow-text-muted">Sajtagent bygger…</p>
             <p className="text-[10px] text-workflow-text-subtle">Preview väntar på verifierad framgång.</p>
           </div>
         )}
-        {previewStatus === "error" && (
+        {previewStatus === "error" && !hasContent && (
           <div className="w-full h-full flex flex-col items-center justify-center gap-2">
             <TriangleAlert className="w-6 h-6 text-amber-500" />
-            <p className="font-mono text-xs text-workflow-text-muted">Bygget stoppades — inget resultat skapades.</p>
+            <p className="font-mono text-xs text-workflow-text-muted">Bygget stoppades — ingen preview accepterades.</p>
           </div>
         )}
         {hasContent && <PreviewFrame />}

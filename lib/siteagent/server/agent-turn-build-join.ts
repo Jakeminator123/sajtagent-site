@@ -12,6 +12,7 @@ import type {
   AgentSessionV1,
   AgentTurnRequestV1,
 } from "../../../contracts/agent-session-v1.ts"
+import { classifyAgentTurnModeV1 } from "../agent-turn-mode.ts"
 import type { StoredBuildJobV1 } from "./build-job-repository.ts"
 import {
   createBuildJobV1,
@@ -42,7 +43,7 @@ export interface AgentTurnBuildCoordinatorV1 {
     principal: BuildPrincipalV1
     session: AgentSessionV1
     request: AgentTurnRequestV1
-  }): Promise<AgentTurnBuildPlanV1>
+  }): Promise<AgentTurnBuildPlanV1 | null>
   run(input: {
     principal: BuildPrincipalV1
     plan: AgentTurnBuildPlanV1
@@ -103,7 +104,10 @@ export class PostgresAgentTurnBuildCoordinatorV1
     principal: BuildPrincipalV1
     session: AgentSessionV1
     request: AgentTurnRequestV1
-  }): Promise<AgentTurnBuildPlanV1> {
+  }): Promise<AgentTurnBuildPlanV1 | null> {
+    if (classifyAgentTurnModeV1(input.request) !== "build.request") {
+      return null
+    }
     const project = await this.versions.getProjectState(
       input.principal,
       input.session.projectId,

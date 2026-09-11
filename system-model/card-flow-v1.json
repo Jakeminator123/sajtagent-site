@@ -45,7 +45,7 @@
       "layer": 0,
       "owner": "sajtagent-site",
       "status": "implemented",
-      "summary": "Binder användare, projekt och AgentSession, mintar en policy med högst en build.request, härleder ett serverägt BuildJobV1 och sekvenserar verifierat resultat tillbaka som AgentEventV1. Liveflödet förblir stängt tills Runtime-verktyget och Site-migrationerna är aktiverade.",
+      "summary": "Binder användare, projekt och AgentSession. Varje turn mintar conversation.respond. En tydlig bygginstruktion kan dessutom auktorisera en build.request; Runtime skiljer svar från bygge. BuildJobV1 skapas bara efter exakt handoff, aldrig av en vanlig fråga. Resultatet sekvenseras tillbaka som AgentEventV1.",
       "failure": {
         "code": "cards.controller-rejected",
         "symptom": "Inget kort får visa en lyckad version.",

@@ -32,12 +32,15 @@ is committed; the terminal suffix is validated against the complete turn
 before closure.
 
 Without a build coordinator, the Site-minted policy remains answer-only with
-`maxToolCalls: 0`. The product route injects the coordinator and may instead
-authorize exactly `conversation.respond`, one `build.request`, one singleton
-mutation intent and `maxToolCalls: 1`, bound to the current project and base
-revision. The browser cannot add a tool, capability, intent type or job ID
-because its request schema is strict and the policy is created only on the
-server.
+`maxToolCalls: 0`. The product route injects the coordinator. A question or
+status turn still gets answer-only policy. A clear build instruction, or a
+structured reply to `question.requested`, may authorize exactly
+`conversation.respond`, one `build.request`, one singleton mutation intent and
+`maxToolCalls: 1`, bound to the current project and base revision. The
+coordinator returns no plan unless that path is authorized, so an ordinary
+question never prepares a BuildJob. The browser cannot add a tool, capability,
+intent type or job ID because its request schema is strict and the policy is
+created only on the server.
 
 ## Runtime boundary
 

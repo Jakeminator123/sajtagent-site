@@ -1514,6 +1514,104 @@ check(
   JSON.stringify(receivedBuildHandoff) === JSON.stringify(adapterBuildEvents),
   "the signed adapter accepts only the exact open build.request handoff",
 )
+const recoveredConversationEvents = adapterEvents.slice(0, 2)
+const recoveredConversationSse = recoveredConversationEvents
+  .map(
+    (event) =>
+      `id: ${event.sequence}\nevent: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`,
+  )
+  .join("")
+const recoveredConversationFetch: typeof fetch = async (input) => {
+  if (String(input).endsWith("/health")) {
+    return Response.json({
+      agentSessionContractVersion: 1,
+      agentTurnStreamTransport: "sse",
+      agentTurnStreamEnabled: true,
+      agentTurnCapabilities: ["conversation.respond"],
+      artifactReadEnabled: false,
+    })
+  }
+  return new Response(recoveredConversationSse, {
+    status: 200,
+    headers: {
+      "content-type": "text/event-stream; charset=utf-8",
+      "cache-control": "no-store",
+    },
+  })
+}
+const recoveredConversationClient = new SignedAgentSessionRuntimeClientV1(
+  "http://127.0.0.1:4317",
+  signingKey,
+  {
+    fetch: recoveredConversationFetch,
+    now: () => new Date(adapterNow),
+    createNonce: () => "nonce:adapterrecover001",
+  },
+)
+const receivedRecoveredConversation = []
+for await (const event of recoveredConversationClient.streamTurn({
+  session: adapterIngress.session,
+  request: adapterIngress.turn,
+  policy: adapterIngress.policy,
+  baseSequence: adapterIngress.baseSequence,
+})) {
+  receivedRecoveredConversation.push(event)
+}
+check(
+  recoveredConversationEvents.at(-1)?.type === "message.delta" &&
+    JSON.stringify(receivedRecoveredConversation) ===
+      JSON.stringify(recoveredConversationEvents),
+  "the signed adapter accepts a conversation stream that ends with recoverable assistant text",
+)
+const acceptedOnlyEvent = adapterEvents[0]
+if (!acceptedOnlyEvent) throw new Error("adapter_accepted_event_missing")
+const acceptedOnlySse = `id: ${acceptedOnlyEvent.sequence}\nevent: ${acceptedOnlyEvent.type}\ndata: ${JSON.stringify(acceptedOnlyEvent)}\n\n`
+const acceptedOnlyFetch: typeof fetch = async (input) => {
+  if (String(input).endsWith("/health")) {
+    return Response.json({
+      agentSessionContractVersion: 1,
+      agentTurnStreamTransport: "sse",
+      agentTurnStreamEnabled: true,
+      agentTurnCapabilities: ["conversation.respond"],
+      artifactReadEnabled: false,
+    })
+  }
+  return new Response(acceptedOnlySse, {
+    status: 200,
+    headers: {
+      "content-type": "text/event-stream; charset=utf-8",
+      "cache-control": "no-store",
+    },
+  })
+}
+const acceptedOnlyClient = new SignedAgentSessionRuntimeClientV1(
+  "http://127.0.0.1:4317",
+  signingKey,
+  {
+    fetch: acceptedOnlyFetch,
+    now: () => new Date(adapterNow),
+    createNonce: () => "nonce:adapteracceptonly1",
+  },
+)
+let acceptedOnlyRejected = false
+try {
+  for await (const _event of acceptedOnlyClient.streamTurn({
+    session: adapterIngress.session,
+    request: adapterIngress.turn,
+    policy: adapterIngress.policy,
+    baseSequence: adapterIngress.baseSequence,
+  })) {
+    void _event
+  }
+} catch (error) {
+  acceptedOnlyRejected =
+    error instanceof Error &&
+    error.message === "A complete turn stream must be terminal"
+}
+check(
+  acceptedOnlyRejected,
+  "the signed adapter still rejects an accepted-only stream without assistant text",
+)
 check(
   [false, true].every((artifactReadEnabled) =>
     ReadyAgentTurnRuntimeHealthV1Schema.safeParse({

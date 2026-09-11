@@ -8,6 +8,7 @@ const proxySource = readFileSync(resolve(root, "lib/supabase/proxy.ts"), "utf8")
 const envExample = readFileSync(resolve(root, ".env.example"), "utf8")
 const chatFaceSource = readFileSync(resolve(root, "components/siteagent/faces/chat-face.tsx"), "utf8")
 const agentFaceSource = readFileSync(resolve(root, "components/siteagent/faces/agent-face.tsx"), "utf8")
+const agentWidgetSource = readFileSync(resolve(root, "components/siteagent/agent-widget.tsx"), "utf8")
 const layoutSource = readFileSync(resolve(root, "components/siteagent/use-layout-prefs.ts"), "utf8")
 const builderAdapterSource = readFileSync(resolve(root, "lib/siteagent/adapter.ts"), "utf8")
 const builderStoreSource = readFileSync(resolve(root, "components/siteagent/builder-store.tsx"), "utf8")
@@ -52,6 +53,16 @@ assert.match(
   agentFaceSource,
   /Sajtagents svar visas i det här kortet/,
   "empty Sajtagent card must say answers appear here",
+)
+assert.match(
+  chatFaceSource,
+  /Svaret syns i Sajtagent-kortet/,
+  "ready Chat placeholder must point answers to the Sajtagent card",
+)
+assert.match(
+  agentWidgetSource,
+  /Skriv i Chatt-kortet\. Svaret syns i Sajtagent\./,
+  "agent widget footer must send writing to Chat and answers to Sajtagent",
 )
 assert.match(
   layoutSource,

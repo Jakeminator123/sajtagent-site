@@ -100,7 +100,7 @@ export function AgentWidget() {
           </div>
 
           <div className="border-t border-workflow-border p-2 text-center font-mono text-[10px] text-workflow-text-subtle">
-            Skriv till Sajtagent i det separata Chatt-kortet.
+            Skriv i Chatt-kortet. Svaret syns i Sajtagent.
           </div>
         </div>
       ) : (

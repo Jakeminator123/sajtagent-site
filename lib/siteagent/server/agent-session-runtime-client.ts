@@ -10,6 +10,7 @@ import {
   type AgentTurnPolicyV1,
   type AgentTurnRequestV1,
 } from "../../../contracts/agent-session-v1.ts"
+import { recoverableConversationOutcomeV1 } from "./agent-session-public-text.ts"
 import { runtimeSignaturePayloadV1 } from "./runtime-protocol-v1.ts"
 
 const AGENT_TURN_PATH_V1 = "/v1/agent-turns"
@@ -164,6 +165,7 @@ function validateCompleteAgentTurnSseV1(
     forbidden ||
     input.policy.allowedMutationIntents.length !== 1
   ) {
+    if (recoverableConversationOutcomeV1(handoff.events)) return
     throw new Error(terminal.error)
   }
 }

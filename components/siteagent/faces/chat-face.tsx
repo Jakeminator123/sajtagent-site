@@ -139,7 +139,7 @@ export function ChatFace() {
             placeholder={
               hasPendingQuestion
                 ? "Svara i Sajtagent-kortet…"
-                : "Skriv till Sajtagent… (Enter för att skicka)"
+                : "Svaret syns i Sajtagent-kortet"
             }
             rows={2}
             className="flex-1 resize-none rounded-md bg-workflow-node-input border border-workflow-border-subtle px-2.5 py-2 text-xs text-workflow-text placeholder:text-workflow-text-subtle focus:outline-none focus:ring-1 focus:ring-workflow-border"

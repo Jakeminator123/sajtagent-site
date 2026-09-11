@@ -17,6 +17,7 @@ import {
 import {
   CANNED_BUILD_SUCCESS_DELTA_V1,
   PRIVATE_REASONING_BLOCKED_MESSAGE_V1,
+  RUNTIME_CONTRACT_FAILED_MESSAGE_V1,
   RUNTIME_STREAM_FAILED_MESSAGE_V1,
   SHORT_BUILD_SUCCESS_STATUS_DELTA_V1,
 } from "../lib/siteagent/server/agent-session-public-text.ts"
@@ -1867,6 +1868,138 @@ check(
       "conversation.respond,build.request" &&
     doctrineRunCalls === 0,
   "a structured question reply keeps build.request so Runtime can continue without a second confirm",
+)
+
+const afterBuildSession = await repository.getSession(
+  principal,
+  refreshed.session.sessionId,
+)
+check(afterBuildSession !== null, "the built session is still readable for an explain turn")
+if (!afterBuildSession) throw new Error("explain_after_build_session_missing")
+const classifyAwareCoordinator: AgentTurnBuildCoordinatorV1 = {
+  async plan(input) {
+    if (classifyAgentTurnModeV1(input.request) !== "build.request") return null
+    return buildCoordinator.plan(input)
+  },
+  run(input) {
+    return buildCoordinator.run(input)
+  },
+}
+let explainCapabilities = ""
+const explainRuntime: AgentSessionRuntimeClientV1 = {
+  async *streamTurn(input) {
+    explainCapabilities = input.policy.capabilities.join(",")
+    yield {
+      schemaVersion: 1,
+      sessionId: input.session.sessionId,
+      turnId: input.request.turnId,
+      eventId: "event:explainaccepted0001",
+      sequence: input.baseSequence + 1,
+      occurredAt: input.policy.issuedAt,
+      type: "turn.accepted",
+      payload: { acceptedAt: input.policy.issuedAt },
+    }
+    yield {
+      schemaVersion: 1,
+      sessionId: input.session.sessionId,
+      turnId: input.request.turnId,
+      eventId: "event:explainmessage00001",
+      sequence: input.baseSequence + 2,
+      occurredAt: input.policy.issuedAt,
+      type: "message.delta",
+      payload: {
+        messageId: "message:explain-answer",
+        delta: "Hero-texten byttes mot Välkommen.",
+      },
+    }
+    yield {
+      schemaVersion: 1,
+      sessionId: input.session.sessionId,
+      turnId: input.request.turnId,
+      eventId: "event:explaincomplete0001",
+      sequence: input.baseSequence + 3,
+      occurredAt: input.policy.issuedAt,
+      type: "turn.completed",
+      payload: { outcome: "answered" },
+    }
+  },
+}
+const explainAfterBuild = await startAgentTurnV1(
+  request({
+    sessionId: afterBuildSession.session.sessionId,
+    turnId: "turn:explain-after-build01",
+    idempotencyKey: "idem:explain-after-build",
+    revisionId: afterBuildSession.session.activeBaseRevisionId,
+    message: "förklara vad som ändrats på sidan",
+  }),
+  principal,
+  {
+    ...dependencies,
+    runtime: explainRuntime,
+    buildCoordinator: classifyAwareCoordinator,
+  },
+)
+check(
+  explainAfterBuild.kind === "created" &&
+    explainCapabilities === "conversation.respond" &&
+    doctrineRunCalls === 0 &&
+    explainAfterBuild.events.some(
+      (event) =>
+        event.type === "message.delta" &&
+        event.payload.delta === "Hero-texten byttes mot Välkommen.",
+    ) &&
+    !explainAfterBuild.events.some(
+      (event) =>
+        event.type === "message.delta" &&
+        (event.payload.delta === CANNED_BUILD_SUCCESS_DELTA_V1 ||
+          event.payload.delta === SHORT_BUILD_SUCCESS_STATUS_DELTA_V1),
+    ) &&
+    explainAfterBuild.events.at(-1)?.type === "turn.completed",
+  "an explain turn after a built preview stays conversation-only and never injects canned build success",
+)
+
+const mismatchRuntime: AgentSessionRuntimeClientV1 = {
+  async *streamTurn(input) {
+    yield {
+      schemaVersion: 1,
+      sessionId: input.session.sessionId,
+      turnId: "turn:not-the-reserved-turn",
+      eventId: "event:wrongturnaccepted01",
+      sequence: input.baseSequence + 1,
+      occurredAt: input.policy.issuedAt,
+      type: "turn.accepted",
+      payload: { acceptedAt: input.policy.issuedAt },
+    }
+  },
+}
+const mismatchedIds = await startAgentTurnV1(
+  request({
+    sessionId: afterBuildSession.session.sessionId,
+    turnId: "turn:runtime-id-mismatch01",
+    idempotencyKey: "idem:runtime-id-mismatch",
+    revisionId:
+      (await repository.getSession(principal, afterBuildSession.session.sessionId))
+        ?.session.activeBaseRevisionId ??
+      afterBuildSession.session.activeBaseRevisionId,
+    message: "Vad syns i previewn?",
+  }),
+  principal,
+  {
+    ...dependencies,
+    runtime: mismatchRuntime,
+    buildCoordinator: classifyAwareCoordinator,
+  },
+)
+check(
+  mismatchedIds.kind === "created" &&
+    mismatchedIds.events.every((event) => event.turnId === "turn:runtime-id-mismatch01") &&
+    mismatchedIds.events.some(
+      (event) =>
+        event.type === "turn.failed" &&
+        event.payload.message === RUNTIME_CONTRACT_FAILED_MESSAGE_V1,
+    ) &&
+    !mismatchedIds.events.some((event) => event.type === "message.delta"),
+  "runtime events stamped for another turnId fail closed as a contract error",
 )
 
 console.log(`Agent session server: ${checks} checks passed.`)

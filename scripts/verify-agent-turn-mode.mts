@@ -79,5 +79,15 @@ check(
   "conversation.respond",
   "acknowledgement stays conversation-only",
 )
+check(
+  classify("förklara vad som ändrats på sidan"),
+  "conversation.respond",
+  "an explain-what-changed prompt stays conversation-only",
+)
+check(
+  classify("Vad har ändrats på sidan?"),
+  "conversation.respond",
+  "a what-changed question stays conversation-only",
+)
 
 console.log(`Agent turn mode: ${checks} checks passed.`)

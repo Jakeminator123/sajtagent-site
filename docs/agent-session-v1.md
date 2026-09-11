@@ -105,8 +105,12 @@ can never make the session or preview ready by itself.
 
 The browser reducer validates every `AgentEventV1`, deduplicates exact replay,
 requires gap-free session-global sequence and locks each turn after its
-terminal event. Changed replay, reused event IDs, mixed sessions or turns,
-unmatched tools and incomplete streams invalidate the projection visibly.
+terminal event. Changed replay, reused event IDs, mixed sessions, unmatched
+tools and incomplete streams invalidate the projection visibly. Same-session
+events from an earlier turn are catch-up when the expected turn has not
+started yet; they are not a session/turn integrity failure. A live event for
+another session, or for another turn after the expected turn is already
+active, still fail-closes.
 
 Only `safeLabel` is rendered for tools. A `question.requested` becomes an
 explicit option form; its answer is a new turn carrying both

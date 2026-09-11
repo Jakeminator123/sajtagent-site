@@ -15,6 +15,10 @@ import {
   type SiteagentFetchV1,
 } from "../lib/siteagent/adapter.ts"
 import {
+  applyExpectedTurnStreamEventV1,
+  SESSION_TURN_MISMATCH_MESSAGE_V1,
+} from "../lib/siteagent/agent-event-stream-apply.ts"
+import {
   createAgentEventProjectionV1,
   isActiveAgentTurnTerminalV1,
   isAgentTurnTerminalV1,
@@ -551,6 +555,8 @@ assert.doesNotMatch(previewSource, /allow-same-origin/)
 assert.match(adapterSource, /\/sessions\/\$\{encodeURIComponent\(request\.sessionId\)\}\/turns/)
 assert.match(adapterSource, /\/events\?afterSequence=/)
 assert.match(storeSource, /loadAgentEventProjectionV1/)
+assert.match(storeSource, /applyExpectedTurnStreamEventV1/)
+assert.match(storeSource, /catchUpAgentEventProjectionV1/)
 assert.match(storeSource, /isAgentTurnTerminalV1\(projectionRef\.current, turnId\)/)
 assert.match(storeSource, /projectionRef\.current\.turns\[turnId\]/)
 assert.match(storeSource, /replyToQuestionId/)
@@ -689,6 +695,111 @@ assert.equal(
 assert.equal(
   failedAfterAnswer.error,
   "Sajtagent slutförde turen utan ett visningsbart svar.",
+)
+
+const explainTurnId = "turn:explain0000000001"
+const builtThroughCanned = reduceAgentEventsV1(
+  createAgentEventProjectionV1(sessionId),
+  summarizedBuildEvents.slice(0, -1),
+)
+assert.equal(
+  builtThroughCanned.messages["message:status"]?.content,
+  "Previewn är verifierad och redo.",
+)
+assert.equal(builtThroughCanned.turns[buildTurnId]?.terminal, null)
+
+const leftoverBuildComplete = applyExpectedTurnStreamEventV1({
+  projection: builtThroughCanned,
+  event: summarizedBuildEvents[summarizedBuildEvents.length - 1]!,
+  expectedSessionId: sessionId,
+  expectedTurnId: explainTurnId,
+})
+assert.equal(leftoverBuildComplete.kind, "applied")
+assert.equal(leftoverBuildComplete.projection.status, "idle")
+assert.equal(
+  leftoverBuildComplete.projection.turns[buildTurnId]?.terminal?.kind,
+  "completed",
+)
+assert.notEqual(leftoverBuildComplete.projection.status, "invalid")
+
+const explainAccepted = applyExpectedTurnStreamEventV1({
+  projection: leftoverBuildComplete.projection,
+  event: {
+    schemaVersion: 1,
+    sessionId,
+    turnId: explainTurnId,
+    eventId: "event:explainaccepted0001",
+    sequence: 9,
+    occurredAt,
+    type: "turn.accepted",
+    payload: { acceptedAt: occurredAt },
+  },
+  expectedSessionId: sessionId,
+  expectedTurnId: explainTurnId,
+})
+assert.equal(explainAccepted.kind, "applied")
+
+const explainDelta = applyExpectedTurnStreamEventV1({
+  projection: explainAccepted.projection,
+  event: {
+    schemaVersion: 1,
+    sessionId,
+    turnId: explainTurnId,
+    eventId: "event:explainmessage00001",
+    sequence: 10,
+    occurredAt,
+    type: "message.delta",
+    payload: {
+      messageId: "message:explain",
+      delta: "Hero-texten byttes mot Välkommen.",
+    },
+  },
+  expectedSessionId: sessionId,
+  expectedTurnId: explainTurnId,
+})
+assert.equal(explainDelta.kind, "applied")
+assert.equal(
+  explainDelta.projection.messages["message:explain"]?.content,
+  "Hero-texten byttes mot Välkommen.",
+)
+assert.equal(
+  explainDelta.projection.messages["message:status"]?.content,
+  "Previewn är verifierad och redo.",
+)
+assert.notEqual(explainDelta.projection.status, "invalid")
+
+const mixedSession = applyExpectedTurnStreamEventV1({
+  projection: explainAccepted.projection,
+  event: {
+    schemaVersion: 1,
+    sessionId: "session:otherzyxwvutsrqponmlkjihgfedcba12",
+    turnId: explainTurnId,
+    eventId: "event:foreignsession00001",
+    sequence: 10,
+    occurredAt,
+    type: "message.delta",
+    payload: { messageId: "message:foreign", delta: "nej" },
+  },
+  expectedSessionId: sessionId,
+  expectedTurnId: explainTurnId,
+})
+assert.equal(mixedSession.kind, "rejected")
+assert.equal(mixedSession.projection.error, SESSION_TURN_MISMATCH_MESSAGE_V1)
+
+const mixedActiveTurn = applyExpectedTurnStreamEventV1({
+  projection: explainAccepted.projection,
+  event: {
+    ...summarizedBuildEvents[0]!,
+    eventId: "event:latebuildreplay0001",
+    sequence: 10,
+  },
+  expectedSessionId: sessionId,
+  expectedTurnId: explainTurnId,
+})
+assert.equal(mixedActiveTurn.kind, "rejected")
+assert.equal(
+  mixedActiveTurn.projection.error,
+  SESSION_TURN_MISMATCH_MESSAGE_V1,
 )
 
 console.log(

@@ -15,7 +15,8 @@ const cubeStageSource = readFileSync(resolve(root, "components/siteagent/cube-st
 const engineBackSource = readFileSync(resolve(root, "components/siteagent/faces/back-faces.tsx"), "utf8")
 const builderHeaderSource = readFileSync(resolve(root, "components/siteagent/builder-header.tsx"), "utf8")
 const heroSource = readFileSync(resolve(root, "components/hero-section.tsx"), "utf8")
-const agendaSource = readFileSync(resolve(root, "components/agenda.tsx"), "utf8")
+const featuresSource = readFileSync(resolve(root, "components/features-3.tsx"), "utf8")
+const pageSource = readFileSync(resolve(root, "app/page.tsx"), "utf8")
 const buildJobsRoute = resolve(root, "app/api/siteagent/build-jobs/route.ts")
 
 assert.match(
@@ -78,8 +79,15 @@ assert.match(engineBackSource, /activeTurn\?\.buildJobId/, "Build status must de
 assert.match(builderHeaderSource, />\s*Ny chatt\s*</, "the reset action must describe a new chat")
 assert.doesNotMatch(builderHeaderSource, /Nytt bygge/, "ordinary chat reset must not claim to start a build")
 assert.match(heroSource, /lokal beta/, "the hero must label the current product state as beta")
+assert.match(heroSource, /Beskriv sajten/, "the hero must lead with the product promise")
+assert.match(heroSource, /href="\/builder"/, "the hero must send visitors into the Builder")
+assert.match(heroSource, /href="\/login"/, "the hero must expose the existing login route")
 assert.doesNotMatch(heroSource, /färdig webbplats|bygger sidan|tio sekunder/, "the hero must not claim unavailable build automation")
-assert.match(agendaSource, /Byggstarten förblir stängd/, "the agenda must describe the fail-closed build boundary")
+assert.doesNotMatch(heroSource, /vetorätt|Halvautomatiskt, med flit/, "the hero must not use the old veto-at-every-step tone")
+assert.match(featuresSource, /Fria händer/, "value props must describe a free-handed agent")
+assert.doesNotMatch(featuresSource, /vetorätt|Halvautomatiskt, med flit/, "value props must not keep the old veto tone")
+assert.match(pageSource, /PointerAtmosphere/, "the landing page must mount the pointer/parallax atmosphere")
+assert.doesNotMatch(pageSource, /<Agenda/, "the marketing landing is one page: hero, value props, and CTA")
 
 console.log(
   "Site UI boundary: PASS (routing, public environment, split conversation, fail-closed build path, and honest beta UI)",

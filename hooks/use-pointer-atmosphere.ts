@@ -8,7 +8,7 @@ type AtmosphereTarget = {
   scroll: number
 }
 
-const INITIAL: AtmosphereTarget = { x: 0.58, y: 0.38, scroll: 0 }
+const INITIAL: AtmosphereTarget = { x: 0.62, y: 0.36, scroll: 0 }
 
 function writeAtmosphereVars(el: HTMLElement, state: AtmosphereTarget, reduced: boolean) {
   const px = state.x - 0.5
@@ -19,12 +19,12 @@ function writeAtmosphereVars(el: HTMLElement, state: AtmosphereTarget, reduced: 
 
   el.style.setProperty('--spot-x', `${(state.x * 100).toFixed(2)}%`)
   el.style.setProperty('--spot-y', `${(state.y * 100).toFixed(2)}%`)
-  el.style.setProperty('--far-x', `${(sx * 28).toFixed(2)}px`)
-  el.style.setProperty('--far-y', `${(sy * 16 - scroll * 0.05).toFixed(2)}px`)
-  el.style.setProperty('--mid-x', `${(sx * 52).toFixed(2)}px`)
-  el.style.setProperty('--mid-y', `${(sy * 28 - scroll * 0.1).toFixed(2)}px`)
-  el.style.setProperty('--near-x', `${(sx * 78).toFixed(2)}px`)
-  el.style.setProperty('--near-y', `${(sy * 42 - scroll * 0.18).toFixed(2)}px`)
+  el.style.setProperty('--far-x', `${(sx * 70).toFixed(2)}px`)
+  el.style.setProperty('--far-y', `${(sy * 40 - scroll * 0.18).toFixed(2)}px`)
+  el.style.setProperty('--mid-x', `${(sx * 120).toFixed(2)}px`)
+  el.style.setProperty('--mid-y', `${(sy * 70 - scroll * 0.32).toFixed(2)}px`)
+  el.style.setProperty('--near-x', `${(sx * 170).toFixed(2)}px`)
+  el.style.setProperty('--near-y', `${(sy * 100 - scroll * 0.48).toFixed(2)}px`)
 }
 
 export function usePointerAtmosphere(rootRef: RefObject<HTMLElement | null>) {
@@ -49,7 +49,7 @@ export function usePointerAtmosphere(rootRef: RefObject<HTMLElement | null>) {
     }
 
     const tick = () => {
-      const ease = reducedMotion.matches ? 1 : 0.11
+      const ease = reducedMotion.matches ? 1 : 0.14
       current.x += (target.x - current.x) * ease
       current.y += (target.y - current.y) * ease
       current.scroll += (target.scroll - current.scroll) * ease

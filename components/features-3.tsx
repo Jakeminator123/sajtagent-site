@@ -53,9 +53,9 @@ export default function Features() {
             ...transitionVariants,
           }}
         >
-          <Card className="@min-4xl:max-w-full @min-4xl:grid-cols-3 @min-4xl:divide-x @min-4xl:divide-y-0 mx-auto mt-8 grid max-w-sm divide-y overflow-visible bg-card/60 shadow-zinc-950/5 *:text-center md:mt-16">
+          <Card className="mx-auto mt-8 grid max-w-sm divide-y overflow-visible bg-card/60 shadow-zinc-950/5 *:text-center md:mt-16 md:max-w-none md:grid-cols-3 md:divide-x md:divide-y-0">
             {FEATURES.map(({ icon: Icon, title, body }) => (
-              <TiltSurface key={title} className="group" intensity={8}>
+              <TiltSurface key={title} className="group" intensity={16}>
                 <CardHeader className="pb-3">
                   <CardDecorator>
                     <Icon className="size-6" aria-hidden />

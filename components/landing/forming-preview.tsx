@@ -10,7 +10,7 @@ const LINES = [
 
 export function FormingPreview() {
   return (
-    <TiltSurface className="relative mx-auto w-full max-w-xl lg:max-w-none" intensity={6}>
+    <TiltSurface className="group relative mx-auto w-full max-w-xl lg:max-w-none" intensity={16}>
       <div className="relative overflow-hidden rounded-2xl border border-workflow-border-subtle bg-card/80 shadow-[0_30px_80px_-40px_hsl(219_100%_60%/0.55)] backdrop-blur-sm">
         <div
           aria-hidden

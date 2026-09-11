@@ -16,7 +16,7 @@ export default function HeroSection() {
       <section id="top" className="relative lg:min-h-screen">
         <div className="mx-auto grid max-w-7xl items-center gap-12 px-6 pb-20 pt-28 md:pb-28 lg:grid-cols-[1.05fr_0.95fr] lg:gap-10 lg:pb-32 lg:pt-36">
           <div id="skapa" className="relative mx-auto max-w-2xl scroll-mt-28 text-center lg:mx-0 lg:text-left">
-            <div className="mt-2 lg:mt-4">
+            <div className="mt-2 inline-flex rounded-md bg-workflow-node-input px-2 py-1 lg:mt-4">
               <DecryptedText
                 text="SITEAGENT · LOKAL BETA"
                 animateOn="view"
@@ -24,25 +24,17 @@ export default function HeroSection() {
                 sequential
                 useOriginalCharsOnly={false}
                 speed={70}
-                className="rounded-md bg-workflow-node-input px-1 font-mono text-workflow-text-muted uppercase"
+                className="font-mono text-xs tracking-[0.18em] text-workflow-text-muted uppercase"
               />
             </div>
             <TextEffect
+              per="line"
               preset="fade-in-blur"
               speedSegment={0.3}
               as="h1"
-              className="mt-6 max-w-2xl text-balance text-6xl font-semibold tracking-tight md:text-7xl xl:text-8xl"
+              className="mt-6 max-w-2xl text-balance text-5xl font-semibold tracking-tight sm:text-6xl lg:text-7xl"
             >
-              Beskriv sajten.
-            </TextEffect>
-            <TextEffect
-              preset="fade-in-blur"
-              speedSegment={0.3}
-              delay={0.18}
-              as="h1"
-              className="max-w-2xl text-balance text-6xl font-semibold tracking-tight md:text-7xl xl:text-8xl"
-            >
-              Se den ta form.
+              {'Beskriv sajten.\nSe den ta form.'}
             </TextEffect>
             <TextEffect
               per="line"

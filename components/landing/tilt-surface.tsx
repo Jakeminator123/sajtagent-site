@@ -9,7 +9,7 @@ type TiltSurfaceProps = {
   intensity?: number
 }
 
-export function TiltSurface({ children, className, intensity = 7 }: TiltSurfaceProps) {
+export function TiltSurface({ children, className, intensity = 14 }: TiltSurfaceProps) {
   const ref = useRef<HTMLDivElement>(null)
   const reducedMotionRef = useRef(false)
 
@@ -50,10 +50,18 @@ export function TiltSurface({ children, className, intensity = 7 }: TiltSurfaceP
       onPointerMove={onPointerMove}
       onPointerLeave={reset}
       className={cn(
-        'transform-gpu [transform:perspective(1100px)_rotateX(var(--tilt-x,0deg))_rotateY(var(--tilt-y,0deg))] transition-transform duration-200 ease-out',
+        'relative transform-gpu [transform:perspective(900px)_rotateX(var(--tilt-x,0deg))_rotateY(var(--tilt-y,0deg))] transition-transform duration-150 ease-out',
         className,
       )}
     >
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 z-10 rounded-[inherit]"
+        style={{
+          background:
+            'radial-gradient(460px circle at var(--shine-x, 70%) var(--shine-y, 20%), hsl(219 100% 70% / 0.2), transparent 48%)',
+        }}
+      />
       {children}
     </div>
   )

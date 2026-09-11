@@ -14,6 +14,12 @@ import {
   prepareAgentTurnV1,
   startAgentTurnV1,
 } from "../lib/siteagent/server/agent-session-controller.ts"
+import {
+  CANNED_BUILD_SUCCESS_DELTA_V1,
+  PRIVATE_REASONING_BLOCKED_MESSAGE_V1,
+  RUNTIME_STREAM_FAILED_MESSAGE_V1,
+  SHORT_BUILD_SUCCESS_STATUS_DELTA_V1,
+} from "../lib/siteagent/server/agent-session-public-text.ts"
 import { classifyAgentTurnModeV1 } from "../lib/siteagent/agent-turn-mode.ts"
 import type { AgentTurnBuildCoordinatorV1 } from "../lib/siteagent/server/agent-turn-build-join.ts"
 import { MemoryAgentSessionRepositoryV1 } from "../lib/siteagent/server/agent-session-repository.ts"
@@ -469,8 +475,7 @@ check(
     built.events.some(
       (event) =>
         event.type === "message.delta" &&
-        event.payload.delta ===
-          "Klart — sidan är byggd och verifierad. Previewn är redo.",
+        event.payload.delta === CANNED_BUILD_SUCCESS_DELTA_V1,
     ) &&
     !JSON.stringify(built.events).includes("internal stdout") &&
     !JSON.stringify(built.events).includes("runtime/check command details"),
@@ -682,8 +687,231 @@ check(
   privateReasoning.kind === "created" &&
     privateReasoning.events.map((event) => event.type).join(",") ===
       "turn.accepted,turn.failed" &&
+    privateReasoning.events.some(
+      (event) =>
+        event.type === "turn.failed" &&
+        event.payload.message === PRIVATE_REASONING_BLOCKED_MESSAGE_V1,
+    ) &&
     !JSON.stringify(privateReasoning.events).includes("private reasoning"),
   "explicit private reasoning markers fail closed before persistence",
+)
+
+const summarizedBuildRuntime: AgentSessionRuntimeClientV1 = {
+  async *streamTurn(input) {
+    buildVerifiedAt = new Date(
+      Date.parse(input.policy.issuedAt) + 2_000,
+    ).toISOString()
+    yield {
+      schemaVersion: 1,
+      sessionId: input.session.sessionId,
+      turnId: input.request.turnId,
+      eventId: "event:sumbuildruntime0001",
+      sequence: input.baseSequence + 1,
+      occurredAt: input.policy.issuedAt,
+      type: "turn.accepted",
+      payload: { acceptedAt: input.policy.issuedAt },
+    }
+    yield {
+      schemaVersion: 1,
+      sessionId: input.session.sessionId,
+      turnId: input.request.turnId,
+      eventId: "event:sumbuildruntime0002",
+      sequence: input.baseSequence + 2,
+      occurredAt: new Date(Date.parse(input.policy.issuedAt) + 500).toISOString(),
+      type: "message.delta",
+      payload: {
+        messageId: "message:build-summary",
+        delta: "Jag har uppdaterat hero och footer.",
+      },
+    }
+    yield {
+      schemaVersion: 1,
+      sessionId: input.session.sessionId,
+      turnId: input.request.turnId,
+      eventId: "event:sumbuildruntime0003",
+      sequence: input.baseSequence + 3,
+      occurredAt: new Date(Date.parse(input.policy.issuedAt) + 1_000).toISOString(),
+      type: "tool.started",
+      payload: {
+        toolCallId: "tool:sumbuild0000000001",
+        capability: "build.request",
+        safeLabel: "Bygg sajten",
+      },
+    }
+  },
+}
+const summarizedBuildRequest = request({
+  sessionId: refreshed.session.sessionId,
+  turnId: "turn:0000000000000015",
+  idempotencyKey: "idem:summarized-build",
+  revisionId: advancedAfterBuild.session.activeBaseRevisionId,
+  message: "Uppdatera hero och footer.",
+})
+const summarizedBuild = await startAgentTurnV1(summarizedBuildRequest, principal, {
+  ...dependencies,
+  runtime: summarizedBuildRuntime,
+  buildCoordinator,
+})
+check(summarizedBuild.kind === "created", "a summarized build handoff is accepted")
+if (summarizedBuild.kind !== "created") throw new Error("summarized_build_missing")
+const summarizedDeltas = summarizedBuild.events.filter(
+  (event) => event.type === "message.delta",
+)
+check(
+  summarizedDeltas.map((event) => event.payload.delta).join("\n") ===
+    `Jag har uppdaterat hero och footer.\n${SHORT_BUILD_SUCCESS_STATUS_DELTA_V1}` &&
+    !summarizedDeltas.some(
+      (event) => event.payload.delta === CANNED_BUILD_SUCCESS_DELTA_V1,
+    ),
+  "build success keeps the Runtime summary and appends a short status",
+)
+
+const emptyAnswerRuntime: AgentSessionRuntimeClientV1 = {
+  async *streamTurn(input) {
+    yield {
+      schemaVersion: 1,
+      sessionId: input.session.sessionId,
+      turnId: input.request.turnId,
+      eventId: "event:emptyanswer000001",
+      sequence: input.baseSequence + 1,
+      occurredAt: input.policy.issuedAt,
+      type: "turn.accepted",
+      payload: { acceptedAt: input.policy.issuedAt },
+    }
+    yield {
+      schemaVersion: 1,
+      sessionId: input.session.sessionId,
+      turnId: input.request.turnId,
+      eventId: "event:emptyanswer000002",
+      sequence: input.baseSequence + 2,
+      occurredAt: input.policy.issuedAt,
+      type: "turn.failed",
+      payload: {
+        code: "openclaw_empty_answer",
+        message: "OpenClaw slutförde turen utan ett visningsbart svar.",
+        retryable: true,
+      },
+    }
+  },
+}
+const emptyAnswer = await startAgentTurnV1(
+  request({
+    sessionId: refreshed.session.sessionId,
+    turnId: "turn:0000000000000016",
+    idempotencyKey: "idem:empty-answer",
+    revisionId: (
+      await repository.getSession(principal, refreshed.session.sessionId)
+    )?.session.activeBaseRevisionId ?? advancedAfterBuild.session.activeBaseRevisionId,
+  }),
+  principal,
+  { ...dependencies, runtime: emptyAnswerRuntime },
+)
+check(emptyAnswer.kind === "created", "an empty-answer runtime failure is persisted")
+if (emptyAnswer.kind !== "created") throw new Error("empty_answer_missing")
+check(
+  emptyAnswer.events.some(
+    (event) =>
+      event.type === "turn.failed" &&
+      event.payload.code === "openclaw_empty_answer" &&
+      event.payload.message ===
+        "Sajtagent slutförde turen utan ett visningsbart svar.",
+  ),
+  "runtime empty-answer failures keep a useful product reason",
+)
+
+const recoveredAnswerRuntime: AgentSessionRuntimeClientV1 = {
+  async *streamTurn(input) {
+    yield {
+      schemaVersion: 1,
+      sessionId: input.session.sessionId,
+      turnId: input.request.turnId,
+      eventId: "event:recovered00000001",
+      sequence: input.baseSequence + 1,
+      occurredAt: input.policy.issuedAt,
+      type: "turn.accepted",
+      payload: { acceptedAt: input.policy.issuedAt },
+    }
+    yield {
+      schemaVersion: 1,
+      sessionId: input.session.sessionId,
+      turnId: input.request.turnId,
+      eventId: "event:recovered00000002",
+      sequence: input.baseSequence + 2,
+      occurredAt: input.policy.issuedAt,
+      type: "message.delta",
+      payload: {
+        messageId: "message:recovered",
+        delta: "Parallax är en djup-effekt när sidan rullas.",
+      },
+    }
+  },
+}
+const recoveredAnswer = await startAgentTurnV1(
+  request({
+    sessionId: refreshed.session.sessionId,
+    turnId: "turn:0000000000000017",
+    idempotencyKey: "idem:recovered-answer",
+    revisionId: (
+      await repository.getSession(principal, refreshed.session.sessionId)
+    )?.session.activeBaseRevisionId ?? advancedAfterBuild.session.activeBaseRevisionId,
+    message: "kan du förklara vad parallax är?",
+  }),
+  principal,
+  { ...dependencies, runtime: recoveredAnswerRuntime },
+)
+check(recoveredAnswer.kind === "created", "an unterminated answer stream is recovered")
+if (recoveredAnswer.kind !== "created") throw new Error("recovered_answer_missing")
+check(
+  recoveredAnswer.events.map((event) => event.type).join(",") ===
+    "turn.accepted,message.delta,turn.completed" &&
+    recoveredAnswer.events.some(
+      (event) =>
+        event.type === "message.delta" &&
+        event.payload.delta === "Parallax är en djup-effekt när sidan rullas.",
+    ) &&
+    recoveredAnswer.events.at(-1)?.type === "turn.completed" &&
+    (recoveredAnswer.events.at(-1) as Extract<
+      (typeof recoveredAnswer.events)[number],
+      { type: "turn.completed" }
+    >).payload.outcome === "answered",
+  "Site closes a real assistant reply even when Runtime omits turn.completed",
+)
+
+const acceptedOnlyRuntime: AgentSessionRuntimeClientV1 = {
+  async *streamTurn(input) {
+    yield {
+      schemaVersion: 1,
+      sessionId: input.session.sessionId,
+      turnId: input.request.turnId,
+      eventId: "event:acceptedonly00001",
+      sequence: input.baseSequence + 1,
+      occurredAt: input.policy.issuedAt,
+      type: "turn.accepted",
+      payload: { acceptedAt: input.policy.issuedAt },
+    }
+  },
+}
+const acceptedOnly = await startAgentTurnV1(
+  request({
+    sessionId: refreshed.session.sessionId,
+    turnId: "turn:0000000000000018",
+    idempotencyKey: "idem:accepted-only",
+    revisionId: (
+      await repository.getSession(principal, refreshed.session.sessionId)
+    )?.session.activeBaseRevisionId ?? advancedAfterBuild.session.activeBaseRevisionId,
+  }),
+  principal,
+  { ...dependencies, runtime: acceptedOnlyRuntime },
+)
+check(acceptedOnly.kind === "created", "an accepted-only stream remains a persisted turn")
+if (acceptedOnly.kind !== "created") throw new Error("accepted_only_missing")
+check(
+  acceptedOnly.events.some(
+    (event) =>
+      event.type === "turn.failed" &&
+      event.payload.message === RUNTIME_STREAM_FAILED_MESSAGE_V1,
+  ),
+  "an incomplete stream without assistant text fails as a stream error",
 )
 
 const allEvents = await repository.readEvents(

@@ -49,6 +49,11 @@ assert.match(
   "Sajtagent card must render the agent's side of the conversation",
 )
 assert.match(
+  agentFaceSource,
+  /Sajtagents svar visas i det här kortet/,
+  "empty Sajtagent card must say answers appear here",
+)
+assert.match(
   layoutSource,
   /DEFAULT_DOCKED: FaceId\[\] = \["choices", "versions", "blocks", "map"\]/,
   "Chat and Sajtagent must be the two open default cards",

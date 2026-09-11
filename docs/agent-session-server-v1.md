@@ -64,11 +64,17 @@ persisted before it is forwarded on the same browser response. A terminal
 event is held until Runtime closes cleanly, then complete-turn validation and
 terminal persistence happen before it is forwarded. The sole non-terminal
 exception must end at one open `tool.started` for `build.request`, with one
-allowed mutation intent and no message, question, completed tool, build or
-preview. Runtime-provided status and tool labels are replaced with a small
+allowed mutation intent and no question, completed tool, build or preview.
+Sanitized `message.delta` events may precede that handoff. If the Runtime
+stream ends without a terminal or handoff but already carried a safe answer
+or structured question, Site closes the turn as `answered` or
+`awaiting_user` instead of failing the conversation closed.
+
+Runtime-provided status and tool labels are replaced with a small
 Site-owned vocabulary before persistence. Explicit analysis/reasoning markup
-in a message delta fails closed, and runtime failure text is replaced with a
-bounded generic product message.
+in a message delta fails closed. Runtime failure text is rewritten to a
+bounded product message that can distinguish stream versus contract failures
+without leaking private reasoning.
 
 Runtime mints the accepted event at `baseSequence + 1`; Site validates and
 persists that incoming event rather than sending an accepted prefix to the
@@ -76,8 +82,9 @@ private POST. For the exact build handoff, Site derives the typed intent from
 the original turn and singleton policy, mints and runs the BuildJob, and
 appends `build.started` as soon as the real BuildJob record exists. Completion,
 preview and terminal events are appended only from the actual coordinator
-result; canonical acceptance adds `tool.completed`, `preview.ready`, one
-deterministic user-facing completion message and `turn.completed:built`. Site
+result; canonical acceptance adds `tool.completed`, `preview.ready`, a
+user-facing completion message (Runtime summary plus short status, or the
+canned fallback when no assistant text arrived) and `turn.completed:built`. Site
 alone owns durable sequence and browser resume. Until both
 `SITEAGENT_RUNTIME_URL` and server-only `SITEAGENT_RUNTIME_SIGNING_KEY` are
 configured, a valid browser POST locally persists and streams exactly
@@ -89,6 +96,7 @@ preview or version.
 ```powershell
 npm run check:agent-session
 npm run check:agent-session-server
+npm run check:agent-session-ui
 npx eslint "lib/siteagent/server/agent-session-*.ts" `
   "lib/siteagent/server/postgres-agent-session-repository.ts" `
   "app/api/siteagent/projects/[projectId]/sessions/route.ts" `

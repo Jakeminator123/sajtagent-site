@@ -560,6 +560,136 @@ assert.match(agentFaceSource, /ReactMarkdown/)
 assert.match(agentFaceSource, /option\.description/)
 assert.match(agentFaceSource, /tool\.safeLabel/)
 assert.match(agentFaceSource, /role="alert"/)
+assert.match(
+  agentFaceSource,
+  /Sajtagents svar visas i det här kortet/,
+  "empty AgentFace copy must tell users answers appear in this card",
+)
+
+const summarizedBuildEvents: AgentEventV1[] = [
+  event({
+    schemaVersion: 1,
+    sessionId,
+    turnId: buildTurnId,
+    eventId: "event:sumaccepted00001",
+    sequence: 1,
+    occurredAt,
+    type: "turn.accepted",
+    payload: { acceptedAt: occurredAt },
+  }),
+  event({
+    schemaVersion: 1,
+    sessionId,
+    turnId: buildTurnId,
+    eventId: "event:summessage000001",
+    sequence: 2,
+    occurredAt,
+    type: "message.delta",
+    payload: {
+      messageId: "message:summary",
+      delta: "Jag har uppdaterat hero och footer.",
+    },
+  }),
+  event({
+    ...eventBase("event:sumtoolstart0001", 3),
+    turnId: buildTurnId,
+    type: "tool.started",
+    payload: {
+      toolCallId: "tool:sum-build",
+      capability: "build.request",
+      safeLabel: "Bygger startsidan",
+    },
+  }),
+  event({
+    ...eventBase("event:sumbuildstart001", 4),
+    turnId: buildTurnId,
+    type: "build.started",
+    payload: {
+      jobId: previewResult.jobId,
+      toolCallId: "tool:sum-build",
+      intentType: "site.create",
+    },
+  }),
+  event({
+    ...eventBase("event:sumtooldone00001", 5),
+    turnId: buildTurnId,
+    type: "tool.completed",
+    payload: {
+      toolCallId: "tool:sum-build",
+      status: "passed",
+      receipts: [],
+      artifacts: [],
+    },
+  }),
+  event({
+    ...eventBase("event:sumpreview000001", 6),
+    turnId: buildTurnId,
+    type: "preview.ready",
+    payload: { jobId: previewResult.jobId, result: previewResult },
+  }),
+  event({
+    ...eventBase("event:sumstatus0000001", 7),
+    turnId: buildTurnId,
+    type: "message.delta",
+    payload: {
+      messageId: "message:status",
+      delta: "Previewn är verifierad och redo.",
+    },
+  }),
+  event({
+    ...eventBase("event:sumcomplete00001", 8),
+    turnId: buildTurnId,
+    type: "turn.completed",
+    payload: { outcome: "built" },
+  }),
+]
+const summarizedBuilt = reduceAgentEventsV1(
+  createAgentEventProjectionV1(sessionId),
+  summarizedBuildEvents,
+)
+assert.equal(summarizedBuilt.status, "idle")
+assert.equal(
+  summarizedBuilt.messages["message:summary"]?.content,
+  "Jag har uppdaterat hero och footer.",
+)
+assert.equal(
+  summarizedBuilt.messages["message:status"]?.content,
+  "Previewn är verifierad och redo.",
+)
+assert.deepEqual(summarizedBuilt.messageOrder, [
+  "message:summary",
+  "message:status",
+])
+
+const failedAfterAnswer = reduceAgentEventsV1(
+  createAgentEventProjectionV1(sessionId),
+  [
+    answerEvents[0],
+    {
+      ...answerEvents[2],
+      sequence: 2,
+      eventId: "event:failedafterdelta1",
+    },
+    event({
+      ...eventBase("event:failedafter00001", 3),
+      type: "turn.failed",
+      payload: {
+        code: "openclaw_empty_answer",
+        message: "Sajtagent slutförde turen utan ett visningsbart svar.",
+        retryable: true,
+      },
+    }),
+  ],
+)
+assert.equal(failedAfterAnswer.status, "failed")
+assert.equal(
+  failedAfterAnswer.messages["message:one"]?.content,
+  "Klockan ",
+)
+assert.equal(
+  failedAfterAnswer.error,
+  "Sajtagent slutförde turen utan ett visningsbart svar.",
+)
 
 console.log(
   "Agent session UI: PASS (global sequence, terminal turns, SSE resume, questions, canonical preview)",

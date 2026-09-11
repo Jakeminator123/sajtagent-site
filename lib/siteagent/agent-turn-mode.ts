@@ -63,7 +63,10 @@ export function classifyAgentTurnModeV1(
 
   if (hasSite && (hasVerb || hasFeature || wants)) return "build.request"
   if (hasVerb && hasFeature) return "build.request"
-  if (hasSite && !asked) return "build.request"
+  // "förklara vad som ändrats på sidan" is an explanation, not a mutation,
+  // even if a past-tense change verb appears in the question.
+  if (asked) return "conversation.respond"
+  if (hasSite) return "build.request"
   if (hasVerb && !capabilityQuestion) return "build.request"
   return "conversation.respond"
 }

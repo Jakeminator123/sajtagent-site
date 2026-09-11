@@ -21,10 +21,10 @@ import type {
   AgentTurnRequestV1,
 } from "@/contracts/agent-session-v1"
 import * as adapter from "@/lib/siteagent/adapter"
+import { applyExpectedTurnStreamEventV1 } from "@/lib/siteagent/agent-event-stream-apply"
 import {
   createAgentEventProjectionV1,
   isAgentTurnTerminalV1,
-  reduceAgentEventV1,
   rejectAgentEventStreamV1,
   type AgentEventProjectionV1,
 } from "@/lib/siteagent/agent-event-reducer"
@@ -125,6 +125,10 @@ function needsAgentResume(
   turnId: string,
 ): boolean {
   return projection.status !== "invalid" && !isAgentTurnTerminalV1(projection, turnId)
+}
+
+function projectionAllowsRetry(projection: AgentEventProjectionV1): boolean {
+  return projection.status !== "invalid"
 }
 
 export function BuilderProvider({ children }: { children: ReactNode }) {
@@ -354,6 +358,67 @@ export function BuilderProvider({ children }: { children: ReactNode }) {
       try {
         const session = await startSession(controller.signal)
         if (requestGeneration !== requestGenerationRef.current) return
+
+        const syncSessionProjection = async () => {
+          const current = projectionRef.current
+          if (current.status === "invalid") return current
+          const seeded =
+            current.sessionId === session.sessionId
+              ? current
+              : current.sessionId
+                ? current
+                : { ...current, sessionId: session.sessionId }
+          if (seeded.sessionId !== session.sessionId) return current
+          const caughtUp = await catchUpAgentEventProjectionV1(seeded, {
+            signal: controller.signal,
+          })
+          applyProjection(caughtUp)
+          return caughtUp
+        }
+
+        const reconcileLatestBuiltTurn = async () => {
+          const latestTurnId = projectionRef.current.turnOrder.at(-1) ?? null
+          const latestTurn = latestTurnId
+            ? projectionRef.current.turns[latestTurnId] ?? null
+            : null
+          if (
+            latestTurn?.terminal?.kind !== "completed" ||
+            latestTurn.terminal.outcome !== "built" ||
+            !latestTurn.previewResult ||
+            !projectIdRef.current
+          ) {
+            return
+          }
+          const loaded = await loadCanonicalProjectV1(
+            projectIdRef.current,
+            controller.signal,
+          )
+          if (
+            loaded.ok &&
+            reconcileAgentPreviewV1(latestTurn.previewResult, loaded.readModel)
+          ) {
+            applyReadModel(loaded.readModel)
+          }
+        }
+
+        await syncSessionProjection()
+        if (
+          controller.signal.aborted ||
+          requestGeneration !== requestGenerationRef.current
+        ) {
+          return
+        }
+        await reconcileLatestBuiltTurn()
+
+        const openTurnId = projectionRef.current.activeTurnId
+        const openTurn = openTurnId
+          ? projectionRef.current.turns[openTurnId] ?? null
+          : null
+        if (openTurn && !openTurn.terminal) {
+          pushLog("meddelandet stoppades: föregående turn pågår fortfarande.")
+          return
+        }
+
         const selectedBaseRevisionId =
           baseRevisionIdRef.current ?? session.activeBaseRevisionId
         const turnId = randomContractId("turn")
@@ -385,30 +450,27 @@ export function BuilderProvider({ children }: { children: ReactNode }) {
         pushLog("> skickar agentturn till Sajtagent")
 
         const onEvent = async (event: AgentEventV1) => {
-          if (event.sessionId !== session.sessionId || event.turnId !== turnId) {
-            const rejected = rejectAgentEventStreamV1(
-              projectionRef.current,
-              "Agentströmmen svarade för fel session eller turn.",
-            )
-            applyProjection(rejected)
-            throw new Error(rejected.error ?? "Fel session eller turn.")
-          }
           if (event.sequence > projectionRef.current.lastSequence + 1) {
             pushLog(
               `synkroniserar agenthistorik efter sekvens ${projectionRef.current.lastSequence}`,
             )
-            const caughtUp = await catchUpAgentEventProjectionV1(
-              projectionRef.current,
-              { signal: controller.signal },
-            )
-            applyProjection(caughtUp)
+            await syncSessionProjection()
           }
-          const next = reduceAgentEventV1(projectionRef.current, event)
-          applyProjection(next)
-          const logLine = eventLogLine(event)
-          if (logLine) pushLog(logLine)
-          if (next.status === "invalid") {
-            throw new Error(next.error ?? "Agentströmmen stoppades felsäkert.")
+          const result = applyExpectedTurnStreamEventV1({
+            projection: projectionRef.current,
+            event,
+            expectedSessionId: session.sessionId,
+            expectedTurnId: turnId,
+          })
+          applyProjection(result.projection)
+          if (result.kind !== "ignored") {
+            const logLine = eventLogLine(event)
+            if (logLine) pushLog(logLine)
+          }
+          if (result.projection.status === "invalid") {
+            throw new Error(
+              result.projection.error ?? "Agentströmmen stoppades felsäkert.",
+            )
           }
         }
 
@@ -427,14 +489,43 @@ export function BuilderProvider({ children }: { children: ReactNode }) {
         ) {
           try {
             pushLog(`återupptar agentström efter sekvens ${projectionRef.current.lastSequence}`)
-            await adapter.resumeAgentEventsV1(
-              session.sessionId,
-              projectionRef.current.lastSequence,
-              onEvent,
-              { signal: controller.signal },
-            )
+            await syncSessionProjection()
+            await reconcileLatestBuiltTurn()
           } catch (error) {
             transportError ??= error
+          }
+        }
+
+        if (
+          !controller.signal.aborted &&
+          requestGeneration === requestGenerationRef.current &&
+          projectionAllowsRetry(projectionRef.current) &&
+          !projectionRef.current.turns[turnId]
+        ) {
+          const retryRequest: AgentTurnRequestV1 = {
+            ...request,
+            uiContext: {
+              ...request.uiContext,
+              selectedBaseRevisionId:
+                baseRevisionIdRef.current ??
+                request.uiContext.selectedBaseRevisionId,
+            },
+          }
+          try {
+            pushLog("försöker agentturnen igen efter sessionssynk")
+            await adapter.sendAgentTurnV1(retryRequest, onEvent, {
+              signal: controller.signal,
+            })
+            transportError = null
+          } catch (error) {
+            transportError = error
+          }
+          if (needsAgentResume(projectionRef.current, turnId)) {
+            try {
+              await syncSessionProjection()
+            } catch (error) {
+              transportError ??= error
+            }
           }
         }
 

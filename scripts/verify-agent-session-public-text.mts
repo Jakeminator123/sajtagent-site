@@ -104,6 +104,11 @@ check(
     .message === RUNTIME_CONTRACT_FAILED_MESSAGE_V1,
   "contract validation errors are distinguished from generic invalid",
 )
+check(
+  publicRuntimeCatchMessageV1(new Error("runtime_event_session_turn_mismatch"))
+    .message === RUNTIME_CONTRACT_FAILED_MESSAGE_V1,
+  "a runtime event stamped for another session or turn is a contract failure",
+)
 
 check(
   buildSuccessAssistantDeltaV1("") === CANNED_BUILD_SUCCESS_DELTA_V1,

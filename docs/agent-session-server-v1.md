@@ -59,8 +59,10 @@ The turn response must be non-cacheable
 `text/event-stream; charset=utf-8`. Site parses the Runtime body incrementally,
 verifies every `id`, event name and full `AgentEventV1`, the 32 KiB frame /
 4,096 event / 4 MiB stream bounds, consecutive session-global sequence, first
-`turn.accepted` and policy binding. Each verified non-terminal event is
-persisted before it is forwarded on the same browser response. A terminal
+`turn.accepted` and policy binding. Each runtime event must repeat the reserved
+sessionId and turnId; a foreign stamp is a contract failure, not a forwarded
+browser event. Each verified non-terminal event is persisted before it is
+forwarded on the same browser response. A terminal
 event is held until Runtime closes cleanly, then complete-turn validation and
 terminal persistence happen before it is forwarded. The sole non-terminal
 exception must end at one open `tool.started` for `build.request`, with one

@@ -573,6 +573,12 @@ async function* streamRuntimeEvents(
       }
       if (pendingTerminal) throw new Error("runtime_event_after_terminal")
       const event = sanitizeRuntimeEventV1(AgentEventV1Schema.parse(value))
+      if (
+        event.sessionId !== record.request.sessionId ||
+        event.turnId !== record.request.turnId
+      ) {
+        throw new Error("runtime_event_session_turn_mismatch")
+      }
       const eventBytes = Buffer.byteLength(JSON.stringify(event), "utf8")
       if (eventBytes > MAX_RUNTIME_EVENT_BYTES_V1) {
         throw new Error("runtime_event_bytes_exceeded")

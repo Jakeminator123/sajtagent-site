@@ -1,14 +1,12 @@
 import { NextResponse } from "next/server"
 
+import { authCallbackRedirectPath } from "../../../lib/supabase/auth-paths"
 import { createSupabaseServerClient } from "../../../lib/supabase/server"
 
 export async function GET(request: Request): Promise<Response> {
   const requestUrl = new URL(request.url)
   const code = requestUrl.searchParams.get("code")
-  const requestedNext = requestUrl.searchParams.get("next")
-  const next = requestedNext?.startsWith("/") && !requestedNext.startsWith("//")
-    ? requestedNext
-    : "/builder"
+  const next = authCallbackRedirectPath(requestUrl.searchParams.get("next"))
 
   if (code) {
     const supabase = await createSupabaseServerClient()

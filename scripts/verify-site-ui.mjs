@@ -17,6 +17,10 @@ const engineBackSource = readFileSync(resolve(root, "components/siteagent/faces/
 const builderHeaderSource = readFileSync(resolve(root, "components/siteagent/builder-header.tsx"), "utf8")
 const heroSource = readFileSync(resolve(root, "components/hero-section.tsx"), "utf8")
 const agendaSource = readFileSync(resolve(root, "components/agenda.tsx"), "utf8")
+const loginFormSource = readFileSync(resolve(root, "app/login/login-form.tsx"), "utf8")
+const authPathsSource = readFileSync(resolve(root, "lib/supabase/auth-paths.ts"), "utf8")
+const authCallbackSource = readFileSync(resolve(root, "app/auth/callback/route.ts"), "utf8")
+const runtimeBaselineSource = readFileSync(resolve(root, "docs/runtime-baseline.md"), "utf8")
 const buildJobsRoute = resolve(root, "app/api/siteagent/build-jobs/route.ts")
 
 assert.match(
@@ -101,6 +105,47 @@ assert.match(
 assert.match(heroSource, /lokal beta/, "the hero must label the current product state as beta")
 assert.doesNotMatch(heroSource, /färdig webbplats|bygger sidan|tio sekunder/, "the hero must not claim unavailable build automation")
 assert.match(agendaSource, /Byggstarten förblir stängd/, "the agenda must describe the fail-closed build boundary")
+assert.match(
+  authPathsSource,
+  /export const LOGIN_SUCCESS_PATH = "\/builder"/,
+  "password and magic-link login must share /builder as the success path",
+)
+assert.match(authCallbackSource, /authCallbackRedirectPath/, "OTP callback must reuse the shared success path")
+assert.match(loginFormSource, /signInWithPassword/, "login must offer email and password")
+assert.match(loginFormSource, /signInWithOtp/, "login must keep the existing magic-link path")
+assert.match(loginFormSource, /Logga in/, "the primary action must be password sign-in")
+assert.match(loginFormSource, /LOGIN_SUCCESS_PATH/, "password login must redirect like the OTP callback")
+assert.match(loginFormSource, /<details/, "magic-link login must stay available but secondary")
+assert.doesNotMatch(
+  loginFormSource,
+  /signUp|createUser|admin\.createUser/,
+  "login must not create Auth users from application code",
+)
+assert.doesNotMatch(
+  loginFormSource,
+  /jakob\.olof\.eberg@gmail\.com/,
+  "login must not hard-code an operator email",
+)
+assert.doesNotMatch(
+  loginFormSource,
+  /password:\s*['"`][^'"`]+['"`]/,
+  "login must not embed a password literal",
+)
+assert.match(
+  runtimeBaselineSource,
+  /signInWithPassword/,
+  "runtime baseline must document password login",
+)
+assert.match(
+  runtimeBaselineSource,
+  /jakob\.olof\.eberg@gmail\.com/,
+  "runtime baseline must name the interim verified operator identity",
+)
+assert.match(
+  runtimeBaselineSource,
+  /No app-level role table exists yet/,
+  "runtime baseline must record that superadmin is not a role table yet",
+)
 
 console.log(
   "Site UI boundary: PASS (routing, public environment, split conversation, fail-closed build path, and honest beta UI)",

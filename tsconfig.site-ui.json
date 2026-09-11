@@ -15,6 +15,7 @@
     "lib/siteagent/types.ts",
     "lib/supabase/**/*.ts",
     "app/login/page.tsx",
+    "app/login/login-form.tsx",
     "app/auth/callback/route.ts",
     "components/siteagent/builder-header.tsx",
     "components/siteagent/builder-store.tsx",

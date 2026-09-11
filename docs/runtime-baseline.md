@@ -99,10 +99,20 @@ but they remain empty until a canonical version has been accepted and stored.
 
 ## Configuration boundary
 
-Magic-link login uses only `NEXT_PUBLIC_SUPABASE_URL` and
-`NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`. Database writes require the separate
-server-only Postgres connection and the reviewed migration in every target
-environment.
+Password login (`signInWithPassword`) and magic-link login (`signInWithOtp`)
+use only `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`.
+After a successful password sign-in or OTP callback the browser continues to
+`/builder`. The login page never auto-logs anyone in and never embeds
+credentials. Users are created in the Supabase Auth dashboard, not by this
+repository.
+
+No app-level role table exists yet. Until one is added, the operational
+"superadmin" is the verified Supabase Auth user `jakob.olof.eberg@gmail.com`.
+That identity is not a product privilege flag and must not be used as
+authorization in RLS or API checks.
+
+Database writes require the separate server-only Postgres connection and the
+reviewed migration in every target environment.
 
 The shared private artifact-byte protocol and Site adapter are implemented and
 covered locally. Every release still requires the server-only environment,

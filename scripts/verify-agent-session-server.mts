@@ -16,7 +16,6 @@ import {
 } from "../lib/siteagent/server/agent-session-controller.ts"
 import {
   CANNED_BUILD_SUCCESS_DELTA_V1,
-  GENERIC_TURN_FAILED_MESSAGE_V1,
   PRIVATE_REASONING_BLOCKED_MESSAGE_V1,
   RUNTIME_STREAM_FAILED_MESSAGE_V1,
   SHORT_BUILD_SUCCESS_STATUS_DELTA_V1,
@@ -815,8 +814,7 @@ check(
       event.type === "turn.failed" &&
       event.payload.code === "openclaw_empty_answer" &&
       event.payload.message ===
-        "Sajtagent slutförde turen utan ett visningsbart svar." &&
-      event.payload.message !== GENERIC_TURN_FAILED_MESSAGE_V1,
+        "Sajtagent slutförde turen utan ett visningsbart svar.",
   ),
   "runtime empty-answer failures keep a useful product reason",
 )

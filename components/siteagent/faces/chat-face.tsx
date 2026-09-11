@@ -55,7 +55,7 @@ export function ChatFace() {
           <div className="flex-1 flex flex-col items-center justify-center gap-2 text-center px-4">
             <p className="font-mono text-sm text-workflow-text">Ditt meddelande</p>
             <p className="text-xs text-workflow-text-muted leading-relaxed">
-              Fråga vad som helst eller beskriv vad du vill bygga. Sajtagent svarar i sitt kort.
+              Fråga vad som helst eller beskriv vad du vill bygga. Sajtagent svarar i sitt kort. Previewn stannar kvar.
             </p>
             <p className="font-mono text-[10px] text-workflow-text-subtle">
               Byggval kan öppnas när du vill komplettera uppdraget.

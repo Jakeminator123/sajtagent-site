@@ -185,11 +185,18 @@ export function BuilderProvider({ children }: { children: ReactNode }) {
     ? agentProjection.turns[agentProjection.activeTurnId]
     : null
   const buildActive = Boolean(activeTurn?.buildJobId && !activeTurn.terminal)
-  const previewStatus: PreviewStatus = activeVersion
-    ? "ready"
-    : buildActive
-      ? "building"
-      : agentProjection.status === "failed" || agentProjection.status === "invalid"
+  const latestTurnId = agentProjection.turnOrder.at(-1) ?? null
+  const latestTurn = latestTurnId ? agentProjection.turns[latestTurnId] ?? null : null
+  const buildFailed = Boolean(
+    latestTurn?.buildJobId && latestTurn.terminal?.kind === "failed",
+  )
+  // Conversation failures stay in the Sajtagent card. Preview only shows a
+  // build error when a real BuildJob failed and no version exists yet.
+  const previewStatus: PreviewStatus = buildActive
+    ? "building"
+    : activeVersion
+      ? "ready"
+      : buildFailed
         ? "error"
         : "idle"
 

@@ -173,7 +173,8 @@ export function AgentFace() {
             <Bot className="h-6 w-6 text-rose-500" />
             <p className="font-mono text-sm text-workflow-text">{agentProjection.statusLabel}</p>
             <p className="text-xs leading-relaxed text-workflow-text-muted">
-              Fråga vad som helst i Chatt-kortet. Sajtagent bygger bara när en godkänd turn begär det.
+              Sajtagents svar visas i det här kortet. Skriv i Chatt-kortet — vanliga
+              frågor får svar här. Sajtagent bygger bara när en godkänd turn begär det.
             </p>
           </div>
         ) : (

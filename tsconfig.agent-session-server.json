@@ -25,6 +25,7 @@
     "app/api/siteagent/projects/[projectId]/sessions/route.ts",
     "app/api/siteagent/sessions/[sessionId]/turns/route.ts",
     "app/api/siteagent/sessions/[sessionId]/events/route.ts",
+    "scripts/verify-agent-session-public-text.mts",
     "scripts/verify-agent-session-server.mts",
     "scripts/verify-agent-turn-mode.mts"
   ]

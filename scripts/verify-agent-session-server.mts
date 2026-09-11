@@ -7,6 +7,7 @@ import {
   AgentTurnRequestV1Schema,
   validateAgentEventBatchV1,
   validateAgentSessionHistoryV1,
+  type AgentEventV1,
 } from "../contracts/agent-session-v1.ts"
 import {
   mintDefaultAgentTurnPolicyV1,
@@ -14,6 +15,11 @@ import {
   prepareAgentTurnV1,
   startAgentTurnV1,
 } from "../lib/siteagent/server/agent-session-controller.ts"
+import {
+  CANNED_BUILD_SUCCESS_DELTA_V1,
+  PRIVATE_REASONING_BLOCKED_MESSAGE_V1,
+  RUNTIME_STREAM_FAILED_MESSAGE_V1,
+} from "../lib/siteagent/server/agent-session-public-text.ts"
 import { classifyAgentTurnModeV1 } from "../lib/siteagent/agent-turn-mode.ts"
 import type { AgentTurnBuildCoordinatorV1 } from "../lib/siteagent/server/agent-turn-build-join.ts"
 import { MemoryAgentSessionRepositoryV1 } from "../lib/siteagent/server/agent-session-repository.ts"
@@ -469,8 +475,7 @@ check(
     built.events.some(
       (event) =>
         event.type === "message.delta" &&
-        event.payload.delta ===
-          "Klart — sidan är byggd och verifierad. Previewn är redo.",
+        event.payload.delta === CANNED_BUILD_SUCCESS_DELTA_V1,
     ) &&
     !JSON.stringify(built.events).includes("internal stdout") &&
     !JSON.stringify(built.events).includes("runtime/check command details"),
@@ -682,8 +687,237 @@ check(
   privateReasoning.kind === "created" &&
     privateReasoning.events.map((event) => event.type).join(",") ===
       "turn.accepted,turn.failed" &&
+    privateReasoning.events.some(
+      (event) =>
+        event.type === "turn.failed" &&
+        event.payload.message === PRIVATE_REASONING_BLOCKED_MESSAGE_V1,
+    ) &&
     !JSON.stringify(privateReasoning.events).includes("private reasoning"),
   "explicit private reasoning markers fail closed before persistence",
+)
+
+const summarizedBuildRuntime: AgentSessionRuntimeClientV1 = {
+  async *streamTurn(input) {
+    buildVerifiedAt = new Date(
+      Date.parse(input.policy.issuedAt) + 2_000,
+    ).toISOString()
+    yield {
+      schemaVersion: 1,
+      sessionId: input.session.sessionId,
+      turnId: input.request.turnId,
+      eventId: "event:sumbuildruntime0001",
+      sequence: input.baseSequence + 1,
+      occurredAt: input.policy.issuedAt,
+      type: "turn.accepted",
+      payload: { acceptedAt: input.policy.issuedAt },
+    }
+    yield {
+      schemaVersion: 1,
+      sessionId: input.session.sessionId,
+      turnId: input.request.turnId,
+      eventId: "event:sumbuildruntime0002",
+      sequence: input.baseSequence + 2,
+      occurredAt: new Date(Date.parse(input.policy.issuedAt) + 500).toISOString(),
+      type: "message.delta",
+      payload: {
+        messageId: "message:build-summary",
+        delta: "Jag har uppdaterat hero och footer.",
+      },
+    }
+    yield {
+      schemaVersion: 1,
+      sessionId: input.session.sessionId,
+      turnId: input.request.turnId,
+      eventId: "event:sumbuildruntime0003",
+      sequence: input.baseSequence + 3,
+      occurredAt: new Date(Date.parse(input.policy.issuedAt) + 1_000).toISOString(),
+      type: "tool.started",
+      payload: {
+        toolCallId: "tool:sumbuild0000000001",
+        capability: "build.request",
+        safeLabel: "Bygg sajten",
+      },
+    }
+  },
+}
+const summarizedBuildRequest = request({
+  sessionId: refreshed.session.sessionId,
+  turnId: "turn:0000000000000015",
+  idempotencyKey: "idem:summarized-build",
+  revisionId: advancedAfterBuild.session.activeBaseRevisionId,
+  message: "Uppdatera hero och footer.",
+})
+const summarizedBuild = await startAgentTurnV1(summarizedBuildRequest, principal, {
+  ...dependencies,
+  runtime: summarizedBuildRuntime,
+  buildCoordinator,
+})
+check(summarizedBuild.kind === "created", "a summarized build handoff is accepted")
+if (summarizedBuild.kind !== "created") throw new Error("summarized_build_missing")
+const summarizedDeltas = summarizedBuild.events.filter(
+  (event) => event.type === "message.delta",
+)
+check(
+  summarizedDeltas.map((event) => event.payload.delta).join("\n") ===
+    "Jag har uppdaterat hero och footer." &&
+    !summarizedDeltas.some(
+      (event) => event.payload.delta === CANNED_BUILD_SUCCESS_DELTA_V1,
+    ) &&
+    summarizedBuild.events.at(-1)?.type === "turn.completed",
+  "build success keeps the Runtime summary and skips the canned fallback",
+)
+
+const emptyAnswerRuntime: AgentSessionRuntimeClientV1 = {
+  async *streamTurn(input) {
+    yield {
+      schemaVersion: 1,
+      sessionId: input.session.sessionId,
+      turnId: input.request.turnId,
+      eventId: "event:emptyanswer000001",
+      sequence: input.baseSequence + 1,
+      occurredAt: input.policy.issuedAt,
+      type: "turn.accepted",
+      payload: { acceptedAt: input.policy.issuedAt },
+    }
+    yield {
+      schemaVersion: 1,
+      sessionId: input.session.sessionId,
+      turnId: input.request.turnId,
+      eventId: "event:emptyanswer000002",
+      sequence: input.baseSequence + 2,
+      occurredAt: input.policy.issuedAt,
+      type: "turn.failed",
+      payload: {
+        code: "openclaw_empty_answer",
+        message: "OpenClaw slutförde turen utan ett visningsbart svar.",
+        retryable: true,
+      },
+    }
+  },
+}
+const emptyAnswer = await startAgentTurnV1(
+  request({
+    sessionId: refreshed.session.sessionId,
+    turnId: "turn:0000000000000016",
+    idempotencyKey: "idem:empty-answer",
+    revisionId:
+      (await repository.getSession(principal, refreshed.session.sessionId))
+        ?.session.activeBaseRevisionId ??
+      advancedAfterBuild.session.activeBaseRevisionId,
+  }),
+  principal,
+  { ...dependencies, runtime: emptyAnswerRuntime },
+)
+check(emptyAnswer.kind === "created", "an empty-answer runtime failure is persisted")
+if (emptyAnswer.kind !== "created") throw new Error("empty_answer_missing")
+check(
+  emptyAnswer.events.some(
+    (event) =>
+      event.type === "turn.failed" &&
+      event.payload.code === "openclaw_empty_answer" &&
+      event.payload.message ===
+        "Sajtagent slutförde turen utan ett visningsbart svar.",
+  ),
+  "runtime empty-answer failures keep a useful product reason",
+)
+
+const recoveredAnswerRuntime: AgentSessionRuntimeClientV1 = {
+  async *streamTurn(input) {
+    yield {
+      schemaVersion: 1,
+      sessionId: input.session.sessionId,
+      turnId: input.request.turnId,
+      eventId: "event:recovered00000001",
+      sequence: input.baseSequence + 1,
+      occurredAt: input.policy.issuedAt,
+      type: "turn.accepted",
+      payload: { acceptedAt: input.policy.issuedAt },
+    }
+    yield {
+      schemaVersion: 1,
+      sessionId: input.session.sessionId,
+      turnId: input.request.turnId,
+      eventId: "event:recovered00000002",
+      sequence: input.baseSequence + 2,
+      occurredAt: input.policy.issuedAt,
+      type: "message.delta",
+      payload: {
+        messageId: "message:recovered",
+        delta: "Parallax är en djup-effekt när sidan rullas.",
+      },
+    }
+  },
+}
+const recoveredAnswer = await startAgentTurnV1(
+  request({
+    sessionId: refreshed.session.sessionId,
+    turnId: "turn:0000000000000017",
+    idempotencyKey: "idem:recovered-answer",
+    revisionId:
+      (await repository.getSession(principal, refreshed.session.sessionId))
+        ?.session.activeBaseRevisionId ??
+      advancedAfterBuild.session.activeBaseRevisionId,
+    message: "kan du förklara vad parallax är?",
+  }),
+  principal,
+  { ...dependencies, runtime: recoveredAnswerRuntime },
+)
+check(recoveredAnswer.kind === "created", "an unterminated answer stream is recovered")
+if (recoveredAnswer.kind !== "created") throw new Error("recovered_answer_missing")
+check(
+  recoveredAnswer.events.map((event) => event.type).join(",") ===
+    "turn.accepted,message.delta,turn.completed" &&
+    recoveredAnswer.events.some(
+      (event) =>
+        event.type === "message.delta" &&
+        event.payload.delta === "Parallax är en djup-effekt när sidan rullas.",
+    ) &&
+    recoveredAnswer.events.at(-1)?.type === "turn.completed" &&
+    (
+      recoveredAnswer.events.at(-1) as Extract<
+        (typeof recoveredAnswer.events)[number],
+        { type: "turn.completed" }
+      >
+    ).payload.outcome === "answered",
+  "Site closes a real assistant reply even when Runtime omits turn.completed",
+)
+
+const acceptedOnlyRuntime: AgentSessionRuntimeClientV1 = {
+  async *streamTurn(input) {
+    yield {
+      schemaVersion: 1,
+      sessionId: input.session.sessionId,
+      turnId: input.request.turnId,
+      eventId: "event:acceptedonly00001",
+      sequence: input.baseSequence + 1,
+      occurredAt: input.policy.issuedAt,
+      type: "turn.accepted",
+      payload: { acceptedAt: input.policy.issuedAt },
+    }
+  },
+}
+const acceptedOnly = await startAgentTurnV1(
+  request({
+    sessionId: refreshed.session.sessionId,
+    turnId: "turn:0000000000000018",
+    idempotencyKey: "idem:accepted-only",
+    revisionId:
+      (await repository.getSession(principal, refreshed.session.sessionId))
+        ?.session.activeBaseRevisionId ??
+      advancedAfterBuild.session.activeBaseRevisionId,
+  }),
+  principal,
+  { ...dependencies, runtime: acceptedOnlyRuntime },
+)
+check(acceptedOnly.kind === "created", "an accepted-only stream remains a persisted turn")
+if (acceptedOnly.kind !== "created") throw new Error("accepted_only_missing")
+check(
+  acceptedOnly.events.some(
+    (event) =>
+      event.type === "turn.failed" &&
+      event.payload.message === RUNTIME_STREAM_FAILED_MESSAGE_V1,
+  ),
+  "an incomplete stream without assistant text fails as a stream error",
 )
 
 const allEvents = await repository.readEvents(
@@ -907,6 +1141,122 @@ check(
     persistedStreamingTurn.events.map((event) => event.type).join(",") ===
       "turn.accepted,message.delta,turn.completed",
   "two separately persisted progress batches remain contiguous before terminal closure",
+)
+
+const recoveredSseRepository = new MemoryAgentSessionRepositoryV1()
+recoveredSseRepository.addProject(
+  principal,
+  "project:recovered-sse",
+  "revision:recovered-sse",
+)
+const recoveredSseNow = clock(Date.parse("2026-09-01T19:32:00.000Z"))
+const recoveredSseOpened = await openAgentSessionV1(
+  "project:recovered-sse",
+  principal,
+  {
+    repository: recoveredSseRepository,
+    runtime: null,
+    now: recoveredSseNow,
+    createId: ids(),
+    createSessionSecret: () => "recoveredSSEABCDEFGHIJKLMNOPQRST",
+  },
+)
+if (recoveredSseOpened.kind !== "opened") {
+  throw new Error("recovered_sse_session_open_failed")
+}
+const recoveredSseRequest = request({
+  sessionId: recoveredSseOpened.session.sessionId,
+  turnId: "turn:recoveredsse000001",
+  idempotencyKey: "idem:recovered-sse",
+  revisionId: recoveredSseOpened.session.activeBaseRevisionId,
+  message: "förklara vad som ändrats",
+})
+const recoveredSseFetch: typeof fetch = async (input, init) => {
+  if (String(input).endsWith("/health")) {
+    return Response.json({
+      agentSessionContractVersion: 1,
+      agentTurnStreamTransport: "sse",
+      agentTurnStreamEnabled: true,
+      agentTurnCapabilities: ["conversation.respond"],
+      artifactReadEnabled: false,
+    })
+  }
+  const ingress = JSON.parse(String(init?.body)) as RuntimeAgentTurnIngressV1
+  const accepted = {
+    schemaVersion: 1 as const,
+    sessionId: ingress.session.sessionId,
+    turnId: ingress.turn.turnId,
+    eventId: "event:recoveredsse00001",
+    sequence: ingress.baseSequence + 1,
+    occurredAt: ingress.policy.issuedAt,
+    type: "turn.accepted" as const,
+    payload: { acceptedAt: ingress.policy.issuedAt },
+  }
+  const message = {
+    schemaVersion: 1 as const,
+    sessionId: ingress.session.sessionId,
+    turnId: ingress.turn.turnId,
+    eventId: "event:recoveredsse00002",
+    sequence: ingress.baseSequence + 2,
+    occurredAt: new Date(Date.parse(ingress.policy.issuedAt) + 1_000).toISOString(),
+    type: "message.delta" as const,
+    payload: {
+      messageId: "message:recovered-sse",
+      delta: "Hero-sektionen fick ny rubrik och kontrast.",
+    },
+  }
+  const frame = (event: typeof accepted | typeof message) =>
+    `id: ${event.sequence}\nevent: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`
+  return new Response(frame(accepted) + frame(message), {
+    status: 200,
+    headers: {
+      "content-type": "text/event-stream; charset=utf-8",
+      "cache-control": "no-store",
+    },
+  })
+}
+const recoveredSseClient = new SignedAgentSessionRuntimeClientV1(
+  "http://127.0.0.1:4317",
+  "recovered-sse-siteagent-signing-key-32",
+  {
+    fetch: recoveredSseFetch,
+    now: () => new Date("2026-09-01T19:32:02.000Z"),
+    createNonce: () => "nonce:recoveredsse00001",
+  },
+)
+const recoveredSsePrepared = await prepareAgentTurnV1(
+  recoveredSseRequest,
+  principal,
+  {
+    repository: recoveredSseRepository,
+    runtime: recoveredSseClient,
+    now: recoveredSseNow,
+    createId: ids(),
+  },
+)
+if (recoveredSsePrepared.kind !== "created") {
+  throw new Error("recovered_sse_turn_prepare_failed")
+}
+const recoveredSseEvents: AgentEventV1[] = []
+for await (const event of recoveredSsePrepared.events) {
+  recoveredSseEvents.push(event)
+}
+check(
+  recoveredSseEvents.map((event) => event.type).join(",") ===
+    "turn.accepted,message.delta,turn.completed" &&
+    recoveredSseEvents.some(
+      (event) =>
+        event.type === "message.delta" &&
+        event.payload.delta === "Hero-sektionen fick ny rubrik och kontrast.",
+    ) &&
+    recoveredSseEvents.at(-1)?.type === "turn.completed" &&
+    (
+      recoveredSseEvents.at(-1) as Extract<
+        (typeof recoveredSseEvents)[number],
+        { type: "turn.completed" }
+      >
+    ).payload.outcome === "answered",
+  "the signed SSE client recovers an unterminated public answer as answered",
 )
 
 const liveBuildRepository = new MemoryAgentSessionRepositoryV1()

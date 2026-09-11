@@ -24,6 +24,14 @@ import type {
   StoredAgentTurnV1,
 } from "./agent-session-repository.ts"
 import type { AgentSessionRuntimeClientV1 } from "./agent-session-runtime-client.ts"
+import {
+  buildSuccessAssistantDeltaV1,
+  containsPrivateReasoningV1,
+  publicRuntimeCatchMessageV1,
+  publicTurnFailedMessageV1,
+  recoverableConversationOutcomeV1,
+  runtimeAssistantTextV1,
+} from "./agent-session-public-text.ts"
 
 const ProjectIdV1Schema = z
   .string()
@@ -34,8 +42,6 @@ const ProjectIdV1Schema = z
 const MAX_RUNTIME_EVENTS_V1 = 4_096
 const MAX_RUNTIME_EVENT_BYTES_V1 = 32 * 1024
 const MAX_RUNTIME_STREAM_BYTES_V1 = 4 * 1024 * 1024
-const RAW_REASONING_MARKER_V1 =
-  /<\s*\/?\s*(?:analysis|thinking|reasoning|chain[-_ ]of[-_ ]thought)\b|(?:^|\n)\s*(?:analysis|reasoning|chain[- ]of[- ]thought)\s*:/i
 
 const SAFE_AGENT_STATUS_LABEL_V1 = {
   idle: "Redo",
@@ -121,7 +127,10 @@ function createMessageId(dependencies: AgentSessionControllerDependenciesV1): st
   return `message:${(dependencies.createId ?? randomUUID)()}`
 }
 
-function sanitizeRuntimeEventV1(event: AgentEventV1): AgentEventV1 {
+function sanitizeRuntimeEventV1(
+  event: AgentEventV1,
+  prior: readonly AgentEventV1[],
+): AgentEventV1 {
   if (event.type === "agent.status") {
     return AgentEventV1Schema.parse({
       ...event,
@@ -145,14 +154,16 @@ function sanitizeRuntimeEventV1(event: AgentEventV1): AgentEventV1 {
       ...event,
       payload: {
         ...event.payload,
-        message: "Sajtagent kunde inte slutföra svaret.",
+        message: publicTurnFailedMessageV1({
+          ...event.payload,
+          hasPublicMessage: runtimeAssistantTextV1(prior).length > 0,
+        }),
       },
     })
   }
   if (
     event.type === "message.delta" &&
-    (RAW_REASONING_MARKER_V1.test(event.payload.delta) ||
-      event.payload.delta.includes("\0"))
+    containsPrivateReasoningV1(event.payload.delta)
   ) {
     throw new Error("runtime_message_contains_private_reasoning")
   }
@@ -237,7 +248,6 @@ function exactBuildHandoff(
   )
   const forbidden = validated.events.some(
     (event) =>
-      event.type === "message.delta" ||
       event.type === "question.requested" ||
       event.type === "tool.completed" ||
       event.type === "build.started" ||
@@ -378,17 +388,22 @@ async function* completeBuildHandoff(
         },
       },
     })
-    append({
-      schemaVersion: 1,
-      sessionId: record.request.sessionId,
-      turnId: record.request.turnId,
-      occurredAt: buildResult.verifiedAt,
-      type: "message.delta",
-      payload: {
-        messageId: createMessageId(dependencies),
-        delta: "Klart — sidan är byggd och verifierad. Previewn är redo.",
-      },
-    })
+    const cannedDelta = buildSuccessAssistantDeltaV1(
+      runtimeAssistantTextV1(runtimeEvents),
+    )
+    if (cannedDelta) {
+      append({
+        schemaVersion: 1,
+        sessionId: record.request.sessionId,
+        turnId: record.request.turnId,
+        occurredAt: buildResult.verifiedAt,
+        type: "message.delta",
+        payload: {
+          messageId: createMessageId(dependencies),
+          delta: cannedDelta,
+        },
+      })
+    }
     append({
       schemaVersion: 1,
       sessionId: record.request.sessionId,
@@ -475,11 +490,8 @@ function localFailureEvents(
   failedAt: string,
   dependencies: AgentSessionControllerDependenciesV1,
   code: "runtime_unavailable" | "runtime_invalid",
+  message: string,
 ): AgentEventV1[] {
-  const message =
-    code === "runtime_unavailable"
-      ? "Sajtagentens privata runtime är inte ansluten. Inget svar eller bygge simulerades."
-      : "Sajtagentens runtime returnerade ett ogiltigt eller ofullständigt eventflöde. Inget resultat accepterades."
   const previousSequence = record.events.at(-1)?.sequence ?? record.baseSequence
   const events: AgentEventV1[] = []
   if (record.events.length === 0) {
@@ -515,7 +527,10 @@ async function persistRuntimeFailure(
   principal: BuildPrincipalV1,
   record: StoredAgentTurnV1,
   dependencies: AgentSessionControllerDependenciesV1,
-  code: "runtime_unavailable" | "runtime_invalid",
+  failure: {
+    code: "runtime_unavailable" | "runtime_invalid"
+    message: string
+  },
 ): Promise<StoredAgentTurnV1> {
   const acceptedAt = (dependencies.now ?? (() => new Date()))().toISOString()
   const failedAt = (dependencies.now ?? (() => new Date()))().toISOString()
@@ -524,7 +539,8 @@ async function persistRuntimeFailure(
     acceptedAt,
     failedAt,
     dependencies,
-    code,
+    failure.code,
+    failure.message,
   )
   return dependencies.repository.appendTerminalEvents(
     principal,
@@ -546,7 +562,7 @@ async function* streamRuntimeEvents(
       principal,
       record,
       dependencies,
-      "runtime_unavailable",
+      publicRuntimeCatchMessageV1(new Error("runtime_unavailable")),
     )
     yield* failed.events
     return
@@ -567,7 +583,7 @@ async function* streamRuntimeEvents(
         throw new Error("runtime_event_limit_exceeded")
       }
       if (pendingTerminal) throw new Error("runtime_event_after_terminal")
-      const event = sanitizeRuntimeEventV1(AgentEventV1Schema.parse(value))
+      const event = sanitizeRuntimeEventV1(AgentEventV1Schema.parse(value), events)
       const eventBytes = Buffer.byteLength(JSON.stringify(event), "utf8")
       if (eventBytes > MAX_RUNTIME_EVENT_BYTES_V1) {
         throw new Error("runtime_event_bytes_exceeded")
@@ -601,24 +617,50 @@ async function* streamRuntimeEvents(
       return
     }
     const handoff = exactBuildHandoff(session, currentRecord, events)
-    if (!handoff || !dependencies.buildCoordinator || !buildPlan) {
-      throw new Error("runtime_event_stream_incomplete")
+    if (handoff && dependencies.buildCoordinator && buildPlan) {
+      yield* completeBuildHandoff(
+        principal,
+        currentRecord,
+        events,
+        handoff,
+        buildPlan,
+        dependencies,
+      )
+      return
     }
-    yield* completeBuildHandoff(
-      principal,
-      currentRecord,
-      events,
-      handoff,
-      buildPlan,
-      dependencies,
-    )
-  } catch {
+    const recovered = recoverableConversationOutcomeV1(events)
+    if (recovered) {
+      const occurredAt = (dependencies.now ?? (() => new Date()))().toISOString()
+      const completed = AgentEventV1Schema.parse({
+        schemaVersion: 1,
+        sessionId: record.request.sessionId,
+        turnId: record.request.turnId,
+        eventId: createEventId(dependencies),
+        sequence:
+          (currentRecord.events.at(-1)?.sequence ?? record.baseSequence) + 1,
+        occurredAt,
+        type: "turn.completed",
+        payload: { outcome: recovered },
+      })
+      await dependencies.repository.appendTerminalEvents(
+        principal,
+        record.request.sessionId,
+        record.request.turnId,
+        [completed],
+      )
+      yield completed
+      return
+    }
+    throw new Error("runtime_event_stream_incomplete")
+  } catch (error) {
     const before = currentRecord.events.length
     const failed = await persistRuntimeFailure(
       principal,
       currentRecord,
       dependencies,
-      "runtime_invalid",
+      publicRuntimeCatchMessageV1(error, {
+        hasPublicMessage: runtimeAssistantTextV1(currentRecord.events).length > 0,
+      }),
     )
     yield* failed.events.slice(before)
   }

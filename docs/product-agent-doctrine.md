@@ -34,7 +34,9 @@ brief, look at the preview, and keep prompting.
 - Preview stays on the same Builder surface after a version exists so the
   next prompt can refine the same site.
 - Events are persisted then forwarded as SSE. The UI reduces streamed
-  `message.delta` incrementally.
+  `message.delta` incrementally in the Sajtagent card. Chat shows the user
+  side only. A canned "sidan är byggd" line is fallback, not the ordinary
+  reply.
 
 ## Configuration (no secrets in Git)
 

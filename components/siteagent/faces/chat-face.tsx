@@ -81,7 +81,7 @@ export function ChatFace() {
               : agentProjection.status === "invalid"
                 ? "Starta en ny chatt efter integritetsfelet"
               : sessionStatus === "ready"
-                ? "Sajtagentens policy styr modell och verktyg"
+                ? "Svaret syns i Sajtagent-kortet"
                 : "Öppnar Sajtagent-session…"}
           </span>
           <div className="ml-auto flex items-center gap-1">

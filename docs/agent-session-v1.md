@@ -80,9 +80,14 @@ Site-accepted product result, never a runtime candidate URL.
 
 Runtime-controlled progress text is not public text: Site replaces status,
 tool and receipt labels with deterministic product labels. A build handoff may
-not carry model message deltas; after canonical acceptance Site emits one
-deterministic completion message. Explicit analysis/reasoning markup in a
-conversation delta fails closed instead of being persisted or streamed.
+include sanitized model message deltas; after canonical acceptance Site keeps
+that assistant text and uses the built status. If no assistant text arrived,
+Site falls back to one deterministic completion message. Explicit
+analysis/reasoning markup in a conversation delta fails closed instead of
+being persisted or streamed. Runtime `turn.failed` text is rewritten to a
+bounded product message: known stream/contract codes stay distinguishable,
+private reasoning is replaced, and other unsafe text stays generic. If a
+public answer already arrived, the fail text says the visible reply was kept.
 
 ## Terminal matrix
 

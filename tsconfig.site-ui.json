@@ -15,6 +15,7 @@
     "lib/siteagent/read-model.ts",
     "lib/siteagent/types.ts",
     "lib/supabase/**/*.ts",
+    "app/builder/page.tsx",
     "app/login/page.tsx",
     "app/login/login-form.tsx",
     "app/auth/callback/route.ts",
@@ -27,6 +28,7 @@
     "components/siteagent/preview-stage.tsx",
     "components/siteagent/right-drawer.tsx",
     "components/siteagent/version-list.tsx",
+    "components/siteagent/layout-prefs.ts",
     "components/siteagent/use-layout-prefs.ts"
   ]
 }

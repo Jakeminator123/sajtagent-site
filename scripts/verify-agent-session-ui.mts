@@ -34,6 +34,11 @@ import {
   reconcileAgentPreviewV1,
   type CanonicalProjectReadModelV1,
 } from "../lib/siteagent/read-model.ts"
+import {
+  LAYOUT_DEFAULTS_REVISION,
+  LEGACY_UNCUSTOMIZED_AGENT_SIZE,
+  migrateAgentDefaultSize,
+} from "../components/siteagent/layout-prefs.ts"
 
 const occurredAt = "2026-09-01T19:00:00.000Z"
 const sessionId = "session:abcdefghijklmnopqrstuvwxyzABCDEF"
@@ -808,6 +813,30 @@ assert.equal(mixedActiveTurn.kind, "rejected")
 assert.equal(
   mixedActiveTurn.projection.error,
   SESSION_TURN_MISMATCH_MESSAGE_V1,
+)
+
+const currentAgentDefault = { w: 380, h: 480 }
+assert.deepEqual(LEGACY_UNCUSTOMIZED_AGENT_SIZE, { w: 340, h: 440 })
+assert.equal(LAYOUT_DEFAULTS_REVISION, 5)
+assert.deepEqual(
+  migrateAgentDefaultSize(LEGACY_UNCUSTOMIZED_AGENT_SIZE, currentAgentDefault, undefined),
+  currentAgentDefault,
+  "pre-PR#22 default agent size must pick up 380×480",
+)
+assert.deepEqual(
+  migrateAgentDefaultSize({ w: 400, h: 520 }, currentAgentDefault, undefined),
+  { w: 400, h: 520 },
+  "a user-resized agent card must stay put",
+)
+assert.deepEqual(
+  migrateAgentDefaultSize(LEGACY_UNCUSTOMIZED_AGENT_SIZE, currentAgentDefault, 5),
+  LEGACY_UNCUSTOMIZED_AGENT_SIZE,
+  "after the defaults revision is stamped, 340×440 is a real user choice",
+)
+assert.deepEqual(
+  migrateAgentDefaultSize({ w: 360, h: 440 }, currentAgentDefault, 4),
+  { w: 360, h: 440 },
+  "nearby but customized widths must not be treated as the legacy default",
 )
 
 console.log(

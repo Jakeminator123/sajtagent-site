@@ -1,13 +1,18 @@
 "use client"
 
-// Layoutinställningar för Siteagent — vilka kort som är nedvikta,
+// Layoutinställningar för Sajtagent — vilka kort som är nedvikta,
 // kortens storlekar och kortlekens skala. Sparas i localStorage så att
 // användarens setup överlever omladdning. "Återställ layout" nollställer allt.
 
 import { useCallback, useEffect, useRef, useState } from "react"
 import { FACES, type FaceId } from "./faces/face-defs"
+import {
+  LAYOUT_DEFAULTS_REVISION,
+  LAYOUT_STORAGE_KEY,
+  migrateAgentDefaultSize,
+} from "./layout-prefs"
 
-const STORAGE_KEY = "siteagent:layout:v4"
+const STORAGE_KEY = LAYOUT_STORAGE_KEY
 
 export interface FaceSize {
   w: number
@@ -47,6 +52,7 @@ interface PersistedLayout {
   sizes: Record<FaceId, FaceSize>
   dockScale: number
   offsets?: Record<FaceId, FaceOffset>
+  defaultsRevision?: number
 }
 
 const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v))
@@ -77,6 +83,13 @@ export function useLayoutPrefs() {
                 }
               }
             }
+            const defaultsRevision =
+              typeof saved.defaultsRevision === "number" ? saved.defaultsRevision : undefined
+            base.agent = migrateAgentDefaultSize(
+              base.agent,
+              defaultSizes().agent,
+              defaultsRevision,
+            )
             setSizes(base)
           }
           if (typeof saved.dockScale === "number") setDockScale(clamp(saved.dockScale, 0.6, 1.6))
@@ -103,7 +116,13 @@ export function useLayoutPrefs() {
   useEffect(() => {
     if (!hydratedRef.current) return
     try {
-      const payload: PersistedLayout = { docked: Array.from(docked), sizes, dockScale, offsets }
+      const payload: PersistedLayout = {
+        docked: Array.from(docked),
+        sizes,
+        dockScale,
+        offsets,
+        defaultsRevision: LAYOUT_DEFAULTS_REVISION,
+      }
       localStorage.setItem(STORAGE_KEY, JSON.stringify(payload))
     } catch {
       // storage fullt/blockerat — layouten funkar ändå, bara utan persistens

@@ -27,7 +27,7 @@ export function SitemapFace() {
             <span className="truncate">Revision {sitemapRevision}</span>
           </div>
           <p className="mt-3 max-w-[240px] text-center text-[10px] leading-relaxed text-workflow-text-subtle">
-            Routeträdet hämtas från denna canonical revision när read-modellen är ansluten.
+            Verifierad revision. Sidträdet kopplas i nästa steg.
           </p>
         </div>
       )}

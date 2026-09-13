@@ -49,9 +49,7 @@ export function VersionList() {
 
       {versions.length === 0 && !pending && !failed ? (
         <CardEmpty icon={<Clock className="h-5 w-5 text-brand-teal" />} title="Inga versioner ännu">
-          Inga verifierade versioner ännu.
-          <br />
-          Skriv till Sajtagent i Chatt-kortet för att skapa den första.
+          Skriv i Chatt-kortet. Sajtagent skapar den första när ett bygge verifieras.
         </CardEmpty>
       ) : versions.length === 0 ? (
         <p className="px-1 text-[10px] leading-relaxed text-workflow-text-subtle">

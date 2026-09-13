@@ -16,8 +16,13 @@ const previewStageSource = readFileSync(resolve(root, "components/siteagent/prev
 const cubeStageSource = readFileSync(resolve(root, "components/siteagent/cube-stage.tsx"), "utf8")
 const engineBackSource = readFileSync(resolve(root, "components/siteagent/faces/back-faces.tsx"), "utf8")
 const builderHeaderSource = readFileSync(resolve(root, "components/siteagent/builder-header.tsx"), "utf8")
+const builderPageSource = readFileSync(resolve(root, "app/builder/page.tsx"), "utf8")
+const layoutPrefsSource = readFileSync(resolve(root, "components/siteagent/layout-prefs.ts"), "utf8")
+const versionListSource = readFileSync(resolve(root, "components/siteagent/version-list.tsx"), "utf8")
+const sitemapFaceSource = readFileSync(resolve(root, "components/siteagent/faces/sitemap-face.tsx"), "utf8")
 const heroSource = readFileSync(resolve(root, "components/hero-section.tsx"), "utf8")
 const agendaSource = readFileSync(resolve(root, "components/agenda.tsx"), "utf8")
+const loginPageSource = readFileSync(resolve(root, "app/login/page.tsx"), "utf8")
 const loginFormSource = readFileSync(resolve(root, "app/login/login-form.tsx"), "utf8")
 const authPathsSource = readFileSync(resolve(root, "lib/supabase/auth-paths.ts"), "utf8")
 const authCallbackSource = readFileSync(resolve(root, "app/auth/callback/route.ts"), "utf8")
@@ -153,6 +158,77 @@ assert.doesNotMatch(
 assert.match(engineBackSource, /activeTurn\?\.buildJobId/, "Build status must derive from a verified build event")
 assert.match(builderHeaderSource, />\s*Ny chatt\s*</, "the reset action must describe a new chat")
 assert.doesNotMatch(builderHeaderSource, /Nytt bygge/, "ordinary chat reset must not claim to start a build")
+assert.match(builderHeaderSource, />\s*Sajtagent\s*</, "Builder header chrome must use the Sajtagent product name")
+assert.doesNotMatch(
+  builderHeaderSource,
+  />\s*Siteagent\s*</,
+  "Builder header must not show the Siteagent spelling",
+)
+assert.match(
+  builderPageSource,
+  /title:\s*"Sajtagent — Builder"/,
+  "Builder tab title must use Sajtagent",
+)
+assert.doesNotMatch(
+  builderPageSource,
+  /SiteAgent|Siteagent/,
+  "Builder page metadata must not keep the Siteagent spelling",
+)
+assert.match(
+  loginPageSource,
+  /title:\s*"Sajtagent — Logga in"/,
+  "login tab title must match the visible Sajtagent label",
+)
+assert.doesNotMatch(
+  loginPageSource,
+  /SiteAgent|Siteagent/,
+  "login page metadata must not keep the Siteagent spelling",
+)
+assert.match(
+  layoutSource,
+  /siteagent:layout:v4|LAYOUT_STORAGE_KEY/,
+  "returning users must keep the existing layout:v4 storage key",
+)
+assert.match(
+  layoutSource,
+  /defaultsRevision: LAYOUT_DEFAULTS_REVISION/,
+  "persisted layout must stamp the defaults revision after hydration",
+)
+assert.match(
+  layoutSource,
+  /migrateAgentDefaultSize/,
+  "layout hydration must migrate the pre-PR#22 agent default",
+)
+assert.doesNotMatch(
+  layoutSource,
+  /localStorage\.removeItem\(STORAGE_KEY\)[\s\S]*setSizes/,
+  "hydration must not wipe layout:v4 to pick up the new agent default",
+)
+assert.match(
+  layoutPrefsSource,
+  /LAYOUT_STORAGE_KEY = "siteagent:layout:v4"/,
+  "layout storage key must stay siteagent:layout:v4",
+)
+assert.match(
+  layoutPrefsSource,
+  /LEGACY_UNCUSTOMIZED_AGENT_SIZE: FaceSize = \{ w: 340, h: 440 \}/,
+  "legacy agent sentinel must be the pre-PR#22 default 340×440",
+)
+assert.match(
+  layoutPrefsSource,
+  /LAYOUT_DEFAULTS_REVISION = 5/,
+  "agent-size migration must be revision 5 inside the same v4 key",
+)
+assert.match(
+  versionListSource,
+  /Skriv i Chatt-kortet\. Sajtagent skapar den första när ett bygge verifieras\./,
+  "empty Versions card must not repeat the title as body copy",
+)
+assert.doesNotMatch(
+  sitemapFaceSource,
+  /canonical revision|read-modellen/,
+  "Map stub copy must not expose internal read-model wording",
+)
 assert.doesNotMatch(
   builderStoreSource,
   /agentProjection\.status === "failed"/,

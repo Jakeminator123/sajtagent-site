@@ -44,7 +44,7 @@ export function BuilderHeader({ showDrawer, onToggleDrawer }: BuilderHeaderProps
           S
         </div>
         <span className="font-mono font-semibold text-workflow-text tracking-tight text-sm">
-          Siteagent
+          Sajtagent
         </span>
         <span className="font-mono text-[10px] text-workflow-text-subtle border border-workflow-border-subtle rounded px-1.5 py-0.5">
           studio

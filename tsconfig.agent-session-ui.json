@@ -17,6 +17,7 @@
     "lib/siteagent/build-choices.ts",
     "lib/siteagent/read-model.ts",
     "lib/siteagent/types.ts",
+    "components/siteagent/layout-prefs.ts",
     "scripts/verify-agent-session-ui.mts"
   ]
 }

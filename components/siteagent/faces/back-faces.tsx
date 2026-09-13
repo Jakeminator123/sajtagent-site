@@ -56,7 +56,7 @@ export function EngineBack() {
         <div className="rounded-md bg-workflow-node-input p-2.5">
           <p className="text-xs text-workflow-text-muted">
             {buildStarted
-              ? "Ett verifierat build-event har startat ett bygge."
+              ? "Ett bygge har startat."
               : "Inget bygge har startats i den här chatten. Vanliga svar syns i Sajtagent-kortet."}
           </p>
         </div>

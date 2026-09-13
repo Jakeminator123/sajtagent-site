@@ -3,8 +3,8 @@ import type { Metadata } from "next"
 import { LoginForm } from "./login-form"
 
 export const metadata: Metadata = {
-  title: "SiteAgent — Logga in",
-  description: "Logga in till SiteAgents Builder.",
+  title: "Sajtagent — Logga in",
+  description: "Logga in till Sajtagents Builder.",
 }
 
 export default async function LoginPage({

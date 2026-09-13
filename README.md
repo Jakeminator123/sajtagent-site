@@ -4,7 +4,8 @@ Siteagent är en Next.js-baserad AI-studio för att planera, bygga och förhands
 
 SiteAgent är hela webbprodukten. Buildern är produktens byggyta, inte ett annat
 namn för SiteAgent. Privilegierad OpenClaw- och Sprite-runtime ligger i det
-separata **privata** systerrepot `sajtagent-sprites`. En publik förstanivå-karta (OVERVIEW, inte runtime) finns i [`OVERVIEW-sajtagent-sprites`](https://github.com/Jakeminator123/OVERVIEW-sajtagent-sprites).
+separata **privata** systerrepot `sajtagent-sprites`. Familjekartan (OVERVIEW,
+inte källkod) finns i [`OVERVIEW-sajtagent-platform`](https://github.com/Jakeminator123/OVERVIEW-sajtagent-platform).
 
 ## Canonical repository family
 
@@ -13,7 +14,7 @@ separata **privata** systerrepot `sajtagent-sprites`. En publik förstanivå-kar
 - Vercel: project `sajtagent-site` (project ID `prj_hMs2VN2gnj9YU42ZDcEv9U8fOpKf`).
 - Cross-repository decisions live in the private repo [`sajtagent-platform`](https://github.com/Jakeminator123/sajtagent-platform).
 - Privileged OpenClaw and Sprite execution live in the private repo [`sajtagent-sprites`](https://github.com/Jakeminator123/sajtagent-sprites).
-- Public first-level map of that runtime (documentation only): [`OVERVIEW-sajtagent-sprites`](https://github.com/Jakeminator123/OVERVIEW-sajtagent-sprites).
+- Public family map (documentation only): [`OVERVIEW-sajtagent-platform`](https://github.com/Jakeminator123/OVERVIEW-sajtagent-platform).
 
 The earlier `builder-v2` repository and Vercel project are legacy prototypes.
 Do not send new commits, environment variables, deployments, or runtime

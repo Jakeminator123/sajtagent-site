@@ -15,7 +15,7 @@ import {
 import {
   NEW_DRAFT_INTENTS,
   newDraftResetsProject,
-} from "../components/siteagent/new-draft-menu.ts"
+} from "../components/siteagent/new-draft-intents.ts"
 import {
   CanonicalVersionV1Schema,
   loadCanonicalProjectV1,

@@ -1,6 +1,6 @@
-import { PostgresPersonalProjectRepositoryV1 } from "../../../../../../../lib/siteagent/server/project-repository.ts"
-import { resolveBuildPrincipalV1 } from "../../../../../../../lib/siteagent/server/principal.ts"
-import { isSameOriginMutation } from "../../../../../../../lib/siteagent/server/request-security.ts"
+import { PostgresPersonalProjectRepositoryV1 } from "../../../../../../lib/siteagent/server/project-repository.ts"
+import { resolveBuildPrincipalV1 } from "../../../../../../lib/siteagent/server/principal.ts"
+import { isSameOriginMutation } from "../../../../../../lib/siteagent/server/request-security.ts"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -38,7 +38,7 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   try {
-    const { dbConfigured, pool } = await import("../../../../../../../lib/db/client.ts")
+    const { dbConfigured, pool } = await import("../../../../../../lib/db/client.ts")
     if (!dbConfigured || !pool) {
       return errorResponse(503, "persistence_unavailable", "Sajtagentens databas är inte konfigurerad.")
     }

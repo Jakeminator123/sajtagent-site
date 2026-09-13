@@ -412,8 +412,11 @@ export function AgentFace() {
           <ShieldCheck className="h-3.5 w-3.5" />
         )}
         <span className="min-w-0 truncate">
-          {agentProjection.statusLabel}
-          {integrityFailure ? " · Ny chatt krävs" : sessionOpenFailure ? " · Ny chatt eller inloggning" : null}
+          {sessionOpenFailure
+            ? "Kunde inte öppna sessionen · Ny chatt eller inloggning"
+            : integrityFailure
+              ? `${agentProjection.statusLabel} · Ny chatt krävs`
+              : agentProjection.statusLabel}
         </span>
       </div>
     </div>

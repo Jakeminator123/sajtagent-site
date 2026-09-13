@@ -26,7 +26,12 @@ Depends on the reviewed project API/migration in PR #28 (`331a323`).
 - [x] `check:site-ui` and `check:builder-adapter`: runtime assertions and focused
   TypeScript checks; previous destructive-New-project assertions updated.
 - [x] `cards:check` and ESLint.
-- [ ] Independent PR review.
+- [x] Independent subagent review of `04abc49`: no blockers. Minor failed-reset
+  bootstrap loading state fixed in follow-up; no Bugbot run is claimed.
+- [x] `npm run build -- --webpack`: successful production compilation.
+  Default Turbopack rejects this worktree's shared `node_modules` symlink;
+  no product configuration was changed to bypass it. Build skips TypeScript
+  under the existing waiver; the focused typechecks above are separate.
 - [ ] Browser visual/interactive check with two authenticated projects and reload.
 - [ ] Merge and production rollout (requires PR #28 and its migration first).
 

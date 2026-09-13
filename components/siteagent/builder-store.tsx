@@ -754,10 +754,14 @@ export function BuilderProvider({ children, initialProjectId = null }: { childre
     abortRef.current?.abort()
     try {
       const reset = await adapter.resetPersonalStarterProject()
-      if (!reset.ok) return reset
+      if (!reset.ok) {
+        if (!sessionRef.current) setSessionStatus("error")
+        return reset
+      }
       window.location.assign(builderProjectHref(reset.project.projectId))
       return { ok: true as const }
     } catch (error) {
+      if (!sessionRef.current) setSessionStatus("error")
       return { ok: false as const, error: errorMessage(error, "Startprojektet kunde inte återställas.") }
     } finally {
       resettingProjectRef.current = false

@@ -11,6 +11,10 @@ export const NEW_PROJECT_CONFIRM_ACTION = "Skapa projekt"
 export const NEW_DRAFT_INTENTS = ["new-chat", "new-project"] as const
 export type NewDraftIntent = (typeof NEW_DRAFT_INTENTS)[number]
 
-export function newDraftResetsProject(_intent: NewDraftIntent): boolean {
-  return false
+export function newDraftResetsProject(intent: NewDraftIntent): boolean {
+  switch (intent) {
+    case "new-chat":
+    case "new-project":
+      return false
+  }
 }

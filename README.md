@@ -4,15 +4,16 @@ Siteagent är en Next.js-baserad AI-studio för att planera, bygga och förhands
 
 SiteAgent är hela webbprodukten. Buildern är produktens byggyta, inte ett annat
 namn för SiteAgent. Privilegierad OpenClaw- och Sprite-runtime ligger i det
-separata systerrepot `sajtagent-sprites`.
+separata **privata** systerrepot `sajtagent-sprites`. En publik förstanivå-karta finns i [`sajtagent-sprites-overview`](https://github.com/Jakeminator123/sajtagent-sprites-overview).
 
 ## Canonical repository family
 
 - This repository is the only active SiteAgent web-product repository.
 - GitHub: [`Jakeminator123/sajtagent-site`](https://github.com/Jakeminator123/sajtagent-site), branch `main`.
 - Vercel: project `sajtagent-site` (project ID `prj_hMs2VN2gnj9YU42ZDcEv9U8fOpKf`).
-- Cross-repository decisions live in [`sajtagent-platform`](https://github.com/Jakeminator123/sajtagent-platform).
-- Privileged OpenClaw and Sprite execution live in [`sajtagent-sprites`](https://github.com/Jakeminator123/sajtagent-sprites).
+- Cross-repository decisions live in the private repo [`sajtagent-platform`](https://github.com/Jakeminator123/sajtagent-platform).
+- Privileged OpenClaw and Sprite execution live in the private repo [`sajtagent-sprites`](https://github.com/Jakeminator123/sajtagent-sprites).
+- Public first-level map of that runtime: [`sajtagent-sprites-overview`](https://github.com/Jakeminator123/sajtagent-sprites-overview).
 
 The earlier `builder-v2` repository and Vercel project are legacy prototypes.
 Do not send new commits, environment variables, deployments, or runtime
@@ -49,7 +50,7 @@ du tolkar ett grönt buildsteg som full typverifiering.
 Buildern går nu via Sajtagents autentiserade projekt- och build-job-controller
 och misslyckas stängt utan verifierad runtime. Preview, publicering och export
 är fortfarande otillgängliga. Se [runtime baseline](docs/runtime-baseline.md)
-innan du ändrar Builder-flödet.
+inan du ändrar Builder-flödet.
 Den avsiktligt enkla V1-kedjan finns i
 [one continuous agent, one verified truth](docs/simple-v1-loop.md). Det
 auktoritativa samtals-, policy- och eventkontraktet beskrivs i

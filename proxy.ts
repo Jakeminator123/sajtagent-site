@@ -6,7 +6,7 @@ export async function proxy(request: NextRequest) {
   const publishedDomain = process.env.SITEAGENT_PUBLISHED_DOMAIN
   if (publishedDomain && (request.nextUrl.hostname === publishedDomain || request.nextUrl.hostname.endsWith(`.${publishedDomain}`))) {
     // Public customer code never reaches Site auth, APIs, assets or redirects.
-    const { handlePublishedGateway } = await import("./lib/siteagent/server/next-publication-gateway")
+    const { handlePublishedGateway } = await import("./lib/siteagent/server/next-publication-gateway.ts")
     return handlePublishedGateway(request)
   }
   const domain = process.env.SITEAGENT_NEXT_PREVIEW_DOMAIN

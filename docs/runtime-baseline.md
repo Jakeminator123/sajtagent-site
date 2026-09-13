@@ -7,6 +7,9 @@ The Builder now uses Sajtagent-owned product routes:
 
 - `POST /api/siteagent/projects/default` opens one deterministic, owner-bound
   starter project and base revision;
+- `POST /api/siteagent/projects/default/reset` wipes that personal draft
+  (versions, preview, sessions) and recreates the blank starter; Ny chatt
+  does not call this route;
 - project/session routes open a Site-owned `AgentSessionV1`, turn POST streams
   `AgentEventV1`, and events GET resumes after the last verified sequence;
 - no browser-callable build-job route exists. The AgentTurn route now injects

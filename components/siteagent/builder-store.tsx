@@ -70,6 +70,8 @@ interface BuilderStore {
   togglePin: (id: string) => void
 
   newChat: () => void
+  newProject: () => Promise<{ ok: true } | { ok: false; error: string }>
+  isResettingProject: boolean
   publishState: PublishState
   publish: () => Promise<void>
 }
@@ -144,6 +146,7 @@ export function BuilderProvider({ children }: { children: ReactNode }) {
   const [versions, setVersions] = useState<SiteVersion[]>([])
   const [activeVersionId, setActiveVersionId] = useState<string | null>(null)
   const [publishState, setPublishState] = useState<PublishState>("idle")
+  const [isResettingProject, setIsResettingProject] = useState(false)
   const [logs, setLogs] = useState<string[]>([])
 
   const projectIdRef = useRef<string | null>(null)
@@ -154,6 +157,7 @@ export function BuilderProvider({ children }: { children: ReactNode }) {
   const sessionGenerationRef = useRef(0)
   const abortRef = useRef<AbortController | null>(null)
   const requestGenerationRef = useRef(0)
+  const resettingProjectRef = useRef(false)
 
   const assistantMessages = useMemo<ChatMessage[]>(
     () =>
@@ -657,30 +661,63 @@ export function BuilderProvider({ children }: { children: ReactNode }) {
     )
   }, [])
 
+  const beginFreshSession = useCallback(
+    (clearProject: boolean) => {
+      requestGenerationRef.current += 1
+      abortRef.current?.abort()
+      abortRef.current = null
+      sessionRef.current = null
+      sessionGenerationRef.current += 1
+      bootstrapPromiseRef.current = null
+      setUserMessages([])
+      setIsStreaming(false)
+      setPublishState("idle")
+      setLogs([])
+      setChoices(defaultBuildChoices())
+      applyProjection(createAgentEventProjectionV1())
+      if (clearProject) {
+        setVersions([])
+        setActiveVersionId(null)
+      }
+      void startSession().catch((error: unknown) => {
+        if (isAbortError(error)) return
+        setSessionStatus("error")
+        applyProjection(
+          rejectAgentEventStreamV1(
+            createAgentEventProjectionV1(),
+            errorMessage(error, "En ny Sajtagent-session kunde inte öppnas."),
+          ),
+        )
+      })
+    },
+    [applyProjection, startSession],
+  )
+
   const newChat = useCallback(() => {
-    requestGenerationRef.current += 1
-    abortRef.current?.abort()
-    abortRef.current = null
-    sessionRef.current = null
-    sessionGenerationRef.current += 1
-    bootstrapPromiseRef.current = null
-    setUserMessages([])
-    setIsStreaming(false)
-    setPublishState("idle")
-    setLogs([])
-    setChoices(defaultBuildChoices())
-    applyProjection(createAgentEventProjectionV1())
-    void startSession().catch((error: unknown) => {
-      if (isAbortError(error)) return
-      setSessionStatus("error")
-      applyProjection(
-        rejectAgentEventStreamV1(
-          createAgentEventProjectionV1(),
-          errorMessage(error, "En ny Sajtagent-session kunde inte öppnas."),
-        ),
-      )
-    })
-  }, [applyProjection, startSession])
+    beginFreshSession(false)
+  }, [beginFreshSession])
+
+  const newProject = useCallback(async () => {
+    if (resettingProjectRef.current) {
+      return { ok: false as const, error: "Ett nytt projekt startas redan." }
+    }
+    resettingProjectRef.current = true
+    setIsResettingProject(true)
+    try {
+      const reset = await adapter.resetPersonalStarterProject()
+      if (!reset.ok) {
+        pushLog(`nytt projekt: ${reset.error}`)
+        return { ok: false as const, error: reset.error }
+      }
+      projectIdRef.current = reset.project.projectId
+      baseRevisionIdRef.current = reset.project.activeRevisionId
+      beginFreshSession(true)
+      return { ok: true as const }
+    } finally {
+      resettingProjectRef.current = false
+      setIsResettingProject(false)
+    }
+  }, [beginFreshSession, pushLog])
 
   const publish = useCallback(async () => {
     if (publishState === "publishing") return
@@ -711,6 +748,8 @@ export function BuilderProvider({ children }: { children: ReactNode }) {
       restoreVersion,
       togglePin,
       newChat,
+      newProject,
+      isResettingProject,
       publishState,
       publish,
     }),
@@ -734,6 +773,8 @@ export function BuilderProvider({ children }: { children: ReactNode }) {
       restoreVersion,
       togglePin,
       newChat,
+      newProject,
+      isResettingProject,
       publishState,
       publish,
     ],

@@ -56,11 +56,13 @@ function apiMessage(payload: unknown, fallback: string): string {
   return typeof message === "string" && message.trim() ? message : fallback
 }
 
-export async function openDefaultProject(
+async function mutateDefaultProject(
+  path: "/api/siteagent/projects/default" | "/api/siteagent/projects/default/reset",
+  fallback: string,
   signal?: AbortSignal,
   fetchImpl: SiteagentFetchV1 = fetch,
 ): Promise<OpenDefaultProjectResultV1> {
-  const response = await fetchImpl("/api/siteagent/projects/default", {
+  const response = await fetchImpl(path, {
     method: "POST",
     headers: { Accept: "application/json" },
     cache: "no-store",
@@ -69,9 +71,33 @@ export async function openDefaultProject(
   const payload = await responsePayload(response)
   const project = DefaultProjectResponseV1Schema.safeParse(payload)
   if (!response.ok || !project.success) {
-    return { ok: false, error: apiMessage(payload, "Projektet kunde inte öppnas.") }
+    return { ok: false, error: apiMessage(payload, fallback) }
   }
   return { ok: true, project: project.data }
+}
+
+export async function openDefaultProject(
+  signal?: AbortSignal,
+  fetchImpl: SiteagentFetchV1 = fetch,
+): Promise<OpenDefaultProjectResultV1> {
+  return mutateDefaultProject(
+    "/api/siteagent/projects/default",
+    "Projektet kunde inte öppnas.",
+    signal,
+    fetchImpl,
+  )
+}
+
+export async function resetPersonalStarterProject(
+  signal?: AbortSignal,
+  fetchImpl: SiteagentFetchV1 = fetch,
+): Promise<OpenDefaultProjectResultV1> {
+  return mutateDefaultProject(
+    "/api/siteagent/projects/default/reset",
+    "Utkastet kunde inte nollställas.",
+    signal,
+    fetchImpl,
+  )
 }
 
 export async function openAgentSessionV1(

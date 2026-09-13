@@ -46,6 +46,7 @@ import type { ChatMessage, PreviewStatus, PublishState, SiteVersion } from "@/li
 type SessionStatusV1 = "opening" | "ready" | "error"
 
 interface BuilderStore {
+  projectId: string | null
   choices: BuildChoices
   setChoice: (key: string, value: string) => void
   setPageCount: (n: number) => void
@@ -136,6 +137,7 @@ function projectionAllowsRetry(projection: AgentEventProjectionV1): boolean {
 }
 
 export function BuilderProvider({ children }: { children: ReactNode }) {
+  const [projectId, setProjectId] = useState<string | null>(null)
   const [choices, setChoices] = useState<BuildChoices>(defaultBuildChoices)
   const [userMessages, setUserMessages] = useState<ChatMessage[]>([])
   const [isStreaming, setIsStreaming] = useState(false)
@@ -252,6 +254,7 @@ export function BuilderProvider({ children }: { children: ReactNode }) {
         const opened = await adapter.openDefaultProject(signal)
         if (!opened.ok) throw new Error(opened.error)
         projectIdRef.current = opened.project.projectId
+        setProjectId(opened.project.projectId)
         baseRevisionIdRef.current = opened.project.activeRevisionId
 
         const readModelPromise = loadCanonicalProjectV1(
@@ -710,6 +713,7 @@ export function BuilderProvider({ children }: { children: ReactNode }) {
         return { ok: false as const, error: reset.error }
       }
       projectIdRef.current = reset.project.projectId
+      setProjectId(reset.project.projectId)
       baseRevisionIdRef.current = reset.project.activeRevisionId
       beginFreshSession(true)
       return { ok: true as const }
@@ -728,6 +732,7 @@ export function BuilderProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<BuilderStore>(
     () => ({
+      projectId,
       choices,
       setChoice,
       setPageCount,
@@ -754,6 +759,7 @@ export function BuilderProvider({ children }: { children: ReactNode }) {
       publish,
     }),
     [
+      projectId,
       choices,
       setChoice,
       setPageCount,

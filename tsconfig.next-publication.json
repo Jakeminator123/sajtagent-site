@@ -1,0 +1,5 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": { "incremental": false, "module": "NodeNext", "moduleResolution": "NodeNext", "target": "ES2022", "types": ["node"] },
+  "include": ["lib/siteagent/server/next-publication-*.ts", "app/api/siteagent/projects/[projectId]/publish/route.ts", "components/siteagent/next-publication-control.tsx", "scripts/verify-next-publication*.mts"]
+}

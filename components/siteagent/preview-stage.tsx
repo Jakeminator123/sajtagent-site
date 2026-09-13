@@ -7,6 +7,7 @@
 import React from "react"
 import { ExternalLink, Globe, Loader2, Monitor, TriangleAlert } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { previewAddressLabel, previewStatusChip } from "./card-states"
 import { useBuilder } from "./builder-store"
 
 function PreviewFrame({ className }: { className?: string }) {
@@ -25,6 +26,8 @@ function PreviewFrame({ className }: { className?: string }) {
 export function PreviewStage() {
   const { previewStatus, previewUrl } = useBuilder()
   const hasContent = Boolean(previewUrl)
+  const chip = previewStatusChip(previewStatus, hasContent)
+  const address = previewAddressLabel(previewStatus, previewUrl)
 
   return (
     <div className="absolute inset-0 bg-workflow-canvas transition-colors duration-200">
@@ -61,11 +64,20 @@ export function PreviewStage() {
               <div className="flex items-center gap-1.5 bg-white dark:bg-zinc-50 border border-zinc-200 rounded-full px-3 py-1 max-w-[420px] w-full justify-center">
                 <Globe className="w-3 h-3 text-zinc-400" />
                 <span className="font-mono text-[11px] text-zinc-500 truncate">
-                  {previewUrl ?? "din-sajt.siteagent.app"}
+                  {address}
                 </span>
               </div>
             </div>
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1.5">
+              <span
+                data-preview-status={previewStatus}
+                className={cn(
+                  "rounded-full px-2 py-0.5 font-mono text-[10px] leading-none",
+                  chip.className,
+                )}
+              >
+                {chip.label}
+              </span>
               {previewUrl && (
                 <a
                   href={previewUrl}
@@ -100,9 +112,12 @@ export function PreviewStage() {
               </div>
             )}
             {previewStatus === "error" && !hasContent && (
-              <div className="w-full h-full flex flex-col items-center justify-center gap-2">
-                <TriangleAlert className="w-7 h-7 text-amber-500" />
+              <div className="w-full h-full flex flex-col items-center justify-center gap-2 px-8 text-center">
+                <TriangleAlert className="h-7 w-7 text-amber-500" />
                 <p className="font-mono text-sm text-zinc-500">Bygget stoppades — ingen preview accepterades.</p>
+                <p className="max-w-sm text-xs leading-relaxed text-zinc-400">
+                  Ingen sajt öppnades. Orsaken står i Sajtagent-kortet.
+                </p>
               </div>
             )}
             {hasContent && (

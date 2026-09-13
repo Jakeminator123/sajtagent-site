@@ -20,9 +20,11 @@
     "app/auth/callback/route.ts",
     "components/siteagent/builder-header.tsx",
     "components/siteagent/builder-store.tsx",
+    "components/siteagent/card-states.tsx",
     "components/siteagent/cube-stage.tsx",
     "components/siteagent/faces/*.tsx",
     "components/siteagent/landing-prompt-handoff.tsx",
+    "components/siteagent/preview-stage.tsx",
     "components/siteagent/right-drawer.tsx",
     "components/siteagent/version-list.tsx",
     "components/siteagent/use-layout-prefs.ts"

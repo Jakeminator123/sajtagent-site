@@ -4,23 +4,33 @@
 // Browsern skickar endast produktavsikt via Site-controllern.
 
 import React, { useEffect, useRef, useState } from "react"
-import { ImageIcon, Loader2, Mic, Send, Square, Type } from "lucide-react"
+import { Loader2, Mic, Send, Square } from "lucide-react"
 import { useAudioTranscription } from "@/lib/use-audio-transcription"
 import { cn } from "@/lib/utils"
+import { CardEmpty } from "../card-states"
 import { useBuilder } from "../builder-store"
 
 export function ChatFace() {
-  const { agentProjection, messages, isStreaming, sendMessage, sessionStatus } = useBuilder()
+  const { agentProjection, canSendTurn, messages, isStreaming, sendMessage, sessionStatus } =
+    useBuilder()
   const userMessages = messages.filter((message) => message.role === "user")
 
   const [input, setInput] = useState("")
   const listRef = useRef<HTMLDivElement>(null)
   const hasPendingQuestion = Boolean(agentProjection.pendingQuestion)
-  const inputDisabled =
-    isStreaming ||
-    sessionStatus !== "ready" ||
-    hasPendingQuestion ||
-    agentProjection.status === "invalid"
+  const inputDisabled = !canSendTurn
+  const chatState =
+    agentProjection.status === "invalid" || sessionStatus === "error"
+      ? "error"
+      : isStreaming
+        ? "streaming"
+        : sessionStatus === "opening"
+          ? "opening"
+          : hasPendingQuestion
+            ? "awaiting"
+            : userMessages.length === 0
+              ? "empty"
+              : "ready"
 
   // Diktering: transkriberad text läggs till i fältet i stället för att skickas direkt,
   // så användaren kan justera innan den skickas.
@@ -48,19 +58,30 @@ export function ChatFace() {
     }
   }
 
+  const statusLine = hasPendingQuestion
+    ? "Svara på frågan i Sajtagent-kortet"
+    : agentProjection.status === "invalid"
+      ? "Starta en ny chatt efter integritetsfelet"
+      : sessionStatus === "error"
+        ? "Sessionen kunde inte öppnas. Prova Ny chatt."
+        : sessionStatus === "opening"
+          ? "Öppnar Sajtagent-session…"
+          : isStreaming
+            ? "Sajtagent svarar i sitt kort…"
+            : "Skriv här. Svaret syns till höger."
+
   return (
-    <div className="flex flex-col h-full">
-      <div ref={listRef} className="flex-1 min-h-0 overflow-y-auto p-3 flex flex-col gap-2">
+    <div className="flex h-full flex-col" data-card-state={chatState}>
+      <div ref={listRef} className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto p-3">
         {userMessages.length === 0 ? (
-          <div className="flex-1 flex flex-col items-center justify-center gap-2 text-center px-4">
-            <p className="font-mono text-sm text-workflow-text">Ditt meddelande</p>
-            <p className="text-xs text-workflow-text-muted leading-relaxed">
+          <CardEmpty tone="idle" title="Ditt meddelande">
+            <p>
               Fråga vad som helst eller beskriv vad du vill bygga. Sajtagent svarar i sitt kort. Previewn stannar kvar.
             </p>
-            <p className="font-mono text-[10px] text-workflow-text-subtle">
+            <p className="mt-2 font-mono text-[10px] text-workflow-text-subtle">
               Byggval kan öppnas när du vill komplettera uppdraget.
             </p>
-          </div>
+          </CardEmpty>
         ) : (
           userMessages.map((message) => (
             <div
@@ -71,60 +92,51 @@ export function ChatFace() {
             </div>
           ))
         )}
+        {isStreaming ? (
+          <p
+            data-chat-waiting=""
+            className="self-end font-mono text-[10px] text-workflow-text-subtle"
+          >
+            Sajtagent svarar i sitt kort…
+          </p>
+        ) : null}
       </div>
 
-      <div className="border-t border-workflow-border-subtle p-2 flex flex-col gap-2">
+      <div className="flex flex-col gap-2 border-t border-workflow-border-subtle p-2">
         <div className="flex items-center gap-1.5">
-          <span className="font-mono text-[10px] text-workflow-text-subtle">
-            {hasPendingQuestion
-              ? "Svara på frågan i Sajtagent-kortet"
-              : agentProjection.status === "invalid"
-                ? "Starta en ny chatt efter integritetsfelet"
-              : sessionStatus === "ready"
-                ? "Sajtagentens policy styr modell och verktyg"
-                : "Öppnar Sajtagent-session…"}
+          <span
+            className={cn(
+              "font-mono text-[10px]",
+              chatState === "error" ? "text-rose-700 dark:text-rose-300" : "text-workflow-text-subtle",
+            )}
+          >
+            {statusLine}
           </span>
           <div className="ml-auto flex items-center gap-1">
             <button
               type="button"
               onClick={toggleRecording}
-              disabled={isTranscribing}
+              disabled={isTranscribing || inputDisabled}
               aria-label={isRecording ? "Stoppa inspelning" : "Spela in och transkribera"}
               aria-pressed={isRecording}
               title={isRecording ? "Stoppa inspelning" : "Spela in och transkribera"}
               className={cn(
-                "flex items-center gap-1 px-1.5 py-1 rounded font-mono text-[11px] transition-colors duration-150 disabled:opacity-40",
+                "flex items-center gap-1 rounded px-1.5 py-1 font-mono text-[11px] transition-colors duration-150 disabled:opacity-40",
                 isRecording
-                  ? "text-destructive bg-destructive/15"
-                  : "text-workflow-text-subtle hover:text-workflow-text"
+                  ? "bg-destructive/15 text-destructive"
+                  : "text-workflow-text-subtle hover:text-workflow-text",
               )}
             >
               {isTranscribing ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
               ) : isRecording ? (
                 <>
-                  <Square className="w-3 h-3 fill-current" />
+                  <Square className="h-3 w-3 fill-current" />
                   {Math.floor(recSeconds / 60)}:{(recSeconds % 60).toString().padStart(2, "0")}
                 </>
               ) : (
-                <Mic className="w-3.5 h-3.5" />
+                <Mic className="h-3.5 w-3.5" />
               )}
-            </button>
-            <button
-              type="button"
-              disabled
-              className="p-1.5 rounded text-workflow-text-subtle hover:text-workflow-text transition-colors duration-150"
-              title="Media är inte anslutet ännu"
-            >
-              <ImageIcon className="w-3.5 h-3.5" />
-            </button>
-            <button
-              type="button"
-              disabled
-              className="p-1.5 rounded text-workflow-text-subtle hover:text-workflow-text transition-colors duration-150"
-              title="Textbilagor är inte anslutna ännu"
-            >
-              <Type className="w-3.5 h-3.5" />
             </button>
           </div>
         </div>
@@ -139,7 +151,9 @@ export function ChatFace() {
             placeholder={
               hasPendingQuestion
                 ? "Svara i Sajtagent-kortet…"
-                : "Svaret syns i Sajtagent-kortet"
+                : sessionStatus === "opening"
+                  ? "Öppnar session…"
+                  : "Svaret syns i Sajtagent-kortet"
             }
             rows={2}
             className="flex-1 resize-none rounded-md bg-workflow-node-input border border-workflow-border-subtle px-2.5 py-2 text-xs text-workflow-text placeholder:text-workflow-text-subtle focus:outline-none focus:ring-1 focus:ring-workflow-border"

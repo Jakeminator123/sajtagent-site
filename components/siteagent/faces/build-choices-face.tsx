@@ -39,7 +39,10 @@ export function BuildChoicesFace() {
   const { choices, setChoice, setPageCount } = useBuilder()
 
   return (
-    <div className="h-full overflow-y-auto p-3 flex flex-col gap-3">
+    <div className="flex h-full flex-col gap-3 overflow-y-auto p-3">
+      <p className="text-[11px] leading-relaxed text-workflow-text-muted">
+        Valen följer med nästa meddelande. De låses först när ett verifierat bygge startar.
+      </p>
       {CHOICE_GROUPS.map((group) => (
         <div key={group.key} className="flex flex-col gap-1.5">
           <span className="font-mono text-[10px] uppercase tracking-wider text-workflow-text-subtle">

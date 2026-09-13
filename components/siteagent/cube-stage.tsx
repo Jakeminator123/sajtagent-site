@@ -13,8 +13,44 @@ import { FlipHorizontal2, GripVertical, Lock, Maximize2, Minimize2, Minus, Plus,
 import { cn } from "@/lib/utils"
 import { FACES, type FaceDef, type FaceId } from "./faces/face-defs"
 import { PreviewStage } from "./preview-stage"
+import { StatusDot } from "./card-states"
 import { useBuilder } from "./builder-store"
 import type { FaceOffset, FaceSize } from "./use-layout-prefs"
+
+function FaceLiveStatus({ id }: { id: FaceId }) {
+  const { agentProjection, isStreaming, sessionStatus, previewStatus } = useBuilder()
+  if (id === "agent" || id === "chat") {
+    const tone =
+      agentProjection.status === "invalid" ||
+      agentProjection.status === "failed" ||
+      sessionStatus === "error"
+        ? "error"
+        : isStreaming || agentProjection.status === "active"
+          ? "live"
+          : agentProjection.status === "awaiting_user"
+            ? "wait"
+            : sessionStatus === "opening"
+              ? "idle"
+              : "ok"
+    const label =
+      tone === "error"
+        ? agentProjection.error ?? "Fel"
+        : tone === "live"
+          ? agentProjection.statusLabel
+          : tone === "wait"
+            ? "Väntar på svar"
+            : tone === "idle"
+              ? "Öppnar"
+              : "Redo"
+    return <StatusDot tone={tone} label={label} />
+  }
+  if (id === "versions" || id === "map") {
+    if (previewStatus === "building") return <StatusDot tone="wait" label="Bygger" />
+    if (previewStatus === "ready") return <StatusDot tone="ok" label="Verifierad" />
+    if (previewStatus === "error") return <StatusDot tone="error" label="Bygget stoppades" />
+  }
+  return null
+}
 
 const spring = { type: "spring" as const, stiffness: 300, damping: 30 }
 
@@ -135,6 +171,7 @@ function FaceCard({
       <GripVertical className="w-3.5 h-3.5 text-workflow-text-subtle -ml-1" />
       <face.icon className="w-4 h-4" />
       <span className="font-mono text-sm font-medium text-workflow-text">{headerLabel}</span>
+      <FaceLiveStatus id={face.id} />
       {face.id === "choices" && locked && <Lock className="w-3 h-3 text-workflow-text-subtle" />}
       <div
         className="ml-auto flex items-center gap-0.5"

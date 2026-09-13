@@ -19,18 +19,21 @@ const BLOCKS = [
 ]
 
 export function BlocksFace() {
-  const { sendMessage, isStreaming } = useBuilder()
+  const { canSendTurn, sendMessage } = useBuilder()
 
   return (
     <div className="h-full overflow-y-auto p-3">
+      <p className="mb-3 text-xs leading-relaxed text-workflow-text-muted">
+        Ett klick skickar en follow-up till Sajtagent. Previewn stannar kvar.
+      </p>
       <div className="grid grid-cols-2 gap-2">
         {BLOCKS.map((block) => (
           <button
             key={block}
             type="button"
-            disabled={isStreaming}
+            disabled={!canSendTurn}
             onClick={() => void sendMessage(`Lägg till ett ${block}-block på sajten.`)}
-            className="rounded-lg border border-workflow-border-subtle p-3 font-mono text-xs text-workflow-text-muted hover:text-workflow-text hover:border-workflow-border hover:bg-workflow-surface-hover transition-colors duration-150 disabled:opacity-40 text-left"
+            className="rounded-lg border border-workflow-border-subtle p-3 text-left font-mono text-xs text-workflow-text-muted transition-colors duration-150 hover:border-workflow-border hover:bg-workflow-surface-hover hover:text-workflow-text disabled:opacity-40"
           >
             {block}
           </button>

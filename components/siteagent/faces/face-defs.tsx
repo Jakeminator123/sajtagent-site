@@ -94,7 +94,7 @@ export const FACES: FaceDef[] = [
     accent: "text-rose-600 dark:text-rose-400",
     edge: "border-rose-500/50",
     column: "right",
-    height: 440,
+    height: 480,
     Component: AgentFace,
   },
 ]

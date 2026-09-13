@@ -55,9 +55,49 @@ assert.match(
   "empty Sajtagent card must say answers appear here",
 )
 assert.match(
+  agentFaceSource,
+  /data-card-state=\{cardState\}/,
+  "Sajtagent card must expose empty/streaming/ready/error state",
+)
+assert.match(
+  agentFaceSource,
+  /data-agent-streaming="waiting"/,
+  "Sajtagent card must have a waiting-for-delta streaming state",
+)
+assert.match(
+  agentFaceSource,
+  /Sajtagent tänker…/,
+  "streaming placeholder must reuse the thinking label",
+)
+assert.match(
+  agentFaceSource,
+  /Ny chatt krävs/,
+  "fail-closed integrity errors must tell the user to start a new chat",
+)
+assert.doesNotMatch(
+  agentFaceSource,
+  /OpenClaw/,
+  "Sajtagent card copy must not name the OpenClaw runtime",
+)
+assert.doesNotMatch(
+  agentFaceSource,
+  /siteagent-did-slot/,
+  "the unused video-avatar slot must not occupy the Sajtagent conversation card",
+)
+assert.match(
   chatFaceSource,
   /Svaret syns i Sajtagent-kortet/,
   "ready Chat placeholder must point answers to the Sajtagent card",
+)
+assert.match(
+  chatFaceSource,
+  /Sajtagent svarar i sitt kort/,
+  "Chat must show a waiting state while Sajtagent streams",
+)
+assert.doesNotMatch(
+  chatFaceSource,
+  /ImageIcon|Textbilagor är inte anslutna/,
+  "Chat must not show unfinished attachment chrome",
 )
 assert.match(
   agentWidgetSource,
@@ -117,6 +157,26 @@ assert.match(
   previewStageSource,
   /Previewn stannar här så du kan fortsätta prompta/,
   "Preview copy must describe continued conversation, not a one-shot build",
+)
+assert.match(
+  previewStageSource,
+  /data-preview-status=\{previewStatus\}/,
+  "Preview chrome must expose idle/building/ready/error status",
+)
+assert.match(
+  previewStageSource,
+  /previewAddressLabel/,
+  "Preview must not invent a fake site URL before a version exists",
+)
+assert.doesNotMatch(
+  previewStageSource,
+  /din-sajt\.siteagent\.app/,
+  "empty Preview must not show a placeholder product domain",
+)
+assert.match(
+  builderStoreSource,
+  /canSendTurn/,
+  "Chat and Blocks must share one turn-send gate",
 )
 assert.match(heroSource, /lokal beta/, "the hero must label the current product state as beta")
 assert.doesNotMatch(heroSource, /färdig webbplats|bygger sidan|tio sekunder/, "the hero must not claim unavailable build automation")

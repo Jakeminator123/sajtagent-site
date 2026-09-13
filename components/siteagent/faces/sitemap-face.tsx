@@ -3,18 +3,19 @@
 // Tärningssida: Karta — visuell/logisk sajtkarta över användarsajten.
 
 import React from "react"
-import { GitBranch, ShieldCheck } from "lucide-react"
+import { GitBranch, Map, ShieldCheck } from "lucide-react"
+import { CardEmpty } from "../card-states"
 import { useBuilder } from "../builder-store"
 
 export function SitemapFace() {
   const { previewStatus, sitemapRevision } = useBuilder()
 
   return (
-    <div className="h-full overflow-y-auto p-4">
+    <div className="flex h-full flex-col overflow-y-auto p-4">
       {previewStatus !== "ready" || !sitemapRevision ? (
-        <p className="text-xs text-workflow-text-subtle text-center py-12 leading-relaxed">
+        <CardEmpty icon={<Map className="h-5 w-5 text-violet-500" />} title="Ingen karta ännu">
           Sajtkartan visas först när ett bygge har verifierats.
-        </p>
+        </CardEmpty>
       ) : (
         <div className="flex flex-col items-center gap-0">
           <div className="flex items-center gap-1.5 rounded-lg border-2 border-foreground/60 bg-workflow-node-input px-4 py-2 font-mono text-xs text-workflow-text">

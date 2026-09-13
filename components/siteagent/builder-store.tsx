@@ -51,6 +51,7 @@ interface BuilderStore {
 
   messages: ChatMessage[]
   isStreaming: boolean
+  canSendTurn: boolean
   sessionStatus: SessionStatusV1
   agentProjection: AgentEventProjectionV1
   sendMessage: (text: string, opts?: { mode?: string }) => Promise<void>
@@ -203,6 +204,11 @@ export function BuilderProvider({ children }: { children: ReactNode }) {
       : buildFailed
         ? "error"
         : "idle"
+  const canSendTurn =
+    !isStreaming &&
+    sessionStatus === "ready" &&
+    !agentProjection.pendingQuestion &&
+    agentProjection.status !== "invalid"
 
   const pushLog = useCallback((line: string) => {
     const timestamp = new Date().toLocaleTimeString("sv-SE", { hour12: false })
@@ -689,6 +695,7 @@ export function BuilderProvider({ children }: { children: ReactNode }) {
       setPageCount,
       messages,
       isStreaming,
+      canSendTurn,
       sessionStatus,
       agentProjection,
       sendMessage,
@@ -712,6 +719,7 @@ export function BuilderProvider({ children }: { children: ReactNode }) {
       setPageCount,
       messages,
       isStreaming,
+      canSendTurn,
       sessionStatus,
       agentProjection,
       sendMessage,

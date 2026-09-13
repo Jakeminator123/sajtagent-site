@@ -571,6 +571,14 @@ assert.match(
   /Sajtagents svar visas i det här kortet/,
   "empty AgentFace copy must tell users answers appear in this card",
 )
+assert.match(agentFaceSource, /data-agent-streaming/)
+assert.match(agentFaceSource, /data-card-state/)
+assert.match(agentFaceSource, /SESSION_TURN_MISMATCH_MESSAGE_V1/)
+assert.match(agentFaceSource, /toolStatusLabel/)
+assert.doesNotMatch(agentFaceSource, /OpenClaw/)
+assert.doesNotMatch(agentFaceSource, /siteagent-did-slot/)
+assert.match(previewSource, /data-preview-status/)
+assert.match(storeSource, /canSendTurn/)
 
 const summarizedBuildEvents: AgentEventV1[] = [
   event({

@@ -8,6 +8,7 @@
 //   för kommande undermenyer från sajtmaskins builder ("+"-flödet).
 
 import { useEffect, useRef } from "react"
+import { toolStatusLabel } from "../card-states"
 import { useBuilder } from "../builder-store"
 
 export function LogBack() {
@@ -22,7 +23,7 @@ export function LogBack() {
     <div ref={ref} className="h-full overflow-y-auto bg-workflow-node-input p-3 flex flex-col gap-1">
       {logs.length === 0 ? (
         <p className="font-mono text-[10px] text-workflow-text-subtle">
-          Loggen är tom — skicka en prompt så strömmar motorns händelser här.
+          Loggen är tom — skicka en prompt så strömmar händelserna här.
         </p>
       ) : (
         logs.map((line, i) => (
@@ -56,7 +57,7 @@ export function EngineBack() {
           <p className="text-xs text-workflow-text-muted">
             {buildStarted
               ? "Ett verifierat build-event har startat ett bygge."
-              : "Inget bygge har startats i den här chatten."}
+              : "Inget bygge har startats i den här chatten. Vanliga svar syns i Sajtagent-kortet."}
           </p>
         </div>
       </div>
@@ -72,7 +73,7 @@ export function EngineBack() {
         ) : (
           tools.map((tool) => (
             <p key={tool.toolCallId} className="font-mono text-[10px] text-workflow-text-muted leading-relaxed">
-              {tool.safeLabel}: {tool.status}
+              {tool.safeLabel}: {toolStatusLabel(tool.status)}
             </p>
           ))
         )}
@@ -85,7 +86,7 @@ export function BlankBack() {
   return (
     <div className="h-full flex items-center justify-center p-4">
       <p className="font-mono text-[10px] text-workflow-text-subtle text-center leading-relaxed">
-        Baksida — reserverad.
+        Inget extra här. Blocks skickar follow-ups från framsidan.
       </p>
     </div>
   )

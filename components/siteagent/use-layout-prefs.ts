@@ -23,7 +23,10 @@ const DEFAULT_DOCKED: FaceId[] = ["choices", "versions", "blocks", "map"]
 function defaultSizes(): Record<FaceId, FaceSize> {
   const sizes = {} as Record<FaceId, FaceSize>
   for (const f of FACES) {
-    sizes[f.id] = { w: f.column === "left" ? 360 : 340, h: f.height }
+    sizes[f.id] = {
+      w: f.id === "agent" ? 380 : f.column === "left" ? 360 : 340,
+      h: f.height,
+    }
   }
   return sizes
 }

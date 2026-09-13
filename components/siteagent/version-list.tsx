@@ -1,7 +1,8 @@
 "use client"
 
-import { Download, Loader2, Pin, RotateCcw, ShieldCheck, TriangleAlert } from "lucide-react"
+import { Clock, Download, Loader2, Pin, RotateCcw, ShieldCheck, TriangleAlert } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { CardEmpty } from "./card-states"
 import { useBuilder } from "./builder-store"
 
 export function VersionList() {
@@ -21,7 +22,7 @@ export function VersionList() {
     (agentProjection.status === "failed" || agentProjection.status === "invalid")
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex h-full flex-col gap-2">
       {pending ? (
         <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-2.5">
           <Loader2 className="mt-0.5 h-3.5 w-3.5 shrink-0 animate-spin text-amber-600 dark:text-amber-400" />
@@ -46,11 +47,15 @@ export function VersionList() {
         </div>
       ) : null}
 
-      {versions.length === 0 ? (
-        <p className="py-8 text-center text-xs leading-relaxed text-workflow-text-subtle">
+      {versions.length === 0 && !pending && !failed ? (
+        <CardEmpty icon={<Clock className="h-5 w-5 text-brand-teal" />} title="Inga versioner ännu">
           Inga verifierade versioner ännu.
           <br />
           Skriv till Sajtagent i Chatt-kortet för att skapa den första.
+        </CardEmpty>
+      ) : versions.length === 0 ? (
+        <p className="px-1 text-[10px] leading-relaxed text-workflow-text-subtle">
+          Inga verifierade versioner ännu.
         </p>
       ) : (
         versions.map((version) => (

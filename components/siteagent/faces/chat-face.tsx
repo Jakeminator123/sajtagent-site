@@ -60,10 +60,10 @@ export function ChatFace() {
 
   const statusLine = hasPendingQuestion
     ? "Svara på frågan i Sajtagent-kortet"
-    : agentProjection.status === "invalid"
-      ? "Starta en ny chatt efter integritetsfelet"
-      : sessionStatus === "error"
-        ? "Sessionen kunde inte öppnas. Prova Ny chatt."
+    : sessionStatus === "error"
+      ? "Sessionen kunde inte öppnas. Logga in eller prova Ny chatt."
+      : agentProjection.status === "invalid"
+        ? "Starta en ny chatt efter integritetsfelet"
         : sessionStatus === "opening"
           ? "Öppnar Sajtagent-session…"
           : isStreaming
@@ -153,7 +153,9 @@ export function ChatFace() {
                 ? "Svara i Sajtagent-kortet…"
                 : sessionStatus === "opening"
                   ? "Öppnar session…"
-                  : "Svaret syns i Sajtagent-kortet"
+                  : sessionStatus === "error" || agentProjection.status === "invalid"
+                    ? "Starta en ny chatt…"
+                    : "Svaret syns i Sajtagent-kortet"
             }
             rows={2}
             className="flex-1 resize-none rounded-md bg-workflow-node-input border border-workflow-border-subtle px-2.5 py-2 text-xs text-workflow-text placeholder:text-workflow-text-subtle focus:outline-none focus:ring-1 focus:ring-workflow-border"

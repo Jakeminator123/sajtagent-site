@@ -74,6 +74,21 @@ assert.match(
   /Ny chatt krävs/,
   "fail-closed integrity errors must tell the user to start a new chat",
 )
+assert.match(
+  agentFaceSource,
+  /Kunde inte öppna sessionen/,
+  "session-open failure must not be presented as an integrity stop",
+)
+assert.match(
+  agentFaceSource,
+  /sessionOpenFailure/,
+  "Sajtagent must distinguish a failed session open from a fail-closed stream",
+)
+assert.match(
+  chatFaceSource,
+  /Sessionen kunde inte öppnas\. Logga in eller prova Ny chatt\./,
+  "Chat must explain a failed session open before talking about integrity",
+)
 assert.doesNotMatch(
   agentFaceSource,
   /OpenClaw/,

@@ -211,9 +211,11 @@ export function AgentFace() {
     isStreaming && activeTurn && !activeTurn.terminal ? activeTurn.turnId : null
   const retryableFailure =
     latestTurn?.terminal?.kind === "failed" && latestTurn.terminal.retryable
+  const sessionOpenFailure = sessionStatus === "error"
   const integrityFailure =
-    agentProjection.status === "invalid" ||
-    agentProjection.error === SESSION_TURN_MISMATCH_MESSAGE_V1
+    !sessionOpenFailure &&
+    (agentProjection.status === "invalid" ||
+      agentProjection.error === SESSION_TURN_MISMATCH_MESSAGE_V1)
   const cardState = agentCardState({
     sessionStatus,
     projectionStatus: agentProjection.status,
@@ -235,11 +237,13 @@ export function AgentFace() {
         ? "Sajtagent lyssnar"
         : agentProjection.statusLabel
 
-  const errorHint = integrityFailure
-    ? "Starta en ny chatt i toppfältet. Den här sessionen kan inte fortsätta."
-    : retryableFailure
-      ? "Du kan skicka igen i Chatt-kortet."
-      : "Sajtagent stoppade turen felsäkert."
+  const errorHint = sessionOpenFailure
+    ? "Logga in om du inte redan gjort det, eller prova Ny chatt."
+    : integrityFailure
+      ? "Starta en ny chatt i toppfältet. Den här sessionen kan inte fortsätta."
+      : retryableFailure
+        ? "Du kan skicka igen i Chatt-kortet."
+        : "Sajtagent stoppade turen felsäkert."
 
   return (
     <div className="flex h-full flex-col" data-card-state={cardState} aria-busy={isStreaming}>
@@ -251,7 +255,13 @@ export function AgentFace() {
             <CardEmpty
               tone="error"
               icon={<TriangleAlert className="h-5 w-5" />}
-              title={integrityFailure ? "Sessionen stoppades" : "Sajtagent kunde inte svara"}
+              title={
+                sessionOpenFailure
+                  ? "Kunde inte öppna sessionen"
+                  : integrityFailure
+                    ? "Sessionen stoppades"
+                    : "Sajtagent kunde inte svara"
+              }
             >
               <p>{agentProjection.error}</p>
               <p className="mt-2 text-workflow-text-subtle">{errorHint}</p>
@@ -403,7 +413,7 @@ export function AgentFace() {
         )}
         <span className="min-w-0 truncate">
           {agentProjection.statusLabel}
-          {integrityFailure ? " · Ny chatt krävs" : null}
+          {integrityFailure ? " · Ny chatt krävs" : sessionOpenFailure ? " · Ny chatt eller inloggning" : null}
         </span>
       </div>
     </div>

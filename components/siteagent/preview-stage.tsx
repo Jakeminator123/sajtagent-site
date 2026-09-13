@@ -61,23 +61,23 @@ export function PreviewStage() {
               <span className="w-2.5 h-2.5 rounded-full bg-emerald-400" />
             </div>
             <div className="flex-1 flex items-center justify-center">
-              <div className="flex items-center gap-1.5 bg-white dark:bg-zinc-50 border border-zinc-200 rounded-full px-3 py-1 max-w-[420px] w-full justify-center">
-                <Globe className="w-3 h-3 text-zinc-400" />
-                <span className="font-mono text-[11px] text-zinc-500 truncate">
+              <div className="flex items-center gap-2 bg-white dark:bg-zinc-50 border border-zinc-200 rounded-full px-3 py-1 max-w-[480px] w-full">
+                <Globe className="w-3 h-3 shrink-0 text-zinc-400" />
+                <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-zinc-500">
                   {address}
+                </span>
+                <span
+                  data-preview-status={previewStatus}
+                  className={cn(
+                    "shrink-0 rounded-full px-2 py-0.5 font-mono text-[10px] leading-none",
+                    chip.className,
+                  )}
+                >
+                  {chip.label}
                 </span>
               </div>
             </div>
             <div className="flex items-center gap-1.5">
-              <span
-                data-preview-status={previewStatus}
-                className={cn(
-                  "rounded-full px-2 py-0.5 font-mono text-[10px] leading-none",
-                  chip.className,
-                )}
-              >
-                {chip.label}
-              </span>
               {previewUrl && (
                 <a
                   href={previewUrl}

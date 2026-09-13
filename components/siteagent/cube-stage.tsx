@@ -240,10 +240,7 @@ function FaceCard({
       onDragEnd={() => moveFace(face.id, x.get(), y.get())}
       onPointerDown={startBodyDrag}
       style={{ width: size.w, height: size.h, x, y, perspective: 1400 }}
-      className={cn(
-        "relative pointer-events-auto shrink-0",
-        face.id === "agent" && "mt-auto"
-      )}
+      className="relative pointer-events-auto shrink-0"
     >
       <motion.div
         animate={{ rotateY: flipped ? 180 : 0 }}

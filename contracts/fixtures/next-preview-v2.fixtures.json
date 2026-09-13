@@ -1,0 +1,1510 @@
+{
+  "schemaCases": [
+    {
+      "name": "valid deployment owner",
+      "schema": "DeploymentOwnerV2",
+      "expectValid": true,
+      "value": {
+        "tenantId": "tenant:one",
+        "projectId": "project:one",
+        "principalId": "11111111-1111-4111-8111-111111111111"
+      }
+    },
+    {
+      "name": "owner rejects uncontracted fields",
+      "schema": "DeploymentOwnerV2",
+      "expectValid": false,
+      "value": {
+        "tenantId": "tenant:one",
+        "projectId": "project:one",
+        "principalId": "11111111-1111-4111-8111-111111111111",
+        "spriteId": "sprite:hidden"
+      }
+    },
+    {
+      "name": "valid source binding",
+      "schema": "DeploymentSourceBindingV2",
+      "expectValid": true,
+      "value": {
+        "jobId": "job:wave-1",
+        "sourceRevisionId": "revision:sha256:1111111111111111111111111111111111111111111111111111111111111111"
+      }
+    },
+    {
+      "name": "source binding requires exact sha256 revision",
+      "schema": "DeploymentSourceBindingV2",
+      "expectValid": false,
+      "value": {
+        "jobId": "job:wave-1",
+        "sourceRevisionId": "revision:base"
+      }
+    },
+    {
+      "name": "valid owner-authenticated access requirement",
+      "schema": "PreviewAccessRequirementV2",
+      "expectValid": true,
+      "value": {
+        "schemaVersion": 2,
+        "mode": "owner_authenticated",
+        "owner": {
+          "tenantId": "tenant:one",
+          "projectId": "project:one",
+          "principalId": "11111111-1111-4111-8111-111111111111"
+        }
+      }
+    },
+    {
+      "name": "access requirement rejects public mode",
+      "schema": "PreviewAccessRequirementV2",
+      "expectValid": false,
+      "value": {
+        "schemaVersion": 2,
+        "mode": "public",
+        "owner": {
+          "tenantId": "tenant:one",
+          "projectId": "project:one",
+          "principalId": "11111111-1111-4111-8111-111111111111"
+        }
+      }
+    },
+    {
+      "name": "valid first-wave building deployment",
+      "schema": "NextPreviewDeploymentV2",
+      "expectValid": true,
+      "value": {
+        "schemaVersion": 2,
+        "kind": "next",
+        "deploymentId": "deployment:one",
+        "owner": {
+          "tenantId": "tenant:one",
+          "projectId": "project:one",
+          "principalId": "11111111-1111-4111-8111-111111111111"
+        },
+        "access": {
+          "schemaVersion": 2,
+          "mode": "owner_authenticated",
+          "owner": {
+            "tenantId": "tenant:one",
+            "projectId": "project:one",
+            "principalId": "11111111-1111-4111-8111-111111111111"
+          }
+        },
+        "sourceBinding": {
+          "jobId": "job:wave-1",
+          "sourceRevisionId": "revision:sha256:1111111111111111111111111111111111111111111111111111111111111111"
+        },
+        "build": {
+          "status": "building",
+          "jobId": "job:wave-1",
+          "sourceRevisionId": "revision:sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "startedAt": "2026-09-13T12:00:00.000Z"
+        },
+        "acceptedRevision": null
+      }
+    },
+    {
+      "name": "valid first-wave failed deployment",
+      "schema": "NextPreviewDeploymentV2",
+      "expectValid": true,
+      "value": {
+        "schemaVersion": 2,
+        "kind": "next",
+        "deploymentId": "deployment:one",
+        "owner": {
+          "tenantId": "tenant:one",
+          "projectId": "project:one",
+          "principalId": "11111111-1111-4111-8111-111111111111"
+        },
+        "access": {
+          "schemaVersion": 2,
+          "mode": "owner_authenticated",
+          "owner": {
+            "tenantId": "tenant:one",
+            "projectId": "project:one",
+            "principalId": "11111111-1111-4111-8111-111111111111"
+          }
+        },
+        "sourceBinding": {
+          "jobId": "job:wave-1",
+          "sourceRevisionId": "revision:sha256:1111111111111111111111111111111111111111111111111111111111111111"
+        },
+        "build": {
+          "status": "failed",
+          "jobId": "job:wave-1",
+          "sourceRevisionId": "revision:sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "failedAt": "2026-09-13T12:04:00.000Z",
+          "code": "worker_failed",
+          "message": "Next preview build failed.",
+          "retryable": true
+        },
+        "acceptedRevision": null
+      }
+    },
+    {
+      "name": "valid accepted next preview",
+      "schema": "NextPreviewDeploymentV2",
+      "expectValid": true,
+      "value": {
+        "schemaVersion": 2,
+        "kind": "next",
+        "deploymentId": "deployment:one",
+        "owner": {
+          "tenantId": "tenant:one",
+          "projectId": "project:one",
+          "principalId": "11111111-1111-4111-8111-111111111111"
+        },
+        "access": {
+          "schemaVersion": 2,
+          "mode": "owner_authenticated",
+          "owner": {
+            "tenantId": "tenant:one",
+            "projectId": "project:one",
+            "principalId": "11111111-1111-4111-8111-111111111111"
+          }
+        },
+        "sourceBinding": {
+          "jobId": "job:wave-1",
+          "sourceRevisionId": "revision:sha256:1111111111111111111111111111111111111111111111111111111111111111"
+        },
+        "build": {
+          "status": "accepted",
+          "jobId": "job:wave-1",
+          "sourceRevisionId": "revision:sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "acceptedAt": "2026-09-13T12:05:00.000Z"
+        },
+        "acceptedRevision": {
+          "revisionId": "revision:sha256:2222222222222222222222222222222222222222222222222222222222222222",
+          "jobId": "job:wave-1",
+          "sourceRevisionId": "revision:sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "previewRef": "preview:accepted-wave-one",
+          "acceptedAt": "2026-09-13T12:05:00.000Z"
+        }
+      }
+    },
+    {
+      "name": "valid building wave retains accepted revision",
+      "schema": "NextPreviewDeploymentV2",
+      "expectValid": true,
+      "value": {
+        "schemaVersion": 2,
+        "kind": "next",
+        "deploymentId": "deployment:one",
+        "owner": {
+          "tenantId": "tenant:one",
+          "projectId": "project:one",
+          "principalId": "11111111-1111-4111-8111-111111111111"
+        },
+        "access": {
+          "schemaVersion": 2,
+          "mode": "owner_authenticated",
+          "owner": {
+            "tenantId": "tenant:one",
+            "projectId": "project:one",
+            "principalId": "11111111-1111-4111-8111-111111111111"
+          }
+        },
+        "sourceBinding": {
+          "jobId": "job:wave-2",
+          "sourceRevisionId": "revision:sha256:3333333333333333333333333333333333333333333333333333333333333333"
+        },
+        "build": {
+          "status": "building",
+          "jobId": "job:wave-2",
+          "sourceRevisionId": "revision:sha256:3333333333333333333333333333333333333333333333333333333333333333",
+          "startedAt": "2026-09-13T12:10:00.000Z"
+        },
+        "acceptedRevision": {
+          "revisionId": "revision:sha256:2222222222222222222222222222222222222222222222222222222222222222",
+          "jobId": "job:wave-1",
+          "sourceRevisionId": "revision:sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "previewRef": "preview:accepted-wave-one",
+          "acceptedAt": "2026-09-13T12:05:00.000Z"
+        }
+      }
+    },
+    {
+      "name": "valid failed wave retains accepted revision",
+      "schema": "NextPreviewDeploymentV2",
+      "expectValid": true,
+      "value": {
+        "schemaVersion": 2,
+        "kind": "next",
+        "deploymentId": "deployment:one",
+        "owner": {
+          "tenantId": "tenant:one",
+          "projectId": "project:one",
+          "principalId": "11111111-1111-4111-8111-111111111111"
+        },
+        "access": {
+          "schemaVersion": 2,
+          "mode": "owner_authenticated",
+          "owner": {
+            "tenantId": "tenant:one",
+            "projectId": "project:one",
+            "principalId": "11111111-1111-4111-8111-111111111111"
+          }
+        },
+        "sourceBinding": {
+          "jobId": "job:wave-2",
+          "sourceRevisionId": "revision:sha256:3333333333333333333333333333333333333333333333333333333333333333"
+        },
+        "build": {
+          "status": "failed",
+          "jobId": "job:wave-2",
+          "sourceRevisionId": "revision:sha256:3333333333333333333333333333333333333333333333333333333333333333",
+          "failedAt": "2026-09-13T12:12:00.000Z",
+          "code": "verification_failed",
+          "message": "Next preview verification failed.",
+          "retryable": false
+        },
+        "acceptedRevision": {
+          "revisionId": "revision:sha256:2222222222222222222222222222222222222222222222222222222222222222",
+          "jobId": "job:wave-1",
+          "sourceRevisionId": "revision:sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "previewRef": "preview:accepted-wave-one",
+          "acceptedAt": "2026-09-13T12:05:00.000Z"
+        }
+      }
+    },
+    {
+      "name": "accepted build cannot omit acceptedRevision",
+      "schema": "NextPreviewDeploymentV2",
+      "expectValid": false,
+      "value": {
+        "schemaVersion": 2,
+        "kind": "next",
+        "deploymentId": "deployment:one",
+        "owner": {
+          "tenantId": "tenant:one",
+          "projectId": "project:one",
+          "principalId": "11111111-1111-4111-8111-111111111111"
+        },
+        "access": {
+          "schemaVersion": 2,
+          "mode": "owner_authenticated",
+          "owner": {
+            "tenantId": "tenant:one",
+            "projectId": "project:one",
+            "principalId": "11111111-1111-4111-8111-111111111111"
+          }
+        },
+        "sourceBinding": {
+          "jobId": "job:wave-1",
+          "sourceRevisionId": "revision:sha256:1111111111111111111111111111111111111111111111111111111111111111"
+        },
+        "build": {
+          "status": "accepted",
+          "jobId": "job:wave-1",
+          "sourceRevisionId": "revision:sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "acceptedAt": "2026-09-13T12:05:00.000Z"
+        },
+        "acceptedRevision": null
+      }
+    },
+    {
+      "name": "failed wave cannot claim its own job as acceptedRevision",
+      "schema": "NextPreviewDeploymentV2",
+      "expectValid": false,
+      "value": {
+        "schemaVersion": 2,
+        "kind": "next",
+        "deploymentId": "deployment:one",
+        "owner": {
+          "tenantId": "tenant:one",
+          "projectId": "project:one",
+          "principalId": "11111111-1111-4111-8111-111111111111"
+        },
+        "access": {
+          "schemaVersion": 2,
+          "mode": "owner_authenticated",
+          "owner": {
+            "tenantId": "tenant:one",
+            "projectId": "project:one",
+            "principalId": "11111111-1111-4111-8111-111111111111"
+          }
+        },
+        "sourceBinding": {
+          "jobId": "job:wave-2",
+          "sourceRevisionId": "revision:sha256:3333333333333333333333333333333333333333333333333333333333333333"
+        },
+        "build": {
+          "status": "failed",
+          "jobId": "job:wave-2",
+          "sourceRevisionId": "revision:sha256:3333333333333333333333333333333333333333333333333333333333333333",
+          "failedAt": "2026-09-13T12:12:00.000Z",
+          "code": "worker_failed",
+          "message": "Next preview build failed.",
+          "retryable": true
+        },
+        "acceptedRevision": {
+          "revisionId": "revision:sha256:4444444444444444444444444444444444444444444444444444444444444444",
+          "jobId": "job:wave-2",
+          "sourceRevisionId": "revision:sha256:3333333333333333333333333333333333333333333333333333333333333333",
+          "previewRef": "preview:failed-as-accepted",
+          "acceptedAt": "2026-09-13T12:12:00.000Z"
+        }
+      }
+    },
+    {
+      "name": "build jobId must match source binding",
+      "schema": "NextPreviewDeploymentV2",
+      "expectValid": false,
+      "value": {
+        "schemaVersion": 2,
+        "kind": "next",
+        "deploymentId": "deployment:one",
+        "owner": {
+          "tenantId": "tenant:one",
+          "projectId": "project:one",
+          "principalId": "11111111-1111-4111-8111-111111111111"
+        },
+        "access": {
+          "schemaVersion": 2,
+          "mode": "owner_authenticated",
+          "owner": {
+            "tenantId": "tenant:one",
+            "projectId": "project:one",
+            "principalId": "11111111-1111-4111-8111-111111111111"
+          }
+        },
+        "sourceBinding": {
+          "jobId": "job:wave-1",
+          "sourceRevisionId": "revision:sha256:1111111111111111111111111111111111111111111111111111111111111111"
+        },
+        "build": {
+          "status": "building",
+          "jobId": "job:other",
+          "sourceRevisionId": "revision:sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "startedAt": "2026-09-13T12:00:00.000Z"
+        },
+        "acceptedRevision": null
+      }
+    },
+    {
+      "name": "deployment rejects schemaVersion 1",
+      "schema": "NextPreviewDeploymentV2",
+      "expectValid": false,
+      "value": {
+        "schemaVersion": 1,
+        "kind": "next",
+        "deploymentId": "deployment:one",
+        "owner": {
+          "tenantId": "tenant:one",
+          "projectId": "project:one",
+          "principalId": "11111111-1111-4111-8111-111111111111"
+        },
+        "access": {
+          "schemaVersion": 2,
+          "mode": "owner_authenticated",
+          "owner": {
+            "tenantId": "tenant:one",
+            "projectId": "project:one",
+            "principalId": "11111111-1111-4111-8111-111111111111"
+          }
+        },
+        "sourceBinding": {
+          "jobId": "job:wave-1",
+          "sourceRevisionId": "revision:sha256:1111111111111111111111111111111111111111111111111111111111111111"
+        },
+        "build": {
+          "status": "building",
+          "jobId": "job:wave-1",
+          "sourceRevisionId": "revision:sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "startedAt": "2026-09-13T12:00:00.000Z"
+        },
+        "acceptedRevision": null
+      }
+    },
+    {
+      "name": "anonymous principal",
+      "schema": "PreviewAccessPrincipalV2",
+      "expectValid": true,
+      "value": {
+        "kind": "anonymous"
+      }
+    },
+    {
+      "name": "authenticated owner principal",
+      "schema": "PreviewAccessPrincipalV2",
+      "expectValid": true,
+      "value": {
+        "kind": "authenticated",
+        "tenantId": "tenant:one",
+        "principalId": "11111111-1111-4111-8111-111111111111"
+      }
+    },
+    {
+      "name": "anonymous principal rejects extra fields",
+      "schema": "PreviewAccessPrincipalV2",
+      "expectValid": false,
+      "value": {
+        "kind": "anonymous",
+        "principalId": "11111111-1111-4111-8111-111111111111"
+      }
+    },
+    {
+      "name": "valid owner access attempt",
+      "schema": "PreviewAccessAttemptV2",
+      "expectValid": true,
+      "value": {
+        "schemaVersion": 2,
+        "deploymentId": "deployment:one",
+        "access": {
+          "schemaVersion": 2,
+          "mode": "owner_authenticated",
+          "owner": {
+            "tenantId": "tenant:one",
+            "projectId": "project:one",
+            "principalId": "11111111-1111-4111-8111-111111111111"
+          }
+        },
+        "principal": {
+          "kind": "authenticated",
+          "tenantId": "tenant:one",
+          "principalId": "11111111-1111-4111-8111-111111111111"
+        }
+      }
+    },
+    {
+      "name": "allow decision requires owner_authenticated reason",
+      "schema": "PreviewAccessDecisionV2",
+      "expectValid": true,
+      "value": {
+        "schemaVersion": 2,
+        "decision": "allow",
+        "reason": "owner_authenticated"
+      }
+    },
+    {
+      "name": "allow cannot use a deny reason",
+      "schema": "PreviewAccessDecisionV2",
+      "expectValid": false,
+      "value": {
+        "schemaVersion": 2,
+        "decision": "allow",
+        "reason": "unauthenticated"
+      }
+    }
+  ],
+  "accessCases": [
+    {
+      "name": "logged-in owner is allowed",
+      "expectValid": true,
+      "access": {
+        "schemaVersion": 2,
+        "mode": "owner_authenticated",
+        "owner": {
+          "tenantId": "tenant:one",
+          "projectId": "project:one",
+          "principalId": "11111111-1111-4111-8111-111111111111"
+        }
+      },
+      "principal": {
+        "kind": "authenticated",
+        "tenantId": "tenant:one",
+        "principalId": "11111111-1111-4111-8111-111111111111"
+      },
+      "expectedDecision": {
+        "schemaVersion": 2,
+        "decision": "allow",
+        "reason": "owner_authenticated"
+      }
+    },
+    {
+      "name": "logged-out visitor is denied",
+      "expectValid": true,
+      "access": {
+        "schemaVersion": 2,
+        "mode": "owner_authenticated",
+        "owner": {
+          "tenantId": "tenant:one",
+          "projectId": "project:one",
+          "principalId": "11111111-1111-4111-8111-111111111111"
+        }
+      },
+      "principal": {
+        "kind": "anonymous"
+      },
+      "expectedDecision": {
+        "schemaVersion": 2,
+        "decision": "deny",
+        "reason": "unauthenticated"
+      }
+    },
+    {
+      "name": "other customer is denied",
+      "expectValid": true,
+      "access": {
+        "schemaVersion": 2,
+        "mode": "owner_authenticated",
+        "owner": {
+          "tenantId": "tenant:one",
+          "projectId": "project:one",
+          "principalId": "11111111-1111-4111-8111-111111111111"
+        }
+      },
+      "principal": {
+        "kind": "authenticated",
+        "tenantId": "tenant:one",
+        "principalId": "22222222-2222-4222-8222-222222222222"
+      },
+      "expectedDecision": {
+        "schemaVersion": 2,
+        "decision": "deny",
+        "reason": "principal_mismatch"
+      }
+    },
+    {
+      "name": "other tenant is denied",
+      "expectValid": true,
+      "access": {
+        "schemaVersion": 2,
+        "mode": "owner_authenticated",
+        "owner": {
+          "tenantId": "tenant:one",
+          "projectId": "project:one",
+          "principalId": "11111111-1111-4111-8111-111111111111"
+        }
+      },
+      "principal": {
+        "kind": "authenticated",
+        "tenantId": "tenant:other",
+        "principalId": "11111111-1111-4111-8111-111111111111"
+      },
+      "expectedDecision": {
+        "schemaVersion": 2,
+        "decision": "deny",
+        "reason": "tenant_mismatch"
+      }
+    },
+    {
+      "name": "claimed allow for anonymous visitor is rejected",
+      "expectValid": false,
+      "access": {
+        "schemaVersion": 2,
+        "mode": "owner_authenticated",
+        "owner": {
+          "tenantId": "tenant:one",
+          "projectId": "project:one",
+          "principalId": "11111111-1111-4111-8111-111111111111"
+        }
+      },
+      "principal": {
+        "kind": "anonymous"
+      },
+      "expectedDecision": {
+        "schemaVersion": 2,
+        "decision": "allow",
+        "reason": "owner_authenticated"
+      }
+    }
+  ],
+  "waveCases": [
+    {
+      "name": "accepted revision survives a later failed wave",
+      "expectValid": true,
+      "previous": {
+        "schemaVersion": 2,
+        "kind": "next",
+        "deploymentId": "deployment:one",
+        "owner": {
+          "tenantId": "tenant:one",
+          "projectId": "project:one",
+          "principalId": "11111111-1111-4111-8111-111111111111"
+        },
+        "access": {
+          "schemaVersion": 2,
+          "mode": "owner_authenticated",
+          "owner": {
+            "tenantId": "tenant:one",
+            "projectId": "project:one",
+            "principalId": "11111111-1111-4111-8111-111111111111"
+          }
+        },
+        "sourceBinding": {
+          "jobId": "job:wave-1",
+          "sourceRevisionId": "revision:sha256:1111111111111111111111111111111111111111111111111111111111111111"
+        },
+        "build": {
+          "status": "accepted",
+          "jobId": "job:wave-1",
+          "sourceRevisionId": "revision:sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "acceptedAt": "2026-09-13T12:05:00.000Z"
+        },
+        "acceptedRevision": {
+          "revisionId": "revision:sha256:2222222222222222222222222222222222222222222222222222222222222222",
+          "jobId": "job:wave-1",
+          "sourceRevisionId": "revision:sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "previewRef": "preview:accepted-wave-one",
+          "acceptedAt": "2026-09-13T12:05:00.000Z"
+        }
+      },
+      "next": {
+        "schemaVersion": 2,
+        "kind": "next",
+        "deploymentId": "deployment:one",
+        "owner": {
+          "tenantId": "tenant:one",
+          "projectId": "project:one",
+          "principalId": "11111111-1111-4111-8111-111111111111"
+        },
+        "access": {
+          "schemaVersion": 2,
+          "mode": "owner_authenticated",
+          "owner": {
+            "tenantId": "tenant:one",
+            "projectId": "project:one",
+            "principalId": "11111111-1111-4111-8111-111111111111"
+          }
+        },
+        "sourceBinding": {
+          "jobId": "job:wave-2",
+          "sourceRevisionId": "revision:sha256:3333333333333333333333333333333333333333333333333333333333333333"
+        },
+        "build": {
+          "status": "failed",
+          "jobId": "job:wave-2",
+          "sourceRevisionId": "revision:sha256:3333333333333333333333333333333333333333333333333333333333333333",
+          "failedAt": "2026-09-13T12:12:00.000Z",
+          "code": "verification_failed",
+          "message": "Next preview verification failed.",
+          "retryable": false
+        },
+        "acceptedRevision": {
+          "revisionId": "revision:sha256:2222222222222222222222222222222222222222222222222222222222222222",
+          "jobId": "job:wave-1",
+          "sourceRevisionId": "revision:sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "previewRef": "preview:accepted-wave-one",
+          "acceptedAt": "2026-09-13T12:05:00.000Z"
+        }
+      }
+    },
+    {
+      "name": "accepted revision survives a later building wave",
+      "expectValid": true,
+      "previous": {
+        "schemaVersion": 2,
+        "kind": "next",
+        "deploymentId": "deployment:one",
+        "owner": {
+          "tenantId": "tenant:one",
+          "projectId": "project:one",
+          "principalId": "11111111-1111-4111-8111-111111111111"
+        },
+        "access": {
+          "schemaVersion": 2,
+          "mode": "owner_authenticated",
+          "owner": {
+            "tenantId": "tenant:one",
+            "projectId": "project:one",
+            "principalId": "11111111-1111-4111-8111-111111111111"
+          }
+        },
+        "sourceBinding": {
+          "jobId": "job:wave-1",
+          "sourceRevisionId": "revision:sha256:1111111111111111111111111111111111111111111111111111111111111111"
+        },
+        "build": {
+          "status": "accepted",
+          "jobId": "job:wave-1",
+          "sourceRevisionId": "revision:sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "acceptedAt": "2026-09-13T12:05:00.000Z"
+        },
+        "acceptedRevision": {
+          "revisionId": "revision:sha256:2222222222222222222222222222222222222222222222222222222222222222",
+          "jobId": "job:wave-1",
+          "sourceRevisionId": "revision:sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "previewRef": "preview:accepted-wave-one",
+          "acceptedAt": "2026-09-13T12:05:00.000Z"
+        }
+      },
+      "next": {
+        "schemaVersion": 2,
+        "kind": "next",
+        "deploymentId": "deployment:one",
+        "owner": {
+          "tenantId": "tenant:one",
+          "projectId": "project:one",
+          "principalId": "11111111-1111-4111-8111-111111111111"
+        },
+        "access": {
+          "schemaVersion": 2,
+          "mode": "owner_authenticated",
+          "owner": {
+            "tenantId": "tenant:one",
+            "projectId": "project:one",
+            "principalId": "11111111-1111-4111-8111-111111111111"
+          }
+        },
+        "sourceBinding": {
+          "jobId": "job:wave-2",
+          "sourceRevisionId": "revision:sha256:3333333333333333333333333333333333333333333333333333333333333333"
+        },
+        "build": {
+          "status": "building",
+          "jobId": "job:wave-2",
+          "sourceRevisionId": "revision:sha256:3333333333333333333333333333333333333333333333333333333333333333",
+          "startedAt": "2026-09-13T12:10:00.000Z"
+        },
+        "acceptedRevision": {
+          "revisionId": "revision:sha256:2222222222222222222222222222222222222222222222222222222222222222",
+          "jobId": "job:wave-1",
+          "sourceRevisionId": "revision:sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "previewRef": "preview:accepted-wave-one",
+          "acceptedAt": "2026-09-13T12:05:00.000Z"
+        }
+      }
+    },
+    {
+      "name": "later accepted wave may advance acceptedRevision",
+      "expectValid": true,
+      "previous": {
+        "schemaVersion": 2,
+        "kind": "next",
+        "deploymentId": "deployment:one",
+        "owner": {
+          "tenantId": "tenant:one",
+          "projectId": "project:one",
+          "principalId": "11111111-1111-4111-8111-111111111111"
+        },
+        "access": {
+          "schemaVersion": 2,
+          "mode": "owner_authenticated",
+          "owner": {
+            "tenantId": "tenant:one",
+            "projectId": "project:one",
+            "principalId": "11111111-1111-4111-8111-111111111111"
+          }
+        },
+        "sourceBinding": {
+          "jobId": "job:wave-2",
+          "sourceRevisionId": "revision:sha256:3333333333333333333333333333333333333333333333333333333333333333"
+        },
+        "build": {
+          "status": "building",
+          "jobId": "job:wave-2",
+          "sourceRevisionId": "revision:sha256:3333333333333333333333333333333333333333333333333333333333333333",
+          "startedAt": "2026-09-13T12:10:00.000Z"
+        },
+        "acceptedRevision": {
+          "revisionId": "revision:sha256:2222222222222222222222222222222222222222222222222222222222222222",
+          "jobId": "job:wave-1",
+          "sourceRevisionId": "revision:sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "previewRef": "preview:accepted-wave-one",
+          "acceptedAt": "2026-09-13T12:05:00.000Z"
+        }
+      },
+      "next": {
+        "schemaVersion": 2,
+        "kind": "next",
+        "deploymentId": "deployment:one",
+        "owner": {
+          "tenantId": "tenant:one",
+          "projectId": "project:one",
+          "principalId": "11111111-1111-4111-8111-111111111111"
+        },
+        "access": {
+          "schemaVersion": 2,
+          "mode": "owner_authenticated",
+          "owner": {
+            "tenantId": "tenant:one",
+            "projectId": "project:one",
+            "principalId": "11111111-1111-4111-8111-111111111111"
+          }
+        },
+        "sourceBinding": {
+          "jobId": "job:wave-2",
+          "sourceRevisionId": "revision:sha256:3333333333333333333333333333333333333333333333333333333333333333"
+        },
+        "build": {
+          "status": "accepted",
+          "jobId": "job:wave-2",
+          "sourceRevisionId": "revision:sha256:3333333333333333333333333333333333333333333333333333333333333333",
+          "acceptedAt": "2026-09-13T12:15:00.000Z"
+        },
+        "acceptedRevision": {
+          "revisionId": "revision:sha256:4444444444444444444444444444444444444444444444444444444444444444",
+          "jobId": "job:wave-2",
+          "sourceRevisionId": "revision:sha256:3333333333333333333333333333333333333333333333333333333333333333",
+          "previewRef": "preview:accepted-wave-two",
+          "acceptedAt": "2026-09-13T12:15:00.000Z"
+        }
+      }
+    },
+    {
+      "name": "failed wave cannot clear acceptedRevision",
+      "expectValid": false,
+      "previous": {
+        "schemaVersion": 2,
+        "kind": "next",
+        "deploymentId": "deployment:one",
+        "owner": {
+          "tenantId": "tenant:one",
+          "projectId": "project:one",
+          "principalId": "11111111-1111-4111-8111-111111111111"
+        },
+        "access": {
+          "schemaVersion": 2,
+          "mode": "owner_authenticated",
+          "owner": {
+            "tenantId": "tenant:one",
+            "projectId": "project:one",
+            "principalId": "11111111-1111-4111-8111-111111111111"
+          }
+        },
+        "sourceBinding": {
+          "jobId": "job:wave-1",
+          "sourceRevisionId": "revision:sha256:1111111111111111111111111111111111111111111111111111111111111111"
+        },
+        "build": {
+          "status": "accepted",
+          "jobId": "job:wave-1",
+          "sourceRevisionId": "revision:sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "acceptedAt": "2026-09-13T12:05:00.000Z"
+        },
+        "acceptedRevision": {
+          "revisionId": "revision:sha256:2222222222222222222222222222222222222222222222222222222222222222",
+          "jobId": "job:wave-1",
+          "sourceRevisionId": "revision:sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "previewRef": "preview:accepted-wave-one",
+          "acceptedAt": "2026-09-13T12:05:00.000Z"
+        }
+      },
+      "next": {
+        "schemaVersion": 2,
+        "kind": "next",
+        "deploymentId": "deployment:one",
+        "owner": {
+          "tenantId": "tenant:one",
+          "projectId": "project:one",
+          "principalId": "11111111-1111-4111-8111-111111111111"
+        },
+        "access": {
+          "schemaVersion": 2,
+          "mode": "owner_authenticated",
+          "owner": {
+            "tenantId": "tenant:one",
+            "projectId": "project:one",
+            "principalId": "11111111-1111-4111-8111-111111111111"
+          }
+        },
+        "sourceBinding": {
+          "jobId": "job:wave-2",
+          "sourceRevisionId": "revision:sha256:3333333333333333333333333333333333333333333333333333333333333333"
+        },
+        "build": {
+          "status": "failed",
+          "jobId": "job:wave-2",
+          "sourceRevisionId": "revision:sha256:3333333333333333333333333333333333333333333333333333333333333333",
+          "failedAt": "2026-09-13T12:12:00.000Z",
+          "code": "worker_failed",
+          "message": "Next preview build failed.",
+          "retryable": true
+        },
+        "acceptedRevision": null
+      }
+    },
+    {
+      "name": "failed wave cannot swap in another acceptedRevision",
+      "expectValid": false,
+      "previous": {
+        "schemaVersion": 2,
+        "kind": "next",
+        "deploymentId": "deployment:one",
+        "owner": {
+          "tenantId": "tenant:one",
+          "projectId": "project:one",
+          "principalId": "11111111-1111-4111-8111-111111111111"
+        },
+        "access": {
+          "schemaVersion": 2,
+          "mode": "owner_authenticated",
+          "owner": {
+            "tenantId": "tenant:one",
+            "projectId": "project:one",
+            "principalId": "11111111-1111-4111-8111-111111111111"
+          }
+        },
+        "sourceBinding": {
+          "jobId": "job:wave-1",
+          "sourceRevisionId": "revision:sha256:1111111111111111111111111111111111111111111111111111111111111111"
+        },
+        "build": {
+          "status": "accepted",
+          "jobId": "job:wave-1",
+          "sourceRevisionId": "revision:sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "acceptedAt": "2026-09-13T12:05:00.000Z"
+        },
+        "acceptedRevision": {
+          "revisionId": "revision:sha256:2222222222222222222222222222222222222222222222222222222222222222",
+          "jobId": "job:wave-1",
+          "sourceRevisionId": "revision:sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "previewRef": "preview:accepted-wave-one",
+          "acceptedAt": "2026-09-13T12:05:00.000Z"
+        }
+      },
+      "next": {
+        "schemaVersion": 2,
+        "kind": "next",
+        "deploymentId": "deployment:one",
+        "owner": {
+          "tenantId": "tenant:one",
+          "projectId": "project:one",
+          "principalId": "11111111-1111-4111-8111-111111111111"
+        },
+        "access": {
+          "schemaVersion": 2,
+          "mode": "owner_authenticated",
+          "owner": {
+            "tenantId": "tenant:one",
+            "projectId": "project:one",
+            "principalId": "11111111-1111-4111-8111-111111111111"
+          }
+        },
+        "sourceBinding": {
+          "jobId": "job:wave-2",
+          "sourceRevisionId": "revision:sha256:3333333333333333333333333333333333333333333333333333333333333333"
+        },
+        "build": {
+          "status": "failed",
+          "jobId": "job:wave-2",
+          "sourceRevisionId": "revision:sha256:3333333333333333333333333333333333333333333333333333333333333333",
+          "failedAt": "2026-09-13T12:12:00.000Z",
+          "code": "worker_failed",
+          "message": "Next preview build failed.",
+          "retryable": true
+        },
+        "acceptedRevision": {
+          "revisionId": "revision:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "jobId": "job:other-accepted",
+          "sourceRevisionId": "revision:sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "previewRef": "preview:swapped-accepted-x",
+          "acceptedAt": "2026-09-13T11:00:00.000Z"
+        }
+      }
+    },
+    {
+      "name": "wave transition cannot change owner",
+      "expectValid": false,
+      "previous": {
+        "schemaVersion": 2,
+        "kind": "next",
+        "deploymentId": "deployment:one",
+        "owner": {
+          "tenantId": "tenant:one",
+          "projectId": "project:one",
+          "principalId": "11111111-1111-4111-8111-111111111111"
+        },
+        "access": {
+          "schemaVersion": 2,
+          "mode": "owner_authenticated",
+          "owner": {
+            "tenantId": "tenant:one",
+            "projectId": "project:one",
+            "principalId": "11111111-1111-4111-8111-111111111111"
+          }
+        },
+        "sourceBinding": {
+          "jobId": "job:wave-1",
+          "sourceRevisionId": "revision:sha256:1111111111111111111111111111111111111111111111111111111111111111"
+        },
+        "build": {
+          "status": "accepted",
+          "jobId": "job:wave-1",
+          "sourceRevisionId": "revision:sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "acceptedAt": "2026-09-13T12:05:00.000Z"
+        },
+        "acceptedRevision": {
+          "revisionId": "revision:sha256:2222222222222222222222222222222222222222222222222222222222222222",
+          "jobId": "job:wave-1",
+          "sourceRevisionId": "revision:sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "previewRef": "preview:accepted-wave-one",
+          "acceptedAt": "2026-09-13T12:05:00.000Z"
+        }
+      },
+      "next": {
+        "schemaVersion": 2,
+        "kind": "next",
+        "deploymentId": "deployment:one",
+        "owner": {
+          "tenantId": "tenant:one",
+          "projectId": "project:one",
+          "principalId": "22222222-2222-4222-8222-222222222222"
+        },
+        "access": {
+          "schemaVersion": 2,
+          "mode": "owner_authenticated",
+          "owner": {
+            "tenantId": "tenant:one",
+            "projectId": "project:one",
+            "principalId": "22222222-2222-4222-8222-222222222222"
+          }
+        },
+        "sourceBinding": {
+          "jobId": "job:wave-1",
+          "sourceRevisionId": "revision:sha256:1111111111111111111111111111111111111111111111111111111111111111"
+        },
+        "build": {
+          "status": "accepted",
+          "jobId": "job:wave-1",
+          "sourceRevisionId": "revision:sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "acceptedAt": "2026-09-13T12:05:00.000Z"
+        },
+        "acceptedRevision": {
+          "revisionId": "revision:sha256:2222222222222222222222222222222222222222222222222222222222222222",
+          "jobId": "job:wave-1",
+          "sourceRevisionId": "revision:sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "previewRef": "preview:accepted-wave-one",
+          "acceptedAt": "2026-09-13T12:05:00.000Z"
+        }
+      }
+    },
+    {
+      "name": "idempotent accepted replay is allowed",
+      "expectValid": true,
+      "previous": {
+        "schemaVersion": 2,
+        "kind": "next",
+        "deploymentId": "deployment:one",
+        "owner": {
+          "tenantId": "tenant:one",
+          "projectId": "project:one",
+          "principalId": "11111111-1111-4111-8111-111111111111"
+        },
+        "access": {
+          "schemaVersion": 2,
+          "mode": "owner_authenticated",
+          "owner": {
+            "tenantId": "tenant:one",
+            "projectId": "project:one",
+            "principalId": "11111111-1111-4111-8111-111111111111"
+          }
+        },
+        "sourceBinding": {
+          "jobId": "job:wave-2",
+          "sourceRevisionId": "revision:sha256:3333333333333333333333333333333333333333333333333333333333333333"
+        },
+        "build": {
+          "status": "accepted",
+          "jobId": "job:wave-2",
+          "sourceRevisionId": "revision:sha256:3333333333333333333333333333333333333333333333333333333333333333",
+          "acceptedAt": "2026-09-13T12:15:00.000Z"
+        },
+        "acceptedRevision": {
+          "revisionId": "revision:sha256:4444444444444444444444444444444444444444444444444444444444444444",
+          "jobId": "job:wave-2",
+          "sourceRevisionId": "revision:sha256:3333333333333333333333333333333333333333333333333333333333333333",
+          "previewRef": "preview:accepted-wave-two",
+          "acceptedAt": "2026-09-13T12:15:00.000Z"
+        }
+      },
+      "next": {
+        "schemaVersion": 2,
+        "kind": "next",
+        "deploymentId": "deployment:one",
+        "owner": {
+          "tenantId": "tenant:one",
+          "projectId": "project:one",
+          "principalId": "11111111-1111-4111-8111-111111111111"
+        },
+        "access": {
+          "schemaVersion": 2,
+          "mode": "owner_authenticated",
+          "owner": {
+            "tenantId": "tenant:one",
+            "projectId": "project:one",
+            "principalId": "11111111-1111-4111-8111-111111111111"
+          }
+        },
+        "sourceBinding": {
+          "jobId": "job:wave-2",
+          "sourceRevisionId": "revision:sha256:3333333333333333333333333333333333333333333333333333333333333333"
+        },
+        "build": {
+          "status": "accepted",
+          "jobId": "job:wave-2",
+          "sourceRevisionId": "revision:sha256:3333333333333333333333333333333333333333333333333333333333333333",
+          "acceptedAt": "2026-09-13T12:15:00.000Z"
+        },
+        "acceptedRevision": {
+          "revisionId": "revision:sha256:4444444444444444444444444444444444444444444444444444444444444444",
+          "jobId": "job:wave-2",
+          "sourceRevisionId": "revision:sha256:3333333333333333333333333333333333333333333333333333333333333333",
+          "previewRef": "preview:accepted-wave-two",
+          "acceptedAt": "2026-09-13T12:15:00.000Z"
+        }
+      }
+    },
+    {
+      "name": "older accepted job cannot replace current accepted job",
+      "expectValid": false,
+      "previous": {
+        "schemaVersion": 2,
+        "kind": "next",
+        "deploymentId": "deployment:one",
+        "owner": {
+          "tenantId": "tenant:one",
+          "projectId": "project:one",
+          "principalId": "11111111-1111-4111-8111-111111111111"
+        },
+        "access": {
+          "schemaVersion": 2,
+          "mode": "owner_authenticated",
+          "owner": {
+            "tenantId": "tenant:one",
+            "projectId": "project:one",
+            "principalId": "11111111-1111-4111-8111-111111111111"
+          }
+        },
+        "sourceBinding": {
+          "jobId": "job:wave-2",
+          "sourceRevisionId": "revision:sha256:3333333333333333333333333333333333333333333333333333333333333333"
+        },
+        "build": {
+          "status": "accepted",
+          "jobId": "job:wave-2",
+          "sourceRevisionId": "revision:sha256:3333333333333333333333333333333333333333333333333333333333333333",
+          "acceptedAt": "2026-09-13T12:15:00.000Z"
+        },
+        "acceptedRevision": {
+          "revisionId": "revision:sha256:4444444444444444444444444444444444444444444444444444444444444444",
+          "jobId": "job:wave-2",
+          "sourceRevisionId": "revision:sha256:3333333333333333333333333333333333333333333333333333333333333333",
+          "previewRef": "preview:accepted-wave-two",
+          "acceptedAt": "2026-09-13T12:15:00.000Z"
+        }
+      },
+      "next": {
+        "schemaVersion": 2,
+        "kind": "next",
+        "deploymentId": "deployment:one",
+        "owner": {
+          "tenantId": "tenant:one",
+          "projectId": "project:one",
+          "principalId": "11111111-1111-4111-8111-111111111111"
+        },
+        "access": {
+          "schemaVersion": 2,
+          "mode": "owner_authenticated",
+          "owner": {
+            "tenantId": "tenant:one",
+            "projectId": "project:one",
+            "principalId": "11111111-1111-4111-8111-111111111111"
+          }
+        },
+        "sourceBinding": {
+          "jobId": "job:wave-1",
+          "sourceRevisionId": "revision:sha256:1111111111111111111111111111111111111111111111111111111111111111"
+        },
+        "build": {
+          "status": "accepted",
+          "jobId": "job:wave-1",
+          "sourceRevisionId": "revision:sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "acceptedAt": "2026-09-13T12:05:00.000Z"
+        },
+        "acceptedRevision": {
+          "revisionId": "revision:sha256:2222222222222222222222222222222222222222222222222222222222222222",
+          "jobId": "job:wave-1",
+          "sourceRevisionId": "revision:sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "previewRef": "preview:accepted-wave-one",
+          "acceptedAt": "2026-09-13T12:05:00.000Z"
+        }
+      }
+    },
+    {
+      "name": "older accepted job cannot overwrite a building job",
+      "expectValid": false,
+      "previous": {
+        "schemaVersion": 2,
+        "kind": "next",
+        "deploymentId": "deployment:one",
+        "owner": {
+          "tenantId": "tenant:one",
+          "projectId": "project:one",
+          "principalId": "11111111-1111-4111-8111-111111111111"
+        },
+        "access": {
+          "schemaVersion": 2,
+          "mode": "owner_authenticated",
+          "owner": {
+            "tenantId": "tenant:one",
+            "projectId": "project:one",
+            "principalId": "11111111-1111-4111-8111-111111111111"
+          }
+        },
+        "sourceBinding": {
+          "jobId": "job:wave-2",
+          "sourceRevisionId": "revision:sha256:3333333333333333333333333333333333333333333333333333333333333333"
+        },
+        "build": {
+          "status": "building",
+          "jobId": "job:wave-2",
+          "sourceRevisionId": "revision:sha256:3333333333333333333333333333333333333333333333333333333333333333",
+          "startedAt": "2026-09-13T12:10:00.000Z"
+        },
+        "acceptedRevision": {
+          "revisionId": "revision:sha256:2222222222222222222222222222222222222222222222222222222222222222",
+          "jobId": "job:wave-1",
+          "sourceRevisionId": "revision:sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "previewRef": "preview:accepted-wave-one",
+          "acceptedAt": "2026-09-13T12:05:00.000Z"
+        }
+      },
+      "next": {
+        "schemaVersion": 2,
+        "kind": "next",
+        "deploymentId": "deployment:one",
+        "owner": {
+          "tenantId": "tenant:one",
+          "projectId": "project:one",
+          "principalId": "11111111-1111-4111-8111-111111111111"
+        },
+        "access": {
+          "schemaVersion": 2,
+          "mode": "owner_authenticated",
+          "owner": {
+            "tenantId": "tenant:one",
+            "projectId": "project:one",
+            "principalId": "11111111-1111-4111-8111-111111111111"
+          }
+        },
+        "sourceBinding": {
+          "jobId": "job:wave-1",
+          "sourceRevisionId": "revision:sha256:1111111111111111111111111111111111111111111111111111111111111111"
+        },
+        "build": {
+          "status": "accepted",
+          "jobId": "job:wave-1",
+          "sourceRevisionId": "revision:sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "acceptedAt": "2026-09-13T12:05:00.000Z"
+        },
+        "acceptedRevision": {
+          "revisionId": "revision:sha256:2222222222222222222222222222222222222222222222222222222222222222",
+          "jobId": "job:wave-1",
+          "sourceRevisionId": "revision:sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "previewRef": "preview:accepted-wave-one",
+          "acceptedAt": "2026-09-13T12:05:00.000Z"
+        }
+      }
+    },
+    {
+      "name": "failed job cannot later become accepted",
+      "expectValid": false,
+      "previous": {
+        "schemaVersion": 2,
+        "kind": "next",
+        "deploymentId": "deployment:one",
+        "owner": {
+          "tenantId": "tenant:one",
+          "projectId": "project:one",
+          "principalId": "11111111-1111-4111-8111-111111111111"
+        },
+        "access": {
+          "schemaVersion": 2,
+          "mode": "owner_authenticated",
+          "owner": {
+            "tenantId": "tenant:one",
+            "projectId": "project:one",
+            "principalId": "11111111-1111-4111-8111-111111111111"
+          }
+        },
+        "sourceBinding": {
+          "jobId": "job:wave-2",
+          "sourceRevisionId": "revision:sha256:3333333333333333333333333333333333333333333333333333333333333333"
+        },
+        "build": {
+          "status": "failed",
+          "jobId": "job:wave-2",
+          "sourceRevisionId": "revision:sha256:3333333333333333333333333333333333333333333333333333333333333333",
+          "failedAt": "2026-09-13T12:12:00.000Z",
+          "code": "verification_failed",
+          "message": "Next preview verification failed.",
+          "retryable": false
+        },
+        "acceptedRevision": {
+          "revisionId": "revision:sha256:2222222222222222222222222222222222222222222222222222222222222222",
+          "jobId": "job:wave-1",
+          "sourceRevisionId": "revision:sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "previewRef": "preview:accepted-wave-one",
+          "acceptedAt": "2026-09-13T12:05:00.000Z"
+        }
+      },
+      "next": {
+        "schemaVersion": 2,
+        "kind": "next",
+        "deploymentId": "deployment:one",
+        "owner": {
+          "tenantId": "tenant:one",
+          "projectId": "project:one",
+          "principalId": "11111111-1111-4111-8111-111111111111"
+        },
+        "access": {
+          "schemaVersion": 2,
+          "mode": "owner_authenticated",
+          "owner": {
+            "tenantId": "tenant:one",
+            "projectId": "project:one",
+            "principalId": "11111111-1111-4111-8111-111111111111"
+          }
+        },
+        "sourceBinding": {
+          "jobId": "job:wave-2",
+          "sourceRevisionId": "revision:sha256:3333333333333333333333333333333333333333333333333333333333333333"
+        },
+        "build": {
+          "status": "accepted",
+          "jobId": "job:wave-2",
+          "sourceRevisionId": "revision:sha256:3333333333333333333333333333333333333333333333333333333333333333",
+          "acceptedAt": "2026-09-13T12:15:00.000Z"
+        },
+        "acceptedRevision": {
+          "revisionId": "revision:sha256:4444444444444444444444444444444444444444444444444444444444444444",
+          "jobId": "job:wave-2",
+          "sourceRevisionId": "revision:sha256:3333333333333333333333333333333333333333333333333333333333333333",
+          "previewRef": "preview:accepted-wave-two",
+          "acceptedAt": "2026-09-13T12:15:00.000Z"
+        }
+      }
+    },
+    {
+      "name": "same job cannot change sourceRevisionId",
+      "expectValid": false,
+      "previous": {
+        "schemaVersion": 2,
+        "kind": "next",
+        "deploymentId": "deployment:one",
+        "owner": {
+          "tenantId": "tenant:one",
+          "projectId": "project:one",
+          "principalId": "11111111-1111-4111-8111-111111111111"
+        },
+        "access": {
+          "schemaVersion": 2,
+          "mode": "owner_authenticated",
+          "owner": {
+            "tenantId": "tenant:one",
+            "projectId": "project:one",
+            "principalId": "11111111-1111-4111-8111-111111111111"
+          }
+        },
+        "sourceBinding": {
+          "jobId": "job:wave-1",
+          "sourceRevisionId": "revision:sha256:1111111111111111111111111111111111111111111111111111111111111111"
+        },
+        "build": {
+          "status": "building",
+          "jobId": "job:wave-1",
+          "sourceRevisionId": "revision:sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "startedAt": "2026-09-13T12:00:00.000Z"
+        },
+        "acceptedRevision": null
+      },
+      "next": {
+        "schemaVersion": 2,
+        "kind": "next",
+        "deploymentId": "deployment:one",
+        "owner": {
+          "tenantId": "tenant:one",
+          "projectId": "project:one",
+          "principalId": "11111111-1111-4111-8111-111111111111"
+        },
+        "access": {
+          "schemaVersion": 2,
+          "mode": "owner_authenticated",
+          "owner": {
+            "tenantId": "tenant:one",
+            "projectId": "project:one",
+            "principalId": "11111111-1111-4111-8111-111111111111"
+          }
+        },
+        "sourceBinding": {
+          "jobId": "job:wave-1",
+          "sourceRevisionId": "revision:sha256:3333333333333333333333333333333333333333333333333333333333333333"
+        },
+        "build": {
+          "status": "building",
+          "jobId": "job:wave-1",
+          "sourceRevisionId": "revision:sha256:3333333333333333333333333333333333333333333333333333333333333333",
+          "startedAt": "2026-09-13T12:00:00.000Z"
+        },
+        "acceptedRevision": null
+      }
+    },
+    {
+      "name": "older job cannot become current after a newer accepted job",
+      "expectValid": false,
+      "previous": {
+        "schemaVersion": 2,
+        "kind": "next",
+        "deploymentId": "deployment:one",
+        "owner": {
+          "tenantId": "tenant:one",
+          "projectId": "project:one",
+          "principalId": "11111111-1111-4111-8111-111111111111"
+        },
+        "access": {
+          "schemaVersion": 2,
+          "mode": "owner_authenticated",
+          "owner": {
+            "tenantId": "tenant:one",
+            "projectId": "project:one",
+            "principalId": "11111111-1111-4111-8111-111111111111"
+          }
+        },
+        "sourceBinding": {
+          "jobId": "job:wave-2",
+          "sourceRevisionId": "revision:sha256:3333333333333333333333333333333333333333333333333333333333333333"
+        },
+        "build": {
+          "status": "accepted",
+          "jobId": "job:wave-2",
+          "sourceRevisionId": "revision:sha256:3333333333333333333333333333333333333333333333333333333333333333",
+          "acceptedAt": "2026-09-13T12:15:00.000Z"
+        },
+        "acceptedRevision": {
+          "revisionId": "revision:sha256:4444444444444444444444444444444444444444444444444444444444444444",
+          "jobId": "job:wave-2",
+          "sourceRevisionId": "revision:sha256:3333333333333333333333333333333333333333333333333333333333333333",
+          "previewRef": "preview:accepted-wave-two",
+          "acceptedAt": "2026-09-13T12:15:00.000Z"
+        }
+      },
+      "next": {
+        "schemaVersion": 2,
+        "kind": "next",
+        "deploymentId": "deployment:one",
+        "owner": {
+          "tenantId": "tenant:one",
+          "projectId": "project:one",
+          "principalId": "11111111-1111-4111-8111-111111111111"
+        },
+        "access": {
+          "schemaVersion": 2,
+          "mode": "owner_authenticated",
+          "owner": {
+            "tenantId": "tenant:one",
+            "projectId": "project:one",
+            "principalId": "11111111-1111-4111-8111-111111111111"
+          }
+        },
+        "sourceBinding": {
+          "jobId": "job:wave-1",
+          "sourceRevisionId": "revision:sha256:1111111111111111111111111111111111111111111111111111111111111111"
+        },
+        "build": {
+          "status": "building",
+          "jobId": "job:wave-1",
+          "sourceRevisionId": "revision:sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "startedAt": "2026-09-13T12:00:00.000Z"
+        },
+        "acceptedRevision": {
+          "revisionId": "revision:sha256:4444444444444444444444444444444444444444444444444444444444444444",
+          "jobId": "job:wave-2",
+          "sourceRevisionId": "revision:sha256:3333333333333333333333333333333333333333333333333333333333333333",
+          "previewRef": "preview:accepted-wave-two",
+          "acceptedAt": "2026-09-13T12:15:00.000Z"
+        }
+      }
+    }
+  ]
+}

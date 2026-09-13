@@ -1,4 +1,4 @@
-# SiteAgent contracts v1
+# SiteAgent contracts
 
 This directory is an intentionally mirrored snapshot shared by
 `sajtagent-site` and `sajtagent-sprites`. The products remain separate Git
@@ -30,6 +30,27 @@ V1. A separate credential-input flow is required before they can be exposed.
 `BuildJobV1` is not the chat protocol. It is the exact Site-minted mutation
 envelope for one subordinate build. OpenClaw session keys, sandbox, MCP and
 tool-policy configuration remain private adapter details.
+
+## Next-preview V2 vs HTML-preview V1
+
+V1 stays live. HTML preview continues through `ArtifactReadV1` and
+`.siteagent-preview.html` until both `sajtagent-site` and `sajtagent-sprites`
+enforce V2. Adding V2 does not change V1 behavior.
+
+`deployment-v2.ts` and `preview-access-v2.ts` are the smallest Next-preview
+surface:
+
+1. `DeploymentOwnerV2`: tenant, project and principal that own a deployment.
+2. `PreviewAccessRequirementV2`: `owner_authenticated` only. Anonymous and
+   other principals evaluate to deny.
+3. `DeploymentSourceBindingV2`: exact `sourceRevisionId` plus `jobId`.
+4. `NextPreviewDeploymentV2`: `building` / `failed` / `accepted`, with a sticky
+   `acceptedRevision` so a later failed or building wave cannot replace an
+   accepted revision.
+
+Site can start against `contracts/fixtures/next-preview-v2.fixtures.json`
+without a worker. Do not import Site or Sprite runtime modules from these
+files.
 
 ## Verification
 

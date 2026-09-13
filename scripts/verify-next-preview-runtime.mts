@@ -10,7 +10,7 @@ const output=[{path:"index.html",content:"eA==",encoding:"base64"},{path:"_next/
 const client=new NextRuntimeClient("https://runtime.example.com","x".repeat(32))
 let checks=0
 try {
-  let report:Record<string,unknown>={schemaVersion:2,status:"built",tenantId:job.tenantId,projectId:job.projectId,jobId:job.jobId,previewRef:job.previewRef,sourceRevisionId:job.sourceRevisionId,sourceSnapshotSha256:job.sourceRevisionId.slice(16),workerBinding:{tenantId:job.tenantId,projectId:job.projectId,workerId:`sajtagent-v2-${"a".repeat(32)}`,isolation:"sprite"},files:output}
+  const report:Record<string,unknown>={schemaVersion:2,status:"built",tenantId:job.tenantId,projectId:job.projectId,jobId:job.jobId,previewRef:job.previewRef,sourceRevisionId:job.sourceRevisionId,sourceSnapshotSha256:job.sourceRevisionId.slice(16),workerBinding:{tenantId:job.tenantId,projectId:job.projectId,workerId:`sajtagent-v2-${"a".repeat(32)}`,isolation:"sprite"},files:output}
   globalThis.fetch=async (_input,init)=>{assert.ok(new Headers(init?.headers).get("x-siteagent-signature"));return Response.json(report)}
   assert.equal((await client.build(job,files,new Date().toISOString())).length,2);checks++
   for(const key of ["jobId","projectId","tenantId","previewRef","sourceRevisionId","sourceSnapshotSha256"]){

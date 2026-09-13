@@ -56,9 +56,9 @@ export function outputDigest(files: StaticFile[]): string {
   return createHash("sha256").update(JSON.stringify(files.map(f => [f.path, f.content]))).digest("hex")
 }
 
-export function canFinishJob(state: NextState, binding: NextBinding, now: number): boolean {
+export function canFinishJob(state: NextState, binding: NextBinding, now: number, failure = false): boolean {
   const current = state.current
-  return !!current && current.status === "building" && Date.parse(current.expiresAt) > now &&
+  return !!current && current.status === "building" && (failure || Date.parse(current.expiresAt) > now) &&
     (["tenantId", "projectId", "jobId", "sourceRevisionId", "previewRef"] as const).every(k => current[k] === binding[k])
 }
 

@@ -13,6 +13,8 @@ for(const field of ["tenantId","projectId","jobId","sourceRevisionId","previewRe
 check(()=>assert.equal(canFinishJob({current:{...job,status:"failed"},accepted:null},job,Date.now()),false))
 check(()=>assert.equal(canFinishJob({current:{...job,status:"accepted"},accepted:null},job,Date.now()),false))
 check(()=>assert.equal(canFinishJob(state,job,Date.now()+20000),false))
+check(()=>assert.equal(canFinishJob(state,job,Date.now()+20000,true),true))
+check(()=>assert.equal(canFinishJob(state,{...job,jobId:"older"},Date.now()+20000,true),false))
 // Regression A: old failure with newer failedAt must never replace current failed job.
 check(()=>assert.equal(canFinishJob({current:{...job,status:"failed"},accepted:null},{...job,jobId:"job:older"},Date.now()+1),false))
 check(()=>assert.equal(sourceRevisionId("tenant:a","project:a",[...files].reverse()),revision))

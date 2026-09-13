@@ -52,7 +52,7 @@ export class PostgresNextPreviewRepository {
     return this.transaction(async client => {
       const record = await client.query<Row>(`select state,source_files from public.next_preview_states where project_id=$1 and tenant_id=$2 and owner_user_id=$3::uuid for update`, [binding.projectId, principal.tenantId, principal.userId])
       const row = record.rows[0]
-      if (!row || !canFinishJob(row.state, binding, Date.now())) return false
+      if (!row || !canFinishJob(row.state, binding, Date.now(), !accepted)) return false
       row.state.current = { ...row.state.current!, status: accepted ? "accepted" : "failed", ...(accepted ? {} : { failureCode }) }
       if (accepted) row.state.accepted = accepted
       await client.query(`update public.next_preview_states set state=$2::jsonb,accepted_source_files=case when $3 then source_files else accepted_source_files end,updated_at=now() where project_id=$1`, [binding.projectId, JSON.stringify(row.state), !!accepted])

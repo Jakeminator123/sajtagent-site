@@ -26,7 +26,8 @@ export function validateSourceFiles(files: SourceFile[]): SourceFile[] {
     names.add(file.path)
     bytes += Buffer.byteLength(file.content)
   }
-  if (bytes > 2_000_000 || !names.has("package.json")) throw new Error("invalid_source_bundle")
+  // Runtime C owns the fixed build package. Generated source intentionally omits it.
+  if (bytes > 2_000_000) throw new Error("invalid_source_bundle")
   return parsed.sort((a, b) => a.path < b.path ? -1 : a.path > b.path ? 1 : 0)
 }
 

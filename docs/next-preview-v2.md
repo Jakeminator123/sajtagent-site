@@ -18,6 +18,9 @@ configuration and secrets in customer execution are not supported.
    on a version replaced meanwhile. The first prompt context is bounded to 18k
    characters (prompt plus source); larger source remains importable without
    silent truncation or pretending the model saw it.
+   Generated files omit `package.json`: Runtime C injects its fixed, trusted
+   package/config at build time. Site hashes the exact original generated files,
+   rather than altering them and breaking the source receipt.
 2. Signed Runtime `/v2/next-builds` creates/runs the isolated project worker.
    Source revision is SHA256 of JSON `[tenantId,projectId,sorted(path,content)]`.
    Runtime returns the exact binding, isolated worker receipt and static files.

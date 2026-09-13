@@ -4,6 +4,7 @@ import { sourceRevisionId, type NextJob } from "../lib/siteagent/server/next-pre
 
 const originalFetch=globalThis.fetch
 const files=[{path:"package.json",content:'{"dependencies":{"next":"16.3.3"}}'},{path:"app/page.jsx",content:"export default function Page(){return null}"}]
+const generatedFiles=[{path:"app/layout.jsx",content:"export default function Layout({children}){return <html><body>{children}</body></html>}"},{path:"app/page.jsx",content:"export default function Page(){return <h1>Next</h1>}"}]
 const job:NextJob={tenantId:"tenant:a",projectId:"project:a",jobId:"job:a",previewRef:"preview:abcdefghijklmnop",sourceRevisionId:sourceRevisionId("tenant:a","project:a",files),expiresAt:new Date(Date.now()+600000).toISOString(),status:"building"}
 const output=[{path:"index.html",content:"eA==",encoding:"base64"},{path:"_next/static/app.js",content:"eA==",encoding:"base64"}]
 const client=new NextRuntimeClient("https://runtime.example.com","x".repeat(32))
@@ -23,9 +24,10 @@ try {
   await assert.rejects(()=>client.cancel(job),/runtime_cancel_unconfirmed/);checks++
   globalThis.fetch=async (_input,init)=>{
     const body=JSON.parse(String(init?.body));assert.equal(body.baseFiles.length,0);assert.equal(body.prompt,"A real site");
-    return Response.json({schemaVersion:2,tenantId:body.tenantId,projectId:body.projectId,jobId:body.jobId,sourceRevisionId:sourceRevisionId(body.tenantId,body.projectId,files),files})
+    return Response.json({schemaVersion:2,tenantId:body.tenantId,projectId:body.projectId,jobId:body.jobId,sourceRevisionId:sourceRevisionId(body.tenantId,body.projectId,generatedFiles),files:generatedFiles})
   }
   assert.equal((await client.generate({tenantId:job.tenantId,projectId:job.projectId,prompt:"A real site",baseFiles:[]})).length,2);checks++
+  assert.equal((await client.generate({tenantId:job.tenantId,projectId:job.projectId,prompt:"A real site",baseFiles:[]})).some(file=>file.path==="package.json"),false);checks++
   await assert.rejects(()=>client.generate({tenantId:job.tenantId,projectId:job.projectId,prompt:"x".repeat(19000),baseFiles:[]}),/source_context_too_large/);checks++
   globalThis.fetch=async (_input,init)=>{const body=JSON.parse(String(init?.body));return Response.json({schemaVersion:2,tenantId:body.tenantId,projectId:"project:other",jobId:body.jobId,sourceRevisionId:job.sourceRevisionId,files})}
   await assert.rejects(()=>client.generate({tenantId:job.tenantId,projectId:job.projectId,prompt:"A real site",baseFiles:[]}),/source_binding_mismatch/);checks++

@@ -17,8 +17,11 @@ function ProjectNextPreviewPanel({projectId}:{projectId:string|null}) {
   const [building,setBuilding]=useState(false)
   const [refresh,setRefresh]=useState(0)
   const opened = useRef<string|null>(null)
+  const activeBuild = useRef<AbortController|null>(null)
   const form = useRef<HTMLFormElement>(null)
   const endpoint=projectId?`/api/siteagent/projects/${encodeURIComponent(projectId)}/next`:null
+
+  useEffect(()=>()=>{activeBuild.current?.abort()},[])
 
   useEffect(()=>{
     if(!endpoint)return
@@ -56,14 +59,18 @@ function ProjectNextPreviewPanel({projectId}:{projectId:string|null}) {
 
   if(!endpoint || !state)return null
   async function build(fromPrompt=false){
+    activeBuild.current?.abort()
+    const abort=new AbortController()
+    activeBuild.current=abort
     setBuilding(true);setError("")
     try {
       const parsed=fromPrompt?{prompt}:JSON.parse(source)
-      const response=await fetch(endpoint!,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(parsed)})
+      const response=await fetch(endpoint!,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(parsed),signal:abort.signal})
       if(!response.ok){const body=await response.json();throw new Error(body.error==="source_context_too_large"?"Källan är för stor för denna första promptprofil. Använd källimport för vidare iteration.":"Next-bygget stoppades. Senast godkända preview behålls.")}
-      setState((await response.json()).state)
-    }catch(error){setError(error instanceof Error?error.message:"Bygget kunde inte startas.")}
-    finally{setBuilding(false)}
+      const body=await response.json()
+      if(!abort.signal.aborted)setState(body.state)
+    }catch(error){if(!abort.signal.aborted)setError(error instanceof Error?error.message:"Bygget kunde inte startas.")}
+    finally{if(activeBuild.current===abort){activeBuild.current=null;if(!abort.signal.aborted)setBuilding(false)}}
   }
   async function restore(){
     const response=await fetch(`${endpoint}/source`,{cache:"no-store"})
@@ -71,7 +78,10 @@ function ProjectNextPreviewPanel({projectId}:{projectId:string|null}) {
     else setError("Ingen accepterad Next-källa att öppna ännu.")
   }
   async function cancel(){
-    if(!state?.current)return
+    activeBuild.current?.abort()
+    activeBuild.current=null
+    setBuilding(false)
+    if(state?.current?.status!=="building")return
     const response=await fetch(endpoint!,{method:"DELETE",headers:{"content-type":"application/json"},body:JSON.stringify({jobId:state.current.jobId})})
     if(!response.ok)setError("Avbrottet kunde inte bekräftas; godkänd version ändras inte.")
   }
@@ -81,7 +91,7 @@ function ProjectNextPreviewPanel({projectId}:{projectId:string|null}) {
       <span>{state.current?.status==="building"?"Bygger…":state.accepted?"Verifierad preview":"Redo för första Next-bygget"}</span>
       <button type="button" className="ml-auto underline" onClick={()=>void restore()}>Öppna accepterad källa</button>
       {state.accepted&&<button type="button" className="underline" onClick={()=>setRefresh(value=>value+1)}>Uppdatera preview</button>}
-      {state.current?.status==="building"&&<button type="button" onClick={()=>void cancel()}>Avbryt</button>}
+      {(building||state.current?.status==="building")&&<button type="button" onClick={()=>void cancel()}>Avbryt</button>}
     </div>
     <div className="flex gap-2 border-b p-3">
       <input className="min-w-0 flex-1 rounded border bg-background px-3 py-2 text-sm" value={prompt} onChange={event=>setPrompt(event.target.value)} placeholder="Beskriv din Next-sajt eller nästa ändring…" aria-label="Next-instruktion" maxLength={8000} />

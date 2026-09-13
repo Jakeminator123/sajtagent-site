@@ -1,0 +1,284 @@
+{
+  "schemaCases": [
+    {
+      "name": "owner matches DeploymentOwnerV2",
+      "schema": "ProjectOwnerV2",
+      "expectValid": true,
+      "value": {
+        "tenantId": "personal:11111111-1111-4111-8111-111111111111",
+        "projectId": "project:personal:11111111-1111-4111-8111-111111111111",
+        "principalId": "11111111-1111-4111-8111-111111111111"
+      }
+    },
+    {
+      "name": "owner rejects extra fields",
+      "schema": "ProjectOwnerV2",
+      "expectValid": false,
+      "value": {
+        "tenantId": "personal:11111111-1111-4111-8111-111111111111",
+        "projectId": "project:one",
+        "principalId": "11111111-1111-4111-8111-111111111111",
+        "workerSpriteId": "sprite:stolen"
+      }
+    },
+    {
+      "name": "principal is tenant plus user",
+      "schema": "ProjectPrincipalV2",
+      "expectValid": true,
+      "value": {
+        "tenantId": "personal:11111111-1111-4111-8111-111111111111",
+        "principalId": "11111111-1111-4111-8111-111111111111"
+      }
+    },
+    {
+      "name": "unbound project is valid",
+      "schema": "ProjectV2",
+      "expectValid": true,
+      "value": {
+        "schemaVersion": 2,
+        "projectId": "project:personal:11111111-1111-4111-8111-111111111111",
+        "name": "Min sajt",
+        "owner": {
+          "tenantId": "personal:11111111-1111-4111-8111-111111111111",
+          "projectId": "project:personal:11111111-1111-4111-8111-111111111111",
+          "principalId": "11111111-1111-4111-8111-111111111111"
+        },
+        "workerSpriteId": null
+      }
+    },
+    {
+      "name": "server-bound worker is valid on the stored project",
+      "schema": "ProjectV2",
+      "expectValid": true,
+      "value": {
+        "schemaVersion": 2,
+        "projectId": "project:one",
+        "name": "Ny sajt",
+        "owner": {
+          "tenantId": "personal:11111111-1111-4111-8111-111111111111",
+          "projectId": "project:one",
+          "principalId": "11111111-1111-4111-8111-111111111111"
+        },
+        "workerSpriteId": "sprite:owner-one"
+      }
+    },
+    {
+      "name": "owner.projectId must match projectId",
+      "schema": "ProjectV2",
+      "expectValid": false,
+      "value": {
+        "schemaVersion": 2,
+        "projectId": "project:one",
+        "name": "Ny sajt",
+        "owner": {
+          "tenantId": "personal:11111111-1111-4111-8111-111111111111",
+          "projectId": "project:other",
+          "principalId": "11111111-1111-4111-8111-111111111111"
+        },
+        "workerSpriteId": null
+      }
+    },
+    {
+      "name": "create request name is optional",
+      "schema": "CreateProjectRequestV2",
+      "expectValid": true,
+      "value": {
+        "schemaVersion": 2
+      }
+    },
+    {
+      "name": "create request rejects client workerSpriteId",
+      "schema": "CreateProjectRequestV2",
+      "expectValid": false,
+      "value": {
+        "schemaVersion": 2,
+        "name": "Ny sajt",
+        "workerSpriteId": "sprite:stolen"
+      }
+    },
+    {
+      "name": "create request rejects snake_case worker field",
+      "schema": "CreateProjectRequestV2",
+      "expectValid": false,
+      "value": {
+        "schemaVersion": 2,
+        "worker_sprite_id": "sprite:stolen"
+      }
+    },
+    {
+      "name": "empty project list is valid",
+      "schema": "ProjectListResponseV2",
+      "expectValid": true,
+      "value": {
+        "schemaVersion": 2,
+        "projects": []
+      }
+    },
+    {
+      "name": "open response wraps one owned project",
+      "schema": "ProjectOpenResponseV2",
+      "expectValid": true,
+      "value": {
+        "schemaVersion": 2,
+        "project": {
+          "schemaVersion": 2,
+          "projectId": "project:one",
+          "name": "Ny sajt",
+          "owner": {
+            "tenantId": "tenant:one",
+            "projectId": "project:one",
+            "principalId": "11111111-1111-4111-8111-111111111111"
+          },
+          "workerSpriteId": null
+        }
+      }
+    },
+    {
+      "name": "server bind request is project plus worker",
+      "schema": "BindProjectWorkerRequestV2",
+      "expectValid": true,
+      "value": {
+        "schemaVersion": 2,
+        "projectId": "project:one",
+        "workerSpriteId": "sprite:owner-one"
+      }
+    }
+  ],
+  "createCases": [
+    {
+      "name": "parse create without worker",
+      "expectValid": true,
+      "value": {
+        "schemaVersion": 2,
+        "name": "Bakery"
+      }
+    },
+    {
+      "name": "parse create rejects client-chosen worker",
+      "expectValid": false,
+      "value": {
+        "schemaVersion": 2,
+        "workerSpriteId": "sprite:other-customer"
+      }
+    }
+  ],
+  "bindCases": [
+    {
+      "name": "owner can bind a free worker",
+      "expectValid": true,
+      "principal": {
+        "tenantId": "tenant:one",
+        "principalId": "11111111-1111-4111-8111-111111111111"
+      },
+      "project": {
+        "schemaVersion": 2,
+        "projectId": "project:one",
+        "name": "Ny sajt",
+        "owner": {
+          "tenantId": "tenant:one",
+          "projectId": "project:one",
+          "principalId": "11111111-1111-4111-8111-111111111111"
+        },
+        "workerSpriteId": null
+      },
+      "workerSpriteId": "sprite:owner-one",
+      "occupiedBy": null
+    },
+    {
+      "name": "other principal cannot bind this project",
+      "expectValid": false,
+      "principal": {
+        "tenantId": "tenant:one",
+        "principalId": "22222222-2222-4222-8222-222222222222"
+      },
+      "project": {
+        "schemaVersion": 2,
+        "projectId": "project:one",
+        "name": "Ny sajt",
+        "owner": {
+          "tenantId": "tenant:one",
+          "projectId": "project:one",
+          "principalId": "11111111-1111-4111-8111-111111111111"
+        },
+        "workerSpriteId": null
+      },
+      "workerSpriteId": "sprite:owner-two",
+      "occupiedBy": null
+    },
+    {
+      "name": "cannot steal another principal worker",
+      "expectValid": false,
+      "principal": {
+        "tenantId": "tenant:one",
+        "principalId": "11111111-1111-4111-8111-111111111111"
+      },
+      "project": {
+        "schemaVersion": 2,
+        "projectId": "project:one",
+        "name": "Ny sajt",
+        "owner": {
+          "tenantId": "tenant:one",
+          "projectId": "project:one",
+          "principalId": "11111111-1111-4111-8111-111111111111"
+        },
+        "workerSpriteId": null
+      },
+      "workerSpriteId": "sprite:owner-two",
+      "occupiedBy": {
+        "tenantId": "tenant:two",
+        "projectId": "project:two",
+        "principalId": "22222222-2222-4222-8222-222222222222"
+      }
+    },
+    {
+      "name": "same principal cannot move another project worker",
+      "expectValid": false,
+      "principal": {
+        "tenantId": "tenant:one",
+        "principalId": "11111111-1111-4111-8111-111111111111"
+      },
+      "project": {
+        "schemaVersion": 2,
+        "projectId": "project:two",
+        "name": "Andra",
+        "owner": {
+          "tenantId": "tenant:one",
+          "projectId": "project:two",
+          "principalId": "11111111-1111-4111-8111-111111111111"
+        },
+        "workerSpriteId": null
+      },
+      "workerSpriteId": "sprite:owner-one",
+      "occupiedBy": {
+        "tenantId": "tenant:one",
+        "projectId": "project:one",
+        "principalId": "11111111-1111-4111-8111-111111111111"
+      }
+    },
+    {
+      "name": "idempotent bind on the same owned project",
+      "expectValid": true,
+      "principal": {
+        "tenantId": "tenant:one",
+        "principalId": "11111111-1111-4111-8111-111111111111"
+      },
+      "project": {
+        "schemaVersion": 2,
+        "projectId": "project:one",
+        "name": "Ny sajt",
+        "owner": {
+          "tenantId": "tenant:one",
+          "projectId": "project:one",
+          "principalId": "11111111-1111-4111-8111-111111111111"
+        },
+        "workerSpriteId": "sprite:owner-one"
+      },
+      "workerSpriteId": "sprite:owner-one",
+      "occupiedBy": {
+        "tenantId": "tenant:one",
+        "projectId": "project:one",
+        "principalId": "11111111-1111-4111-8111-111111111111"
+      }
+    }
+  ]
+}

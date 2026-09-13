@@ -54,6 +54,20 @@ Site can start against `contracts/fixtures/next-preview-v2.fixtures.json`
 without a worker. Do not import Site or Sprite runtime modules from these
 files.
 
+## Projects V2 / ownership
+
+`project-v2.ts` is the smallest project-ownership surface. The server binds
+`DeploymentOwnerV2` (`tenantId`, `projectId`, `principalId`) on every project.
+
+1. `ProjectV2`: list/open/create for the signed-in principal only.
+2. `CreateProjectRequestV2`: name is optional. `workerSpriteId` is forbidden
+   on client and agent payloads.
+3. `workerSpriteId`: nullable and server-set. Binding another principal's
+   worker is rejected. Personal starter + `/api/siteagent/projects/default/reset`
+   stay on the V1 routes.
+
+Verify with `npm run check:projects`.
+
 ## Verification
 
 ```powershell

@@ -39,6 +39,16 @@ import {
   LEGACY_UNCUSTOMIZED_AGENT_SIZE,
   migrateAgentDefaultSize,
 } from "../components/siteagent/layout-prefs.ts"
+import {
+  AGENT_LISTEN_BODY,
+  CHAT_ANSWER_PLACEHOLDER,
+  CHAT_STATUS_READY,
+  CHAT_STATUS_STREAMING,
+  CHAT_WRITE_HERE_BODY,
+  COMPACT_CHAT_HEIGHT,
+  chatDisplayHeight,
+  isChatComposerCompact,
+} from "../components/siteagent/conversation-handoff.ts"
 
 const occurredAt = "2026-09-01T19:00:00.000Z"
 const sessionId = "session:abcdefghijklmnopqrstuvwxyzABCDEF"
@@ -573,9 +583,22 @@ assert.match(agentFaceSource, /tool\.safeLabel/)
 assert.match(agentFaceSource, /role="alert"/)
 assert.match(
   agentFaceSource,
-  /Sajtagents svar visas i det här kortet/,
-  "empty AgentFace copy must tell users answers appear in this card",
+  /AGENT_LISTEN_BODY/,
+  "empty AgentFace copy must reuse the shared Chat handoff body",
 )
+assert.match(
+  AGENT_LISTEN_BODY,
+  /Skriv i Chatt-kortet/,
+  "Sajtagent empty copy must send the user to Chat",
+)
+assert.doesNotMatch(
+  AGENT_LISTEN_BODY,
+  /Sajtagents svar visas i det här kortet/,
+  "Sajtagent empty copy must not repeat Chat's write-here paragraph",
+)
+assert.equal(CHAT_WRITE_HERE_BODY, "Fråga eller beskriv sajten.")
+assert.equal(CHAT_ANSWER_PLACEHOLDER, "Svaret syns i Sajtagent-kortet")
+assert.equal(CHAT_STATUS_READY, "Skriv här. Svaret syns i Sajtagent-kortet.")
 assert.match(agentFaceSource, /data-agent-streaming/)
 assert.match(agentFaceSource, /data-card-state/)
 assert.match(agentFaceSource, /SESSION_TURN_MISMATCH_MESSAGE_V1/)
@@ -837,6 +860,23 @@ assert.deepEqual(
   migrateAgentDefaultSize({ w: 360, h: 440 }, currentAgentDefault, 4),
   { w: 360, h: 440 },
   "nearby but customized widths must not be treated as the legacy default",
+)
+
+assert.equal(COMPACT_CHAT_HEIGHT, 216)
+assert.equal(isChatComposerCompact({ isStreaming: true, hasPendingQuestion: false }), true)
+assert.equal(isChatComposerCompact({ isStreaming: false, hasPendingQuestion: true }), true)
+assert.equal(isChatComposerCompact({ isStreaming: false, hasPendingQuestion: false }), false)
+assert.equal(chatDisplayHeight(440, false), 440, "idle Chat keeps the saved height")
+assert.equal(chatDisplayHeight(440, true), 216, "streaming Chat shrinks to the composer")
+assert.equal(
+  chatDisplayHeight(200, true),
+  200,
+  "an already-smaller Chat must not grow when compacting",
+)
+assert.equal(
+  CHAT_STATUS_STREAMING,
+  "Sajtagent svarar i sitt kort…",
+  "streaming wait copy stays on the Chat status line",
 )
 
 console.log(

@@ -14,6 +14,7 @@ import { cn } from "@/lib/utils"
 import { FACES, type FaceDef, type FaceId } from "./faces/face-defs"
 import { PreviewStage } from "./preview-stage"
 import { StatusDot } from "./card-states"
+import { chatDisplayHeight, isChatComposerCompact } from "./conversation-handoff"
 import { useBuilder } from "./builder-store"
 import type { FaceOffset, FaceSize } from "./use-layout-prefs"
 
@@ -96,6 +97,14 @@ function FaceCard({
   resetFace: (id: FaceId) => void
   moveFace: (id: FaceId, x: number, y: number) => void
 }) {
+  const { agentProjection, isStreaming } = useBuilder()
+  const compactChat =
+    face.id === "chat" &&
+    isChatComposerCompact({
+      isStreaming,
+      hasPendingQuestion: Boolean(agentProjection.pendingQuestion),
+    })
+  const displayHeight = face.id === "chat" ? chatDisplayHeight(size.h, compactChat) : size.h
   const dragRef = useRef<{ x: number; y: number } | null>(null)
   const [resizing, setResizing] = useState(false)
   const dragControls = useDragControls()
@@ -181,7 +190,7 @@ function FaceCard({
           <button
             type="button"
             onClick={() => onFlip(face.id)}
-            className="p-1 rounded text-workflow-text-subtle hover:text-workflow-text transition-colors duration-150"
+            className="p-1 rounded text-workflow-text-subtle hover:text-workflow-text transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-workflow-text"
             aria-label={`Vänd ${face.label}`}
             title={flipped ? "Vänd till framsidan" : "Vänd till baksidan"}
           >
@@ -191,7 +200,7 @@ function FaceCard({
         <button
           type="button"
           onClick={() => scaleFace(face.id, 0.88)}
-          className="p-1 rounded text-workflow-text-subtle hover:text-workflow-text transition-colors duration-150"
+          className="p-1 rounded text-workflow-text-subtle hover:text-workflow-text transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-workflow-text"
           aria-label={`Förminska ${face.label}`}
           title="Mindre"
         >
@@ -200,7 +209,7 @@ function FaceCard({
         <button
           type="button"
           onClick={() => scaleFace(face.id, 1.14)}
-          className="p-1 rounded text-workflow-text-subtle hover:text-workflow-text transition-colors duration-150"
+          className="p-1 rounded text-workflow-text-subtle hover:text-workflow-text transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-workflow-text"
           aria-label={`Förstora ${face.label}`}
           title="Större"
         >
@@ -209,7 +218,7 @@ function FaceCard({
         <button
           type="button"
           onClick={() => resetFace(face.id)}
-          className="p-1 rounded text-workflow-text-subtle hover:text-workflow-text transition-colors duration-150"
+          className="p-1 rounded text-workflow-text-subtle hover:text-workflow-text transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-workflow-text"
           aria-label={`Återställ ${face.label}`}
           title="Återställ storlek och position"
         >
@@ -218,7 +227,7 @@ function FaceCard({
         <button
           type="button"
           onClick={() => onToggle(face.id)}
-          className="p-1 rounded text-workflow-text-muted hover:text-workflow-text transition-colors duration-150"
+          className="p-1 rounded text-workflow-text-muted hover:text-workflow-text transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-workflow-text"
           aria-label={`Vik ner ${face.label} till kortleken`}
           title="Vik ner till kortleken"
         >
@@ -239,7 +248,11 @@ function FaceCard({
       dragElastic={0.08}
       onDragEnd={() => moveFace(face.id, x.get(), y.get())}
       onPointerDown={startBodyDrag}
-      style={{ width: size.w, height: size.h, x, y, perspective: 1400 }}
+      role="region"
+      aria-label={headerLabel}
+      aria-busy={face.id === "chat" || face.id === "agent" ? isStreaming : undefined}
+      data-face-compact={compactChat ? "chat" : undefined}
+      style={{ width: size.w, height: displayHeight, x, y, perspective: 1400 }}
       className="relative pointer-events-auto shrink-0"
     >
       <motion.div

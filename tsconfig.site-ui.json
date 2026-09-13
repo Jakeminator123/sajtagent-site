@@ -28,6 +28,7 @@
     "components/siteagent/preview-stage.tsx",
     "components/siteagent/right-drawer.tsx",
     "components/siteagent/version-list.tsx",
+    "components/siteagent/conversation-handoff.ts",
     "components/siteagent/layout-prefs.ts",
     "components/siteagent/use-layout-prefs.ts"
   ]

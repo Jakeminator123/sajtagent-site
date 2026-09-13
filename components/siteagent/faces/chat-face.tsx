@@ -8,6 +8,20 @@ import { Loader2, Mic, Send, Square } from "lucide-react"
 import { useAudioTranscription } from "@/lib/use-audio-transcription"
 import { cn } from "@/lib/utils"
 import { CardEmpty } from "../card-states"
+import {
+  CHAT_ANSWER_PLACEHOLDER,
+  CHAT_BUILD_CHOICES_HINT,
+  CHAT_QUESTION_PLACEHOLDER,
+  CHAT_STATUS_INTEGRITY,
+  CHAT_STATUS_OPENING,
+  CHAT_STATUS_QUESTION,
+  CHAT_STATUS_READY,
+  CHAT_STATUS_SESSION_ERROR,
+  CHAT_STATUS_STREAMING,
+  CHAT_WRITE_HERE_BODY,
+  CHAT_WRITE_HERE_TITLE,
+  isChatComposerCompact,
+} from "../conversation-handoff"
 import { useBuilder } from "../builder-store"
 
 export function ChatFace() {
@@ -19,18 +33,20 @@ export function ChatFace() {
   const listRef = useRef<HTMLDivElement>(null)
   const hasPendingQuestion = Boolean(agentProjection.pendingQuestion)
   const inputDisabled = !canSendTurn
+  const compact = isChatComposerCompact({ isStreaming, hasPendingQuestion })
+  const lastUserMessage = userMessages.at(-1)
   const chatState =
     agentProjection.status === "invalid" || sessionStatus === "error"
       ? "error"
-      : isStreaming
-        ? "streaming"
+      : compact
+        ? isStreaming
+          ? "streaming"
+          : "awaiting"
         : sessionStatus === "opening"
           ? "opening"
-          : hasPendingQuestion
-            ? "awaiting"
-            : userMessages.length === 0
-              ? "empty"
-              : "ready"
+          : userMessages.length === 0
+            ? "empty"
+            : "ready"
 
   // Diktering: transkriberad text läggs till i fältet i stället för att skickas direkt,
   // så användaren kan justera innan den skickas.
@@ -59,54 +75,63 @@ export function ChatFace() {
   }
 
   const statusLine = hasPendingQuestion
-    ? "Svara på frågan i Sajtagent-kortet"
+    ? CHAT_STATUS_QUESTION
     : sessionStatus === "error"
-      ? "Sessionen kunde inte öppnas. Logga in eller prova Ny chatt."
+      ? CHAT_STATUS_SESSION_ERROR
       : agentProjection.status === "invalid"
-        ? "Starta en ny chatt efter integritetsfelet"
+        ? CHAT_STATUS_INTEGRITY
         : sessionStatus === "opening"
-          ? "Öppnar Sajtagent-session…"
+          ? CHAT_STATUS_OPENING
           : isStreaming
-            ? "Sajtagent svarar i sitt kort…"
-            : "Skriv här. Svaret syns till höger."
+            ? CHAT_STATUS_STREAMING
+            : userMessages.length === 0
+              ? null
+              : CHAT_STATUS_READY
 
   return (
-    <div className="flex h-full flex-col" data-card-state={chatState}>
-      <div ref={listRef} className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto p-3">
-        {userMessages.length === 0 ? (
-          <CardEmpty tone="idle" title="Ditt meddelande">
-            <p>
-              Fråga vad som helst eller beskriv vad du vill bygga. Sajtagent svarar i sitt kort. Previewn stannar kvar.
+    <div
+      className="flex h-full flex-col"
+      data-card-state={chatState}
+      data-chat-compact={compact ? "" : undefined}
+      aria-busy={isStreaming}
+    >
+      {compact ? (
+        lastUserMessage ? (
+          <div className="shrink-0 border-b border-workflow-border-subtle px-3 py-2">
+            <p className="truncate rounded-md bg-foreground px-2.5 py-1.5 text-right text-[11px] leading-snug text-background">
+              {lastUserMessage.content}
             </p>
-            <p className="mt-2 font-mono text-[10px] text-workflow-text-subtle">
-              Byggval kan öppnas när du vill komplettera uppdraget.
-            </p>
-          </CardEmpty>
-        ) : (
-          userMessages.map((message) => (
-            <div
-              key={message.id}
-              className="max-w-[90%] self-end rounded-lg bg-foreground px-3 py-2 text-xs leading-relaxed text-background"
-            >
-              {message.content}
-            </div>
-          ))
-        )}
-        {isStreaming ? (
-          <p
-            data-chat-waiting=""
-            className="self-end font-mono text-[10px] text-workflow-text-subtle"
-          >
-            Sajtagent svarar i sitt kort…
-          </p>
-        ) : null}
-      </div>
+          </div>
+        ) : null
+      ) : (
+        <div ref={listRef} className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto p-3">
+          {userMessages.length === 0 ? (
+            <CardEmpty tone="idle" title={CHAT_WRITE_HERE_TITLE}>
+              <p>{CHAT_WRITE_HERE_BODY}</p>
+              <p className="mt-2 font-mono text-[10px] text-workflow-text-subtle">
+                {CHAT_BUILD_CHOICES_HINT}
+              </p>
+            </CardEmpty>
+          ) : (
+            userMessages.map((message) => (
+              <div
+                key={message.id}
+                className="max-w-[90%] self-end rounded-lg bg-foreground px-3 py-2 text-xs leading-relaxed text-background"
+              >
+                {message.content}
+              </div>
+            ))
+          )}
+        </div>
+      )}
 
-      <div className="flex flex-col gap-2 border-t border-workflow-border-subtle p-2">
+      <div className={cn("flex flex-col gap-2 p-2", compact ? "flex-1 justify-end" : "border-t border-workflow-border-subtle")}>
         <div className="flex items-center gap-1.5">
           <span
+            data-chat-waiting={isStreaming ? "" : undefined}
+            aria-live="polite"
             className={cn(
-              "font-mono text-[10px]",
+              "min-h-4 font-mono text-[10px]",
               chatState === "error" ? "text-rose-700 dark:text-rose-300" : "text-workflow-text-subtle",
             )}
           >
@@ -150,14 +175,14 @@ export function ChatFace() {
             aria-label="Meddelande till Sajtagent"
             placeholder={
               hasPendingQuestion
-                ? "Svara i Sajtagent-kortet…"
+                ? CHAT_QUESTION_PLACEHOLDER
                 : sessionStatus === "opening"
                   ? "Öppnar session…"
                   : sessionStatus === "error" || agentProjection.status === "invalid"
                     ? "Starta en ny chatt…"
-                    : "Svaret syns i Sajtagent-kortet"
+                    : CHAT_ANSWER_PLACEHOLDER
             }
-            rows={2}
+            rows={compact ? 1 : 2}
             className="flex-1 resize-none rounded-md bg-workflow-node-input border border-workflow-border-subtle px-2.5 py-2 text-xs text-workflow-text placeholder:text-workflow-text-subtle focus:outline-none focus:ring-1 focus:ring-workflow-border"
           />
           <button

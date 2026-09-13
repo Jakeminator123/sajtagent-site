@@ -16,6 +16,7 @@ import type {
   AgentTurnProjectionV1,
 } from "@/lib/siteagent/agent-event-reducer"
 import { CardEmpty, toolStatusLabel } from "../card-states"
+import { AGENT_LISTEN_BODY, AGENT_LISTEN_TITLE } from "../conversation-handoff"
 import { useBuilder } from "../builder-store"
 
 const MARKDOWN_PLUGINS = [remarkGfm]
@@ -234,7 +235,7 @@ export function AgentFace() {
     sessionStatus === "opening"
       ? "Öppnar session…"
       : agentProjection.statusLabel === "Redo" || !agentProjection.statusLabel
-        ? "Sajtagent lyssnar"
+        ? AGENT_LISTEN_TITLE
         : agentProjection.statusLabel
 
   const errorHint = sessionOpenFailure
@@ -278,10 +279,7 @@ export function AgentFace() {
               }
               title={emptyTitle}
             >
-              <p>
-                Sajtagents svar visas i det här kortet. Skriv i Chatt-kortet — vanliga
-                frågor får svar här. Sajtagent bygger bara när en godkänd turn begär det.
-              </p>
+              <p>{AGENT_LISTEN_BODY}</p>
             </CardEmpty>
           )
         ) : (

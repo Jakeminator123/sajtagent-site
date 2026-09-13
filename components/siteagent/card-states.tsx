@@ -49,6 +49,7 @@ export function StatusDot({
 }) {
   return (
     <span
+      role="img"
       title={label}
       aria-label={label}
       className={cn(

@@ -21,6 +21,8 @@ const previewStageSource = readFileSync(resolve(root, "components/siteagent/prev
 const cubeStageSource = readFileSync(resolve(root, "components/siteagent/cube-stage.tsx"), "utf8")
 const engineBackSource = readFileSync(resolve(root, "components/siteagent/faces/back-faces.tsx"), "utf8")
 const builderHeaderSource = readFileSync(resolve(root, "components/siteagent/builder-header.tsx"), "utf8")
+const newDraftMenuSource = readFileSync(resolve(root, "components/siteagent/new-draft-menu.tsx"), "utf8")
+const newDraftCopySource = readFileSync(resolve(root, "components/siteagent/new-draft-intents.ts"), "utf8")
 const builderPageSource = readFileSync(resolve(root, "app/builder/page.tsx"), "utf8")
 const layoutPrefsSource = readFileSync(resolve(root, "components/siteagent/layout-prefs.ts"), "utf8")
 const versionListSource = readFileSync(resolve(root, "components/siteagent/version-list.tsx"), "utf8")
@@ -281,7 +283,26 @@ assert.doesNotMatch(
   "ordinary assistant replies must not appear as build activity",
 )
 assert.match(engineBackSource, /activeTurn\?\.buildJobId/, "Build status must derive from a verified build event")
-assert.match(builderHeaderSource, />\s*Ny chatt\s*</, "the reset action must describe a new chat")
+assert.match(builderHeaderSource, /NewDraftMenu/, "the header must host the Ny… menu")
+assert.match(newDraftCopySource, /NEW_DRAFT_TRIGGER_LABEL = "Ny…"/, "the header control is Ny…, not a lone Ny chatt button")
+assert.match(newDraftMenuSource, /\{NEW_CHAT_LABEL\}/, "Ny chatt remains a named menu intent")
+assert.match(newDraftMenuSource, /\{NEW_PROJECT_LABEL\}/, "Nytt projekt is the second named menu intent")
+assert.match(
+  newDraftCopySource,
+  /NEW_PROJECT_CONFIRM_DESCRIPTION =\s*"Versioner och preview för det här utkastet försvinner\. Fortsätt\?"/,
+  "Nytt projekt must confirm that versions and preview disappear",
+)
+assert.match(newDraftCopySource, /NEW_PROJECT_CONFIRM_CANCEL = "Avbryt"/)
+assert.match(newDraftCopySource, /NEW_PROJECT_CONFIRM_ACTION = "Fortsätt"/)
+assert.match(newDraftMenuSource, /variant: "destructive"/, "confirm is a danger action")
+assert.match(newDraftMenuSource, /aria-label=\{NEW_DRAFT_TRIGGER_ARIA_LABEL\}/)
+assert.match(newDraftMenuSource, /onEscapeKeyDown/)
+assert.equal(
+  [...newDraftMenuSource.matchAll(/<DropdownMenuItem/g)].length,
+  2,
+  "the Ny… menu has exactly two intents",
+)
+assert.doesNotMatch(newDraftMenuSource, /Nytt bygge|Annat|Övrigt/, "do not invent a third Ny… item")
 assert.doesNotMatch(builderHeaderSource, /Nytt bygge/, "ordinary chat reset must not claim to start a build")
 assert.match(builderHeaderSource, />\s*Sajtagent\s*</, "Builder header chrome must use the Sajtagent product name")
 assert.doesNotMatch(

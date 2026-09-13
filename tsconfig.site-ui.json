@@ -21,6 +21,8 @@
     "app/auth/callback/route.ts",
     "components/siteagent/builder-header.tsx",
     "components/siteagent/builder-store.tsx",
+    "components/siteagent/new-draft-intents.ts",
+    "components/siteagent/new-draft-menu.tsx",
     "components/siteagent/card-states.tsx",
     "components/siteagent/cube-stage.tsx",
     "components/siteagent/faces/*.tsx",

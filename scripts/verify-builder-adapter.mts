@@ -3,11 +3,19 @@ import { readFileSync } from "node:fs"
 import { resolve } from "node:path"
 
 import {
+  openDefaultProject,
+  resetPersonalStarterProject,
+} from "../lib/siteagent/adapter.ts"
+import {
   completeBuildEventStreamV1,
   createBuildEventProjectionV1,
   reduceBuildEventV1,
   reduceBuildEventsV1,
 } from "../lib/siteagent/build-event-reducer.ts"
+import {
+  NEW_DRAFT_INTENTS,
+  newDraftResetsProject,
+} from "../components/siteagent/new-draft-intents.ts"
 import {
   CanonicalVersionV1Schema,
   loadCanonicalProjectV1,
@@ -242,5 +250,49 @@ assert.doesNotMatch(adapterSource, /URL\.createObjectURL|response\.blob\(\)|anch
 assert.doesNotMatch(versionListSource, /ZIP-export är inte ansluten ännu/)
 assert.match(previewSource, /const hasContent = Boolean\(previewUrl\)/)
 assert.match(previewSource, /Previewn stannar här så du kan fortsätta prompta/)
+
+assert.deepEqual([...NEW_DRAFT_INTENTS], ["new-chat", "new-project"])
+assert.equal(newDraftResetsProject("new-chat"), false)
+assert.equal(newDraftResetsProject("new-project"), true)
+
+const newChatBlock = storeSource.slice(
+  storeSource.indexOf("const newChat = useCallback"),
+  storeSource.indexOf("const newProject = useCallback"),
+)
+const newProjectBlock = storeSource.slice(
+  storeSource.indexOf("const newProject = useCallback"),
+  storeSource.indexOf("const publish = useCallback"),
+)
+assert.match(newChatBlock, /beginFreshSession\(false\)/)
+assert.doesNotMatch(newChatBlock, /resetPersonalStarterProject/)
+assert.doesNotMatch(newChatBlock, /setVersions\(\[\]\)/)
+assert.match(newProjectBlock, /resetPersonalStarterProject/)
+assert.match(newProjectBlock, /beginFreshSession\(true\)/)
+assert.match(storeSource, /if \(clearProject\) \{\s*setVersions\(\[\]\)/)
+
+const projectFetchCalls: Array<{ url: string; method?: string }> = []
+const projectFetch: typeof fetch = async (input, init) => {
+  projectFetchCalls.push({ url: String(input), method: init?.method })
+  return Response.json({
+    schemaVersion: 1,
+    projectId: "project:personal:user",
+    activeRevisionId: "revision:initial:user",
+  })
+}
+assert.equal((await openDefaultProject(undefined, projectFetch)).ok, true)
+assert.equal((await resetPersonalStarterProject(undefined, projectFetch)).ok, true)
+assert.deepEqual(
+  projectFetchCalls.map((call) => [call.method, call.url]),
+  [
+    ["POST", "/api/siteagent/projects/default"],
+    ["POST", "/api/siteagent/projects/default/reset"],
+  ],
+)
+assert.match(adapterSource, /\/api\/siteagent\/projects\/default\/reset/)
+assert.doesNotMatch(
+  newChatBlock,
+  /\/api\/siteagent\/projects\/default\/reset/,
+  "Ny chatt must not call the project reset route",
+)
 
 console.log("Builder projection: PASS (dedupe, sequence/terminal lock, canonical ready boundary)")

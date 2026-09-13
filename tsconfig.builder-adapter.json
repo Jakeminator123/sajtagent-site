@@ -16,6 +16,7 @@
     "lib/siteagent/build-choices.ts",
     "lib/siteagent/read-model.ts",
     "lib/siteagent/types.ts",
+    "components/siteagent/new-draft-intents.ts",
     "scripts/verify-builder-adapter.mts"
   ]
 }

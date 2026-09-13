@@ -14,7 +14,6 @@ import {
   Import,
   LogIn,
   MoreHorizontal,
-  Plus,
   Rocket,
   Save,
   SlidersHorizontal,
@@ -28,6 +27,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { useBuilder } from "./builder-store"
+import { NewDraftMenu } from "./new-draft-menu"
 
 interface BuilderHeaderProps {
   showDrawer: boolean
@@ -35,7 +35,7 @@ interface BuilderHeaderProps {
 }
 
 export function BuilderHeader({ showDrawer, onToggleDrawer }: BuilderHeaderProps) {
-  const { newChat } = useBuilder()
+  const { newChat, newProject, isResettingProject } = useBuilder()
 
   return (
     <header className="h-14 bg-workflow-bg border-b border-workflow-border flex items-center justify-between px-4 transition-colors duration-200">
@@ -98,14 +98,11 @@ export function BuilderHeader({ showDrawer, onToggleDrawer }: BuilderHeaderProps
           </DropdownMenuContent>
         </DropdownMenu>
 
-        <button
-          type="button"
-          onClick={newChat}
-          className="flex items-center gap-1.5 px-3 py-2 rounded-lg font-mono text-sm bg-workflow-surface border border-workflow-border text-workflow-text-muted hover:text-workflow-text hover:bg-workflow-surface-hover transition-colors duration-200"
-        >
-          <Plus className="w-4 h-4" />
-          Ny chatt
-        </button>
+        <NewDraftMenu
+          newChat={newChat}
+          newProject={newProject}
+          isResettingProject={isResettingProject}
+        />
 
         <button
           type="button"

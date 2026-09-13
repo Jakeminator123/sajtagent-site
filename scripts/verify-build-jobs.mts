@@ -1,4 +1,6 @@
 import assert from "node:assert/strict"
+import { readFileSync } from "node:fs"
+import { resolve } from "node:path"
 
 import {
   createBuildJobV1,
@@ -97,6 +99,31 @@ await assert.rejects(
   /starter_project_ownership_conflict/,
 )
 passed("personal starter project is deterministic, idempotent, and owner-bound")
+
+projectRepository.advanceActiveRevision(principal, "revision:built-bakery")
+assert.equal(
+  (await projectRepository.ensurePersonalStarterProject(principal)).activeRevisionId,
+  "revision:built-bakery",
+)
+const resetStarter = await projectRepository.resetPersonalStarterProject(principal)
+assert.deepEqual(resetStarter, personalStarterIdsV1(principal.userId))
+assert.deepEqual(await projectRepository.ensurePersonalStarterProject(principal), resetStarter)
+await assert.rejects(
+  projectRepository.resetPersonalStarterProject({ ...principal, tenantId: "tenant:changed" }),
+  /starter_project_ownership_conflict/,
+)
+const otherStarter = await projectRepository.ensurePersonalStarterProject(otherPrincipal)
+projectRepository.advanceActiveRevision(otherPrincipal, "revision:other-built")
+assert.deepEqual(
+  await projectRepository.resetPersonalStarterProject(principal),
+  personalStarterIdsV1(principal.userId),
+)
+assert.equal(
+  (await projectRepository.ensurePersonalStarterProject(otherPrincipal)).activeRevisionId,
+  "revision:other-built",
+)
+assert.notEqual(otherStarter.projectId, resetStarter.projectId)
+passed("personal starter reset restores the blank initial revision and stays owner-bound")
 
 assert.equal(
   isSameOriginMutation(new Request("https://site.test/api", { method: "POST", headers: { origin: "https://site.test" } })),
@@ -263,6 +290,35 @@ await assert.rejects(
   ),
 )
 passed("unknown request fields are rejected")
+
+const projectRepositorySource = readFileSync(
+  resolve(process.cwd(), "lib/siteagent/server/project-repository.ts"),
+  "utf8",
+)
+const resetRouteSource = readFileSync(
+  resolve(process.cwd(), "app/api/siteagent/projects/default/reset/route.ts"),
+  "utf8",
+)
+const wipeBlock = projectRepositorySource.slice(
+  projectRepositorySource.indexOf("async function wipePersonalStarterOnClient"),
+  projectRepositorySource.indexOf("export class PostgresPersonalProjectRepositoryV1"),
+)
+assert.match(wipeBlock, /delete from public\.agent_sessions/)
+assert.match(wipeBlock, /delete from public\.site_versions/)
+assert.match(wipeBlock, /delete from public\.site_projects/)
+assert.ok(
+  wipeBlock.indexOf("delete from public.agent_sessions") <
+    wipeBlock.indexOf("delete from public.site_versions"),
+)
+assert.ok(
+  wipeBlock.indexOf("delete from public.site_versions") <
+    wipeBlock.indexOf("delete from public.site_projects"),
+)
+assert.match(resetRouteSource, /isSameOriginMutation/)
+assert.match(resetRouteSource, /resolveBuildPrincipalV1/)
+assert.match(resetRouteSource, /resetPersonalStarterProject/)
+assert.doesNotMatch(resetRouteSource, /service_role|NEXT_PUBLIC_/)
+passed("personal starter reset wipes restrict-bound children before the project row")
 
 console.log(`Build-job boundary: PASS (${assertions.length} assertions)`)
 for (const name of assertions) console.log(`- ${name}`)

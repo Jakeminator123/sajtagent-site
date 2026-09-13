@@ -20,23 +20,22 @@
   ],
   "registryCards": [
     { "id": "choices", "label": "Byggval" },
-    { "id": "chat", "label": "Chatt" },
     { "id": "versions", "label": "Versioner" },
     { "id": "blocks", "label": "Blocks" },
     { "id": "map", "label": "Karta" },
     { "id": "agent", "label": "Sajtagent" }
   ],
-  "currentV1CardIds": ["choices", "chat", "versions", "blocks", "map", "agent"],
+  "currentV1CardIds": ["choices", "versions", "blocks", "map", "agent"],
   "targetCardIds": ["choices", "blocks", "versions", "map", "agent"],
   "targetAbsorptions": [
     {
       "from": "chat",
       "into": "agent",
-      "status": "planned",
-      "summary": "Efter V1 absorberar Sajtagent användarens inmatning; dagens separata Chat-kort ligger kvar tills dess."
+      "status": "implemented",
+      "summary": "Sajtagent är enda konversationskortet: användaren skriver och läser där. Chat är borttagen ur det körbara registret."
     }
   ],
-  "retiredCardIds": [],
+  "retiredCardIds": ["chat"],
   "nodes": [
     {
       "id": "product.controller",
@@ -130,39 +129,18 @@
       }
     },
     {
-      "id": "card.chat",
-      "label": "Chatt",
-      "kind": "card",
-      "layer": 2,
-      "owner": "builder-ui",
-      "status": "implemented",
-      "summary": "Användarens inmatningskort; skickar vanliga frågor eller byggönskemål som AgentTurnRequestV1 utan att välja runtimeverktyg.",
-      "card": {
-        "registryId": "chat",
-        "current": "Site AgentSession user input",
-        "target": "absorbed as user input in Sajtagent after V1",
-        "produces": ["AgentTurnRequestV1"],
-        "consumes": []
-      },
-      "failure": {
-        "code": "card.chat-unavailable",
-        "symptom": "Nya byggavsikter blockeras men befintliga versioner förblir läsbara.",
-        "detectedBy": "builder-ui"
-      }
-    },
-    {
       "id": "card.agent",
       "label": "Sajtagent",
       "kind": "card",
       "layer": 2,
       "owner": "builder-ui",
       "status": "implemented",
-      "summary": "Sajtagent är den OpenClaw-backade agenten; kortet visar message.delta, safe tool labels, explicit ask_user och felsäkra fel.",
+      "summary": "Sajtagent är konversationen: användaren skriver här och kortet visar message.delta, safe tool labels, explicit ask_user och felsäkra fel.",
       "card": {
         "registryId": "agent",
-        "current": "AgentEventV1 response projection",
+        "current": "Sajtagent conversation: user input, response, question and verified runtime status",
         "target": "Sajtagent user input, response, question and verified runtime status",
-        "produces": ["AgentTurnRequestV1.replyToQuestionId", "AgentTurnRequestV1.answerSelections"],
+        "produces": ["AgentTurnRequestV1", "AgentTurnRequestV1.replyToQuestionId", "AgentTurnRequestV1.answerSelections"],
         "consumes": ["agent.status", "message.delta", "question.requested", "tool.started", "build.started", "tool.completed", "preview.ready", "turn.completed", "turn.failed"]
       },
       "failure": {
@@ -250,9 +228,9 @@
     }
   ],
   "edges": [
-    { "id": "intent.user-to-chat", "from": "user.intent", "to": "card.chat", "channel": "intent", "contract": "free prompt" },
-    { "id": "context.choices-to-chat", "from": "card.choices", "to": "card.chat", "channel": "context", "contract": "buildChoices" },
-    { "id": "intent.chat-to-adapter", "from": "card.chat", "to": "ui.intent-adapter", "channel": "intent", "contract": "AgentTurnRequestV1" },
+    { "id": "intent.user-to-agent", "from": "user.intent", "to": "card.agent", "channel": "intent", "contract": "free prompt" },
+    { "id": "context.choices-to-agent", "from": "card.choices", "to": "card.agent", "channel": "context", "contract": "buildChoices" },
+    { "id": "intent.agent-to-adapter", "from": "card.agent", "to": "ui.intent-adapter", "channel": "intent", "contract": "AgentTurnRequestV1" },
     { "id": "intent.blocks-to-adapter", "from": "card.blocks", "to": "ui.intent-adapter", "channel": "intent", "contract": "AgentTurnRequestV1" },
     { "id": "intent.adapter-to-controller", "from": "ui.intent-adapter", "to": "product.controller", "channel": "intent", "contract": "AgentTurnRequestV1" },
     { "id": "projection.controller-to-version", "from": "product.controller", "to": "product.version", "channel": "projection", "contract": "BuildResultV1" },
@@ -270,9 +248,9 @@
       "label": "Mål: kommando nedåt",
       "orientation": "TB",
       "edgeIds": [
-        "intent.user-to-chat",
-        "context.choices-to-chat",
-        "intent.chat-to-adapter",
+        "intent.user-to-agent",
+        "context.choices-to-agent",
+        "intent.agent-to-adapter",
         "intent.blocks-to-adapter",
         "intent.adapter-to-controller"
       ]

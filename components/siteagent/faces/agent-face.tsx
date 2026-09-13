@@ -1,7 +1,8 @@
 "use client"
 
-// Sajtagent-kortet visar endast Site-validerade AgentEventV1-projektioner:
-// strömmande svar, sanerade tool-labels, explicit ask_user och felsäkra fel.
+// Sajtagent-kortet är konversationen: användaren skriver här och ser
+// Site-validerade AgentEventV1-projektioner — strömmande svar, sanerade
+// tool-labels, explicit ask_user och felsäkra fel.
 
 import { useEffect, useMemo, useRef, useState } from "react"
 import { Bot, Check, Loader2, ShieldCheck, TriangleAlert, Wrench } from "lucide-react"
@@ -16,7 +17,15 @@ import type {
   AgentTurnProjectionV1,
 } from "@/lib/siteagent/agent-event-reducer"
 import { CardEmpty, toolStatusLabel } from "../card-states"
-import { AGENT_LISTEN_BODY, AGENT_LISTEN_TITLE } from "../conversation-handoff"
+import { ConversationComposer } from "../conversation-composer"
+import {
+  AGENT_LISTEN_BODY,
+  AGENT_LISTEN_TITLE,
+  CONVERSATION_BUILD_CHOICES_HINT,
+  CONVERSATION_WRITE_BODY,
+  conversationComposerPlaceholder,
+  conversationComposerStatus,
+} from "../conversation-handoff"
 import { useBuilder } from "../builder-store"
 
 const MARKDOWN_PLUGINS = [remarkGfm]
@@ -170,7 +179,7 @@ function agentCardState(input: {
   projectionStatus: string
   isStreaming: boolean
   waitingForFirstDelta: boolean
-  hasAssistant: boolean
+  hasMessages: boolean
   hasQuestion: boolean
 }): string {
   if (input.projectionStatus === "invalid" || input.projectionStatus === "failed") return "error"
@@ -179,8 +188,8 @@ function agentCardState(input: {
   if (input.isStreaming || input.waitingForFirstDelta || input.projectionStatus === "active") {
     return "streaming"
   }
-  if (input.sessionStatus === "opening" && !input.hasAssistant) return "opening"
-  if (!input.hasAssistant) return "empty"
+  if (input.sessionStatus === "opening" && !input.hasMessages) return "opening"
+  if (!input.hasMessages) return "empty"
   return "ready"
 }
 
@@ -188,10 +197,13 @@ export function AgentFace() {
   const {
     agentProjection,
     answerQuestion,
+    canSendTurn,
     isStreaming,
     messages,
+    sendMessage,
     sessionStatus,
   } = useBuilder()
+  const userMessages = messages.filter((message) => message.role === "user")
   const assistantMessages = messages.filter((message) => message.role === "assistant")
   const activeTurn = agentProjection.activeTurnId
     ? agentProjection.turns[agentProjection.activeTurnId]
@@ -217,15 +229,28 @@ export function AgentFace() {
     !sessionOpenFailure &&
     (agentProjection.status === "invalid" ||
       agentProjection.error === SESSION_TURN_MISMATCH_MESSAGE_V1)
+  const hasMessages = messages.length > 0
   const cardState = agentCardState({
     sessionStatus,
     projectionStatus: agentProjection.status,
     isStreaming,
     waitingForFirstDelta,
-    hasAssistant: assistantMessages.length > 0,
+    hasMessages,
     hasQuestion: Boolean(agentProjection.pendingQuestion),
   })
   const listRef = useRef<HTMLDivElement>(null)
+  const statusLine = conversationComposerStatus({
+    hasPendingQuestion: Boolean(agentProjection.pendingQuestion),
+    sessionStatus,
+    projectionInvalid: agentProjection.status === "invalid",
+    isStreaming,
+    hasUserMessage: userMessages.length > 0,
+  })
+  const placeholder = conversationComposerPlaceholder({
+    hasPendingQuestion: Boolean(agentProjection.pendingQuestion),
+    sessionStatus,
+    projectionInvalid: agentProjection.status === "invalid",
+  })
 
   useEffect(() => {
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight })
@@ -241,17 +266,18 @@ export function AgentFace() {
   const errorHint = sessionOpenFailure
     ? "Logga in om du inte redan gjort det, eller prova Ny chatt."
     : integrityFailure
-      ? "Starta en ny chatt i toppfältet. Den här sessionen kan inte fortsätta."
+      ? "Ny chatt krävs. Den här sessionen kan inte fortsätta."
       : retryableFailure
-        ? "Du kan skicka igen i Chatt-kortet."
+        ? "Du kan skicka igen här."
         : "Sajtagent stoppade turen felsäkert."
+
+  const showEmpty =
+    !hasMessages && !agentProjection.pendingQuestion && !waitingForFirstDelta
 
   return (
     <div className="flex h-full flex-col" data-card-state={cardState} aria-busy={isStreaming}>
       <div ref={listRef} className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto p-3">
-        {assistantMessages.length === 0 &&
-        !agentProjection.pendingQuestion &&
-        !waitingForFirstDelta ? (
+        {showEmpty ? (
           agentProjection.error ? (
             <CardEmpty
               tone="error"
@@ -279,26 +305,39 @@ export function AgentFace() {
               }
               title={emptyTitle}
             >
-              <p>{AGENT_LISTEN_BODY}</p>
+              <p>{CONVERSATION_WRITE_BODY}</p>
+              <p className="mt-2">{AGENT_LISTEN_BODY}</p>
+              <p className="mt-2 font-mono text-[10px] text-workflow-text-subtle">
+                {CONVERSATION_BUILD_CHOICES_HINT}
+              </p>
             </CardEmpty>
           )
         ) : (
-          assistantMessages.map((message, index) => {
-            const previous = assistantMessages[index - 1]
+          messages.map((message, index) => {
+            const previous = messages[index - 1]
             const showTurnBreak = Boolean(previous && previous.turnId !== message.turnId)
+            if (message.role === "user") {
+              return (
+                <div key={message.id} className="flex flex-col gap-2">
+                  {showTurnBreak ? (
+                    <div aria-hidden className="flex items-center gap-2 px-0.5" data-turn-break="">
+                      <span className="h-px flex-1 bg-workflow-border-subtle" />
+                    </div>
+                  ) : null}
+                  <div className="max-w-[90%] self-end rounded-lg bg-foreground px-3 py-2 text-xs leading-relaxed text-background">
+                    {message.content}
+                  </div>
+                </div>
+              )
+            }
             const isLive = liveTurnId !== null && message.turnId === liveTurnId
             const turn = message.turnId ? agentProjection.turns[message.turnId] : null
             const showBuiltNote =
-              isBuiltTurn(turn) &&
-              turn?.messageIds[turn.messageIds.length - 1] === message.id
+              isBuiltTurn(turn) && turn?.messageIds[turn.messageIds.length - 1] === message.id
             return (
               <div key={message.id} className="flex flex-col gap-2">
                 {showTurnBreak ? (
-                  <div
-                    aria-hidden
-                    className="flex items-center gap-2 px-0.5"
-                    data-turn-break=""
-                  >
+                  <div aria-hidden className="flex items-center gap-2 px-0.5" data-turn-break="">
                     <span className="h-px flex-1 bg-workflow-border-subtle" />
                   </div>
                 ) : null}
@@ -391,32 +430,16 @@ export function AgentFace() {
         ) : null}
       </div>
 
-      <div
-        aria-live="polite"
-        className={cn(
-          "flex items-center gap-1.5 border-t border-workflow-border-subtle px-3 py-2 font-mono text-[10px]",
-          agentProjection.status === "invalid" || agentProjection.status === "failed"
-            ? "text-rose-700 dark:text-rose-300"
-            : agentProjection.status === "awaiting_user"
-              ? "text-amber-700 dark:text-amber-300"
-              : "text-workflow-text-subtle",
-        )}
-      >
-        {isStreaming || waitingForFirstDelta ? (
-          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-        ) : agentProjection.status === "invalid" || agentProjection.status === "failed" ? (
-          <TriangleAlert className="h-3.5 w-3.5" />
-        ) : (
-          <ShieldCheck className="h-3.5 w-3.5" />
-        )}
-        <span className="min-w-0 truncate">
-          {sessionOpenFailure
-            ? "Kunde inte öppna sessionen · Ny chatt eller inloggning"
-            : integrityFailure
-              ? `${agentProjection.statusLabel} · Ny chatt krävs`
-              : agentProjection.statusLabel}
-        </span>
-      </div>
+      <ConversationComposer
+        canSendTurn={canSendTurn}
+        isStreaming={isStreaming}
+        statusLine={statusLine}
+        placeholder={placeholder}
+        cardState={cardState}
+        onSend={(text) => {
+          void sendMessage(text)
+        }}
+      />
     </div>
   )
 }

@@ -86,10 +86,10 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - `system-model/card-flow-v1.json` is the canonical model for current card
   registry, target card responsibilities, typed inputs/outputs and failure
   propagation. `docs/card-flow.md` is generated and must not be hand-edited.
-- V1 has six cards: Build choices, Chat, Blocks, Versions, Map and SiteAgent.
-  Chat is the user's input card. SiteAgent is the OpenClaw-backed agent card
-  where replies, progress and fail-closed errors appear. Build choices may be
-  opened beside them or folded down.
+- The executable registry has five cards: Build choices, Blocks, Versions,
+  Map and Sajtagent. Chat is absorbed: the user writes and reads in Sajtagent.
+  Replies, progress, pending questions and fail-closed errors stay in that
+  card. Build choices may be opened beside it or folded down.
 - The browser must still submit typed product intent through the SiteAgent
   controller. Showing SiteAgent/OpenClaw in a card never authorizes a direct
   browser-to-OpenClaw, browser-to-Sprite, MCP or model-tool connection.

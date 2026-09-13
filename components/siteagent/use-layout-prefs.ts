@@ -10,6 +10,7 @@ import {
   LAYOUT_DEFAULTS_REVISION,
   LAYOUT_STORAGE_KEY,
   migrateAgentDefaultSize,
+  migrateDockedFaces,
 } from "./layout-prefs"
 
 const STORAGE_KEY = LAYOUT_STORAGE_KEY
@@ -21,9 +22,9 @@ export interface FaceSize {
 
 export const SIZE_LIMITS = { minW: 260, maxW: 680, minH: 180, maxH: 820 }
 
-// V1 öppnar användarens Chatt till vänster och Sajtagent/OpenClaw till höger.
-// Byggval och övriga kort kan plockas upp från kortleken vid behov.
+// Default: bara Sajtagent öppet. Byggval och övriga kort ligger i kortleken.
 const DEFAULT_DOCKED: FaceId[] = ["choices", "versions", "blocks", "map"]
+const KNOWN_FACE_IDS = FACES.map((face) => face.id)
 
 function defaultSizes(): Record<FaceId, FaceSize> {
   const sizes = {} as Record<FaceId, FaceSize>
@@ -71,7 +72,15 @@ export function useLayoutPrefs() {
         const raw = localStorage.getItem(STORAGE_KEY)
         if (raw) {
           const saved = JSON.parse(raw) as Partial<PersistedLayout>
-          if (Array.isArray(saved.docked)) setDocked(new Set(saved.docked))
+          const defaultsRevision =
+            typeof saved.defaultsRevision === "number" ? saved.defaultsRevision : undefined
+          if (Array.isArray(saved.docked)) {
+            setDocked(
+              new Set(
+                migrateDockedFaces(saved.docked, KNOWN_FACE_IDS, defaultsRevision),
+              ),
+            )
+          }
           if (saved.sizes) {
             const base = defaultSizes()
             for (const f of FACES) {
@@ -83,8 +92,6 @@ export function useLayoutPrefs() {
                 }
               }
             }
-            const defaultsRevision =
-              typeof saved.defaultsRevision === "number" ? saved.defaultsRevision : undefined
             base.agent = migrateAgentDefaultSize(
               base.agent,
               defaultSizes().agent,

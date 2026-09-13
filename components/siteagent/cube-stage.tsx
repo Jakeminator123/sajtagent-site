@@ -1,10 +1,10 @@
 "use client"
 
-// Kortscenen: sex kort som flyter över preview-scenen.
+// Kortscenen: fem kort som flyter över preview-scenen.
 // - Kort kan vikas ner till kortleken (bara främsta syns), resizas och dras runt.
-// - Kort med baksida kan flippas 180°: Chatt → logg, Blocks → reserverad,
-//   Byggval → byggstatus. Byggval låses först av verifierad version eller
-//   ett faktiskt build-event, aldrig av en vanlig chatt-turn.
+// - Kort med baksida kan flippas 180°: Blocks → reserverad, Byggval → byggstatus.
+//   Byggval låses först av verifierad version eller ett faktiskt build-event,
+//   aldrig av en vanlig konversationsturn.
 // Layouten (dock, storlek, position) sparas i localStorage.
 
 import React, { useCallback, useEffect, useRef, useState } from "react"
@@ -14,13 +14,12 @@ import { cn } from "@/lib/utils"
 import { FACES, type FaceDef, type FaceId } from "./faces/face-defs"
 import { PreviewStage } from "./preview-stage"
 import { StatusDot } from "./card-states"
-import { chatDisplayHeight, isChatComposerCompact } from "./conversation-handoff"
 import { useBuilder } from "./builder-store"
 import type { FaceOffset, FaceSize } from "./use-layout-prefs"
 
 function FaceLiveStatus({ id }: { id: FaceId }) {
   const { agentProjection, isStreaming, sessionStatus, previewStatus } = useBuilder()
-  if (id === "agent" || id === "chat") {
+  if (id === "agent") {
     const tone =
       agentProjection.status === "invalid" ||
       agentProjection.status === "failed" ||
@@ -97,14 +96,7 @@ function FaceCard({
   resetFace: (id: FaceId) => void
   moveFace: (id: FaceId, x: number, y: number) => void
 }) {
-  const { agentProjection, isStreaming } = useBuilder()
-  const compactChat =
-    face.id === "chat" &&
-    isChatComposerCompact({
-      isStreaming,
-      hasPendingQuestion: Boolean(agentProjection.pendingQuestion),
-    })
-  const displayHeight = face.id === "chat" ? chatDisplayHeight(size.h, compactChat) : size.h
+  const { isStreaming } = useBuilder()
   const dragRef = useRef<{ x: number; y: number } | null>(null)
   const [resizing, setResizing] = useState(false)
   const dragControls = useDragControls()
@@ -250,9 +242,8 @@ function FaceCard({
       onPointerDown={startBodyDrag}
       role="region"
       aria-label={headerLabel}
-      aria-busy={face.id === "chat" || face.id === "agent" ? isStreaming : undefined}
-      data-face-compact={compactChat ? "chat" : undefined}
-      style={{ width: size.w, height: displayHeight, x, y, perspective: 1400 }}
+      aria-busy={face.id === "agent" ? isStreaming : undefined}
+      style={{ width: size.w, height: size.h, x, y, perspective: 1400 }}
       className="relative pointer-events-auto shrink-0"
     >
       <motion.div

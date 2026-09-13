@@ -102,7 +102,7 @@ export function PreviewStage() {
                 <Monitor className="w-10 h-10 text-zinc-300" />
                 <p className="font-mono text-base text-zinc-600">Din sajt visas här</p>
                 <p className="text-sm text-zinc-400 leading-relaxed max-w-sm text-pretty">
-                  Skriv till Sajtagent i Chatt-kortet. Frågor får svar utan bygge. En tydlig
+                  Skriv till Sajtagent. Frågor får svar utan bygge. En tydlig
                   sajtbeställning startar bygget. Previewn stannar här så du kan fortsätta prompta.
                 </p>
               </div>

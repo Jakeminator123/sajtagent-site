@@ -46,7 +46,9 @@ surface:
 3. `DeploymentSourceBindingV2`: exact `sourceRevisionId` plus `jobId`.
 4. `NextPreviewDeploymentV2`: `building` / `failed` / `accepted`, with a sticky
    `acceptedRevision` so a later failed or building wave cannot replace an
-   accepted revision.
+   accepted revision. The current job wins: a failed `jobId` is terminal,
+   `sourceRevisionId` is locked against the previous binding, and an older
+   job cannot overwrite a newer current job. Retry requires a new `jobId`.
 
 Site can start against `contracts/fixtures/next-preview-v2.fixtures.json`
 without a worker. Do not import Site or Sprite runtime modules from these

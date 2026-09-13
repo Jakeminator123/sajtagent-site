@@ -16,7 +16,7 @@ import {
 } from "../contracts/preview-access-v2.ts"
 
 const EXPECTED_MIRRORED_CONTRACT_DIGEST =
-  "bb5cfacaaa80072cc3526879f81211637e11e3b6a836b3cd657cc0527a768d08"
+  "76e758a204196a86810927b9c43127ba69b9efc6483b62a52ad629c0b5391bfd"
 
 const NextPreviewSchemaNameV2Schema = z.union([
   DeploymentContractNameV2Schema,

@@ -276,10 +276,65 @@ export function validateDeploymentWaveTransitionV2(
     return { success: false, error: "Wave transition cannot change preview access mode" }
   }
 
+  const from = previous.deployment
+  const to = next.deployment
+  const sameJob = from.build.jobId === to.build.jobId
+
+  if (sameJob) {
+    if (
+      !sameSourceBinding(from.sourceBinding, to.sourceBinding) ||
+      from.build.sourceRevisionId !== to.build.sourceRevisionId
+    ) {
+      return {
+        success: false,
+        error: "A job cannot change its bound sourceRevisionId",
+      }
+    }
+  } else {
+    if (from.build.status === "building") {
+      return {
+        success: false,
+        error: "A building job cannot be overwritten by another job",
+      }
+    }
+    if (
+      from.acceptedRevision &&
+      to.build.jobId === from.acceptedRevision.jobId
+    ) {
+      return {
+        success: false,
+        error: "An older accepted job cannot replace the current job",
+      }
+    }
+    if (buildClock(to.build) < buildClock(from.build)) {
+      return {
+        success: false,
+        error: "An older job cannot replace a newer current job",
+      }
+    }
+    if (!sameAcceptedRevision(from.acceptedRevision, to.acceptedRevision)) {
+      return {
+        success: false,
+        error: "A job switch cannot replace or clear acceptedRevision",
+      }
+    }
+  }
+
   if (
-    previous.deployment.build.status === "accepted" &&
-    next.deployment.build.jobId === previous.deployment.build.jobId &&
-    next.deployment.build.status !== "accepted"
+    from.build.status === "failed" &&
+    to.build.jobId === from.build.jobId &&
+    to.build.status !== "failed"
+  ) {
+    return {
+      success: false,
+      error: "A failed job cannot later become building or accepted",
+    }
+  }
+
+  if (
+    from.build.status === "accepted" &&
+    to.build.jobId === from.build.jobId &&
+    to.build.status !== "accepted"
   ) {
     return {
       success: false,
@@ -287,28 +342,20 @@ export function validateDeploymentWaveTransitionV2(
     }
   }
 
-  if (next.deployment.build.status !== "accepted") {
-    if (
-      !sameAcceptedRevision(
-        previous.deployment.acceptedRevision,
-        next.deployment.acceptedRevision,
-      )
-    ) {
+  if (to.build.status !== "accepted") {
+    if (!sameAcceptedRevision(from.acceptedRevision, to.acceptedRevision)) {
       return {
         success: false,
         error: "A building or failed wave cannot replace or clear acceptedRevision",
       }
     }
-    return { success: true, previous: previous.deployment, next: next.deployment }
+    return { success: true, previous: from, next: to }
   }
 
   if (
-    previous.deployment.acceptedRevision &&
-    previous.deployment.acceptedRevision.jobId === next.deployment.build.jobId &&
-    !sameAcceptedRevision(
-      previous.deployment.acceptedRevision,
-      next.deployment.acceptedRevision,
-    )
+    from.acceptedRevision &&
+    from.acceptedRevision.jobId === to.build.jobId &&
+    !sameAcceptedRevision(from.acceptedRevision, to.acceptedRevision)
   ) {
     return {
       success: false,
@@ -316,7 +363,7 @@ export function validateDeploymentWaveTransitionV2(
     }
   }
 
-  return { success: true, previous: previous.deployment, next: next.deployment }
+  return { success: true, previous: from, next: to }
 }
 
 function sameOwner(left: DeploymentOwnerV2, right: DeploymentOwnerV2): boolean {
@@ -339,4 +386,20 @@ function sameAcceptedRevision(
     left.previewRef === right.previewRef &&
     left.acceptedAt === right.acceptedAt
   )
+}
+
+function sameSourceBinding(
+  left: DeploymentSourceBindingV2,
+  right: DeploymentSourceBindingV2,
+): boolean {
+  return (
+    left.jobId === right.jobId &&
+    left.sourceRevisionId === right.sourceRevisionId
+  )
+}
+
+function buildClock(build: NextPreviewBuildV2): number {
+  if (build.status === "accepted") return Date.parse(build.acceptedAt)
+  if (build.status === "failed") return Date.parse(build.failedAt)
+  return Date.parse(build.startedAt)
 }

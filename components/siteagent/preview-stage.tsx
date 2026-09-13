@@ -55,7 +55,7 @@ export function PreviewStage() {
         <div className="relative w-full max-w-[1100px] rounded-xl overflow-hidden shadow-2xl ring-1 ring-primary/30 flex flex-col bg-white dark:bg-zinc-100">
           {/* Chrome-list */}
           <div className="h-10 shrink-0 bg-zinc-100 dark:bg-zinc-200 border-b border-zinc-200 dark:border-zinc-300 flex items-center gap-3 px-3">
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5" aria-hidden="true">
               <span className="w-2.5 h-2.5 rounded-full bg-rose-400" />
               <span className="w-2.5 h-2.5 rounded-full bg-amber-400" />
               <span className="w-2.5 h-2.5 rounded-full bg-emerald-400" />
@@ -67,6 +67,8 @@ export function PreviewStage() {
                   {address}
                 </span>
                 <span
+                  role="status"
+                  aria-live="polite"
                   data-preview-status={previewStatus}
                   className={cn(
                     "shrink-0 rounded-full px-2 py-0.5 font-mono text-[10px] leading-none",
@@ -85,6 +87,7 @@ export function PreviewStage() {
                   rel="noopener noreferrer"
                   className="p-1.5 rounded text-zinc-400 hover:text-zinc-700 transition-colors duration-150"
                   title="Öppna i ny flik"
+                  aria-label="Öppna preview i ny flik"
                 >
                   <ExternalLink className="w-3.5 h-3.5" />
                 </a>

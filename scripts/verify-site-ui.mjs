@@ -20,6 +20,11 @@ const builderPageSource = readFileSync(resolve(root, "app/builder/page.tsx"), "u
 const layoutPrefsSource = readFileSync(resolve(root, "components/siteagent/layout-prefs.ts"), "utf8")
 const versionListSource = readFileSync(resolve(root, "components/siteagent/version-list.tsx"), "utf8")
 const sitemapFaceSource = readFileSync(resolve(root, "components/siteagent/faces/sitemap-face.tsx"), "utf8")
+const conversationHandoffSource = readFileSync(
+  resolve(root, "components/siteagent/conversation-handoff.ts"),
+  "utf8",
+)
+const cardStatesSource = readFileSync(resolve(root, "components/siteagent/card-states.tsx"), "utf8")
 const heroSource = readFileSync(resolve(root, "components/hero-section.tsx"), "utf8")
 const agendaSource = readFileSync(resolve(root, "components/agenda.tsx"), "utf8")
 const loginPageSource = readFileSync(resolve(root, "app/login/page.tsx"), "utf8")
@@ -56,8 +61,18 @@ assert.match(
 )
 assert.match(
   agentFaceSource,
+  /AGENT_LISTEN_BODY/,
+  "empty Sajtagent card must reuse the shared listen/answer-here body",
+)
+assert.match(
+  conversationHandoffSource,
+  /Skriv i Chatt-kortet\. Sajtagent bygger bara när en godkänd turn begär det\./,
+  "Sajtagent empty copy must send writing to Chat without repeating Chat's paragraph",
+)
+assert.doesNotMatch(
+  conversationHandoffSource,
   /Sajtagents svar visas i det här kortet/,
-  "empty Sajtagent card must say answers appear here",
+  "answer-here copy must not repeat Chat's write-here paragraph",
 )
 assert.match(
   agentFaceSource,
@@ -91,8 +106,13 @@ assert.match(
 )
 assert.match(
   chatFaceSource,
-  /Sessionen kunde inte öppnas\. Logga in eller prova Ny chatt\./,
+  /CHAT_STATUS_SESSION_ERROR/,
   "Chat must explain a failed session open before talking about integrity",
+)
+assert.match(
+  conversationHandoffSource,
+  /Sessionen kunde inte öppnas\. Logga in eller prova Ny chatt\./,
+  "session-open Chat copy stays user-facing Swedish",
 )
 assert.doesNotMatch(
   agentFaceSource,
@@ -106,13 +126,73 @@ assert.doesNotMatch(
 )
 assert.match(
   chatFaceSource,
-  /Svaret syns i Sajtagent-kortet/,
+  /CHAT_ANSWER_PLACEHOLDER/,
   "ready Chat placeholder must point answers to the Sajtagent card",
 )
 assert.match(
   chatFaceSource,
-  /Sajtagent svarar i sitt kort/,
+  /CHAT_STATUS_STREAMING/,
   "Chat must show a waiting state while Sajtagent streams",
+)
+assert.match(
+  chatFaceSource,
+  /CHAT_WRITE_HERE_TITLE/,
+  "empty Chat must lead with skriv här",
+)
+assert.match(
+  chatFaceSource,
+  /data-chat-compact=\{compact \? "" : undefined\}/,
+  "Chat must expose compact composer mode while Sajtagent streams or asks",
+)
+assert.match(
+  chatFaceSource,
+  /data-chat-waiting=\{isStreaming \? "" : undefined\}/,
+  "Chat waiting copy lives on the status line, not a second bubble",
+)
+assert.doesNotMatch(
+  chatFaceSource,
+  /Sajtagent svarar i sitt kort…[\s\S]*Sajtagent svarar i sitt kort/,
+  "Chat must not repeat the streaming wait line in the message list and footer",
+)
+assert.doesNotMatch(
+  chatFaceSource,
+  /till höger/,
+  "Chat handoff must name the Sajtagent card, not assume a column",
+)
+assert.match(
+  cubeStageSource,
+  /chatDisplayHeight\(size\.h, compactChat\)/,
+  "streaming Chat may shrink visually without writing a new saved size",
+)
+assert.match(
+  cubeStageSource,
+  /data-face-compact=\{compactChat \? "chat" : undefined\}/,
+  "FaceCard must mark the temporary compact Chat height",
+)
+assert.match(
+  cubeStageSource,
+  /role="region"/,
+  "open Builder cards must be named regions",
+)
+assert.doesNotMatch(
+  layoutSource,
+  /chatDisplayHeight|COMPACT_CHAT_HEIGHT|isChatComposerCompact/,
+  "compact Chat height must not be persisted in layout:v4",
+)
+assert.match(
+  conversationHandoffSource,
+  /COMPACT_CHAT_HEIGHT = 216/,
+  "compact Chat height helper must stay a presentation constant",
+)
+assert.match(
+  cardStatesSource,
+  /role="img"/,
+  "status dots need a role so their aria-label is exposed",
+)
+assert.match(
+  previewStageSource,
+  /role="status"/,
+  "preview status chip must be a live status",
 )
 assert.doesNotMatch(
   chatFaceSource,

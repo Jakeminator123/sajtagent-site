@@ -7,6 +7,11 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), "..")
 const proxySource = readFileSync(resolve(root, "lib/supabase/proxy.ts"), "utf8")
 const envExample = readFileSync(resolve(root, ".env.example"), "utf8")
 const chatFaceSource = readFileSync(resolve(root, "components/siteagent/faces/chat-face.tsx"), "utf8")
+const faceDefsSource = readFileSync(resolve(root, "components/siteagent/faces/face-defs.tsx"), "utf8")
+const conversationComposerSource = readFileSync(
+  resolve(root, "components/siteagent/conversation-composer.tsx"),
+  "utf8",
+)
 const agentFaceSource = readFileSync(resolve(root, "components/siteagent/faces/agent-face.tsx"), "utf8")
 const agentWidgetSource = readFileSync(resolve(root, "components/siteagent/agent-widget.tsx"), "utf8")
 const layoutSource = readFileSync(resolve(root, "components/siteagent/use-layout-prefs.ts"), "utf8")
@@ -50,9 +55,19 @@ assert.doesNotMatch(
   "NEXT_PUBLIC_URL is not a required Site environment variable",
 )
 assert.match(
-  chatFaceSource,
+  faceDefsSource,
+  /export type FaceId = "choices" \| "versions" \| "blocks" \| "map" \| "agent"/,
+  "executable registry must be the five-card post-absorption set",
+)
+assert.doesNotMatch(
+  faceDefsSource,
+  /id:\s*"chat"/,
+  "Chat must not remain a default CubeStage face",
+)
+assert.match(
+  agentFaceSource,
   /message\.role === "user"/,
-  "Chat card must render the user's side of the conversation",
+  "Sajtagent card must render the user's side of the conversation",
 )
 assert.match(
   agentFaceSource,
@@ -61,18 +76,33 @@ assert.match(
 )
 assert.match(
   agentFaceSource,
+  /ConversationComposer/,
+  "Sajtagent card must host the conversation composer",
+)
+assert.match(
+  agentFaceSource,
+  /canSendTurn/,
+  "Sajtagent composer must share the turn-send gate",
+)
+assert.match(
+  agentFaceSource,
   /AGENT_LISTEN_BODY/,
-  "empty Sajtagent card must reuse the shared listen/answer-here body",
+  "empty Sajtagent card must reuse the shared listen/build-rule body",
 )
 assert.match(
   conversationHandoffSource,
-  /Skriv i Chatt-kortet\. Sajtagent bygger bara när en godkänd turn begär det\./,
-  "Sajtagent empty copy must send writing to Chat without repeating Chat's paragraph",
+  /Sajtagent bygger bara när en godkänd turn begär det\./,
+  "Sajtagent empty copy must keep the approved-turn build rule",
 )
 assert.doesNotMatch(
   conversationHandoffSource,
-  /Sajtagents svar visas i det här kortet/,
-  "answer-here copy must not repeat Chat's write-here paragraph",
+  /Skriv i Chatt-kortet/,
+  "single-card copy must not send writing to a separate Chat card",
+)
+assert.doesNotMatch(
+  agentFaceSource,
+  /Skriv i Chatt-kortet/,
+  "Sajtagent must not point the user at a separate Chat card",
 )
 assert.match(
   agentFaceSource,
@@ -105,14 +135,19 @@ assert.match(
   "Sajtagent must distinguish a failed session open from a fail-closed stream",
 )
 assert.match(
-  chatFaceSource,
-  /CHAT_STATUS_SESSION_ERROR/,
-  "Chat must explain a failed session open before talking about integrity",
+  conversationHandoffSource,
+  /CONVERSATION_STATUS_SESSION_ERROR/,
+  "composer must explain a failed session open before talking about integrity",
+)
+assert.match(
+  agentFaceSource,
+  /conversationComposerStatus/,
+  "Sajtagent must use the shared session-vs-integrity status helper",
 )
 assert.match(
   conversationHandoffSource,
   /Sessionen kunde inte öppnas\. Logga in eller prova Ny chatt\./,
-  "session-open Chat copy stays user-facing Swedish",
+  "session-open copy stays user-facing Swedish",
 )
 assert.doesNotMatch(
   agentFaceSource,
@@ -125,49 +160,39 @@ assert.doesNotMatch(
   "the unused video-avatar slot must not occupy the Sajtagent conversation card",
 )
 assert.match(
-  chatFaceSource,
-  /CHAT_ANSWER_PLACEHOLDER/,
-  "ready Chat placeholder must point answers to the Sajtagent card",
+  conversationHandoffSource,
+  /CONVERSATION_PLACEHOLDER/,
+  "ready composer placeholder must keep writing in Sajtagent",
 )
 assert.match(
-  chatFaceSource,
-  /CHAT_STATUS_STREAMING/,
-  "Chat must show a waiting state while Sajtagent streams",
+  conversationHandoffSource,
+  /CONVERSATION_STATUS_STREAMING/,
+  "composer must show a waiting state while Sajtagent streams",
 )
 assert.match(
-  chatFaceSource,
-  /CHAT_WRITE_HERE_TITLE/,
-  "empty Chat must lead with skriv här",
+  conversationHandoffSource,
+  /CONVERSATION_WRITE_TITLE = "Skriv här"/,
+  "empty conversation must lead with skriv här",
 )
 assert.match(
-  chatFaceSource,
-  /data-chat-compact=\{compact \? "" : undefined\}/,
-  "Chat must expose compact composer mode while Sajtagent streams or asks",
+  conversationComposerSource,
+  /data-conversation-composer/,
+  "composer must mark the single-card input chrome",
 )
 assert.match(
-  chatFaceSource,
+  conversationComposerSource,
   /data-chat-waiting=\{isStreaming \? "" : undefined\}/,
-  "Chat waiting copy lives on the status line, not a second bubble",
+  "streaming wait copy lives on the composer status line, not a second bubble",
 )
 assert.doesNotMatch(
-  chatFaceSource,
-  /Sajtagent svarar i sitt kort…[\s\S]*Sajtagent svarar i sitt kort/,
-  "Chat must not repeat the streaming wait line in the message list and footer",
-)
-assert.doesNotMatch(
-  chatFaceSource,
+  agentFaceSource,
   /till höger/,
-  "Chat handoff must name the Sajtagent card, not assume a column",
+  "conversation copy must not assume a column",
 )
-assert.match(
+assert.doesNotMatch(
   cubeStageSource,
-  /chatDisplayHeight\(size\.h, compactChat\)/,
-  "streaming Chat may shrink visually without writing a new saved size",
-)
-assert.match(
-  cubeStageSource,
-  /data-face-compact=\{compactChat \? "chat" : undefined\}/,
-  "FaceCard must mark the temporary compact Chat height",
+  /chatDisplayHeight|COMPACT_CHAT_HEIGHT|isChatComposerCompact|data-face-compact/,
+  "compact Chat height must be gone from CubeStage after absorption",
 )
 assert.match(
   cubeStageSource,
@@ -181,28 +206,23 @@ assert.doesNotMatch(
 )
 assert.match(
   conversationHandoffSource,
-  /COMPACT_CHAT_HEIGHT = 216/,
-  "compact Chat height helper must stay a presentation constant",
+  /CONVERSATION_WRITE_BODY = "Fråga eller beskriv sajten."/,
+  "empty conversation body must stay one short ask line",
 )
 assert.match(
   conversationHandoffSource,
-  /CHAT_WRITE_HERE_BODY = "Fråga eller beskriv sajten."/,
-  "empty Chat body must stay one short ask line",
+  /CONVERSATION_STATUS_READY = "Skriv här. Svaret syns i samma kort."/,
+  "composer status after the first send must stay in the same card",
 )
 assert.match(
   conversationHandoffSource,
-  /CHAT_STATUS_READY = "Skriv här. Svaret syns i Sajtagent-kortet."/,
-  "Chat composer status must name the Sajtagent card after the first send",
-)
-assert.match(
-  conversationHandoffSource,
-  /CHAT_ANSWER_PLACEHOLDER = "Svaret syns i Sajtagent-kortet"/,
-  "Chat placeholder must keep the answer-there handoff",
+  /CONVERSATION_PLACEHOLDER = "Skriv till Sajtagent…"/,
+  "composer placeholder must keep writing in Sajtagent",
 )
 assert.match(
   chatFaceSource,
-  /userMessages\.length === 0\s*\?\s*null/,
-  "empty Chat must not repeat skriv-här on the status line",
+  /Flyttad till Sajtagent/,
+  "unused Chat face must point back to Sajtagent if re-enabled",
 )
 assert.match(
   cardStatesSource,
@@ -215,19 +235,24 @@ assert.match(
   "preview status chip must be a live status",
 )
 assert.doesNotMatch(
-  chatFaceSource,
+  conversationComposerSource,
   /ImageIcon|Textbilagor är inte anslutna/,
-  "Chat must not show unfinished attachment chrome",
+  "composer must not show unfinished attachment chrome",
 )
 assert.match(
   agentWidgetSource,
-  /Skriv i Chatt-kortet\. Svaret syns i Sajtagent\./,
-  "agent widget footer must send writing to Chat and answers to Sajtagent",
+  /Skriv i Sajtagent-kortet\./,
+  "agent widget footer must send writing to the Sajtagent card",
 )
 assert.match(
   layoutSource,
   /DEFAULT_DOCKED: FaceId\[\] = \["choices", "versions", "blocks", "map"\]/,
-  "Chat and Sajtagent must be the two open default cards",
+  "default Builder must open Sajtagent and dock the supporting cards",
+)
+assert.match(
+  layoutSource,
+  /migrateDockedFaces/,
+  "layout hydration must migrate Chat docks without wiping other faces",
 )
 assert.equal(
   existsSync(buildJobsRoute),
@@ -316,12 +341,17 @@ assert.match(
 )
 assert.match(
   layoutPrefsSource,
-  /LAYOUT_DEFAULTS_REVISION = 5/,
-  "agent-size migration must be revision 5 inside the same v4 key",
+  /LAYOUT_DEFAULTS_REVISION = 6/,
+  "Chat absorption must be revision 6 inside the same v4 key",
+)
+assert.match(
+  layoutPrefsSource,
+  /migrateDockedFaces/,
+  "layout-prefs must expose a Chat-dock migration that keeps other docks",
 )
 assert.match(
   versionListSource,
-  /Skriv i Chatt-kortet\. Sajtagent skapar den första när ett bygge verifieras\./,
+  /Skriv i Sajtagent-kortet\. Sajtagent skapar den första när ett bygge verifieras\./,
   "empty Versions card must not repeat the title as body copy",
 )
 assert.doesNotMatch(
@@ -415,5 +445,5 @@ assert.match(
 )
 
 console.log(
-  "Site UI boundary: PASS (routing, public environment, split conversation, fail-closed build path, and honest beta UI)",
+  "Site UI boundary: PASS (routing, public environment, single-card conversation, fail-closed build path, and honest beta UI)",
 )

@@ -9,12 +9,12 @@ Den maskinläsbara modellen skiljer på dagens prototyp och målarkitekturen. `f
 ```mermaid
 flowchart TB
     n_user_intent["Användare<br/>user · implemented"]
-    n_card_chat["Chatt<br/>builder-ui · implemented"]
-    n_user_intent -->|"free prompt"| n_card_chat
+    n_card_agent["Sajtagent<br/>builder-ui · implemented"]
+    n_user_intent -->|"free prompt"| n_card_agent
     n_card_choices["Byggval<br/>builder-ui · prototype"]
-    n_card_choices -->|"buildChoices"| n_card_chat
+    n_card_choices -->|"buildChoices"| n_card_agent
     n_ui_intent_adapter["Tunn sessionadapter<br/>builder-ui · implemented"]
-    n_card_chat -->|"AgentTurnRequestV1"| n_ui_intent_adapter
+    n_card_agent -->|"AgentTurnRequestV1"| n_ui_intent_adapter
     n_card_blocks["Blocks<br/>builder-ui · prototype"]
     n_card_blocks -->|"AgentTurnRequestV1"| n_ui_intent_adapter
     n_product_controller["SiteAgent controller<br/>sajtagent-site · implemented"]
@@ -47,17 +47,16 @@ flowchart BT
 | Kort | Nu | Mål | Producerar | Konsumerar | Felkod |
 | --- | --- | --- | --- | --- | --- |
 | Byggval | separate prototype card | keep until first verified version | `AgentTurnRequestV1.uiContext.buildChoices` | - | `card.choices-invalid` |
-| Chatt | Site AgentSession user input | absorbed as user input in Sajtagent after V1 | `AgentTurnRequestV1` | - | `card.chat-unavailable` |
-| Sajtagent | AgentEventV1 response projection | Sajtagent user input, response, question and verified runtime status | `AgentTurnRequestV1.replyToQuestionId`<br/>`AgentTurnRequestV1.answerSelections` | `agent.status`<br/>`message.delta`<br/>`question.requested`<br/>`tool.started`<br/>`build.started`<br/>`tool.completed`<br/>`preview.ready`<br/>`turn.completed`<br/>`turn.failed` | `card.agent-unavailable` |
+| Sajtagent | Sajtagent conversation: user input, response, question and verified runtime status | Sajtagent user input, response, question and verified runtime status | `AgentTurnRequestV1`<br/>`AgentTurnRequestV1.replyToQuestionId`<br/>`AgentTurnRequestV1.answerSelections` | `agent.status`<br/>`message.delta`<br/>`question.requested`<br/>`tool.started`<br/>`build.started`<br/>`tool.completed`<br/>`preview.ready`<br/>`turn.completed`<br/>`turn.failed` | `card.agent-unavailable` |
 | Blocks | free-text follow-up prototype | typed block context in an agent turn | `AgentTurnRequestV1` | `turn.failed` | `card.blocks-stale-ref` |
 | Versioner | prototype projection | verified read model | - | `preview.ready`<br/>`turn.failed` | `card.versions-gap` |
 | Karta | preview-pages prototype | verified sitemap read model | - | `preview.ready` | `card.map-missing` |
 
 ## Beslut som tester låser
 
-- Det körbara V1-registret har sex kort: Byggval, Chat, Blocks, Versioner, Karta och Sajtagent.
-- Målet efter V1 har fem kort: Byggval, Blocks, Versioner, Karta och Sajtagent; Chat absorberas då av Sajtagent.
-- Chat är användarens inmatningskort; Sajtagent är OpenClaw-agentens svarskort.
+- Det körbara registret har fem kort: Byggval, Blocks, Versioner, Karta och Sajtagent.
+- Chat är absorberad av Sajtagent och retired; användaren skriver och läser i samma kort.
+- Sajtagent är konversationen: inmatning, svar, fråga och felsäker runtime-status.
 - Byggval kan öppnas bredvid dialogen eller vikas ned utan att ändra meddelandevägen.
 - Browserkort skapar endast `AgentTurnRequestV1`; inga OpenClaw-, MCP- eller verktygsnamn får läcka in i kortkontraktet.
 - En Site-policy kan ge högst en `build.request` och en mutationstyp; browserkortet kan aldrig skapa jobb eller utöka policyn.

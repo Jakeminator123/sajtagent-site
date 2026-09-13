@@ -36,18 +36,22 @@ import {
 } from "../lib/siteagent/read-model.ts"
 import {
   LAYOUT_DEFAULTS_REVISION,
+  LEGACY_SPLIT_CONVERSATION_AGENT_SIZE,
   LEGACY_UNCUSTOMIZED_AGENT_SIZE,
   migrateAgentDefaultSize,
+  migrateDockedFaces,
 } from "../components/siteagent/layout-prefs.ts"
 import {
   AGENT_LISTEN_BODY,
-  CHAT_ANSWER_PLACEHOLDER,
-  CHAT_STATUS_READY,
-  CHAT_STATUS_STREAMING,
-  CHAT_WRITE_HERE_BODY,
-  COMPACT_CHAT_HEIGHT,
-  chatDisplayHeight,
-  isChatComposerCompact,
+  CONVERSATION_PLACEHOLDER,
+  CONVERSATION_STATUS_INTEGRITY,
+  CONVERSATION_STATUS_QUESTION,
+  CONVERSATION_STATUS_READY,
+  CONVERSATION_STATUS_SESSION_ERROR,
+  CONVERSATION_STATUS_STREAMING,
+  CONVERSATION_WRITE_BODY,
+  conversationComposerPlaceholder,
+  conversationComposerStatus,
 } from "../components/siteagent/conversation-handoff.ts"
 
 const occurredAt = "2026-09-01T19:00:00.000Z"
@@ -584,21 +588,30 @@ assert.match(agentFaceSource, /role="alert"/)
 assert.match(
   agentFaceSource,
   /AGENT_LISTEN_BODY/,
-  "empty AgentFace copy must reuse the shared Chat handoff body",
+  "empty AgentFace copy must reuse the shared build-rule body",
 )
 assert.match(
+  agentFaceSource,
+  /ConversationComposer/,
+  "AgentFace must host the conversation composer",
+)
+assert.match(
+  agentFaceSource,
+  /message\.role === "user"/,
+  "AgentFace must render user turns in the same card",
+)
+assert.equal(
   AGENT_LISTEN_BODY,
-  /Skriv i Chatt-kortet/,
-  "Sajtagent empty copy must send the user to Chat",
+  "Sajtagent bygger bara när en godkänd turn begär det.",
 )
 assert.doesNotMatch(
   AGENT_LISTEN_BODY,
-  /Sajtagents svar visas i det här kortet/,
-  "Sajtagent empty copy must not repeat Chat's write-here paragraph",
+  /Skriv i Chatt-kortet/,
+  "Sajtagent empty copy must not send the user to a separate Chat card",
 )
-assert.equal(CHAT_WRITE_HERE_BODY, "Fråga eller beskriv sajten.")
-assert.equal(CHAT_ANSWER_PLACEHOLDER, "Svaret syns i Sajtagent-kortet")
-assert.equal(CHAT_STATUS_READY, "Skriv här. Svaret syns i Sajtagent-kortet.")
+assert.equal(CONVERSATION_WRITE_BODY, "Fråga eller beskriv sajten.")
+assert.equal(CONVERSATION_PLACEHOLDER, "Skriv till Sajtagent…")
+assert.equal(CONVERSATION_STATUS_READY, "Skriv här. Svaret syns i samma kort.")
 assert.match(agentFaceSource, /data-agent-streaming/)
 assert.match(agentFaceSource, /data-card-state/)
 assert.match(agentFaceSource, /SESSION_TURN_MISMATCH_MESSAGE_V1/)
@@ -838,13 +851,19 @@ assert.equal(
   SESSION_TURN_MISMATCH_MESSAGE_V1,
 )
 
-const currentAgentDefault = { w: 380, h: 480 }
+const currentAgentDefault = { w: 380, h: 560 }
 assert.deepEqual(LEGACY_UNCUSTOMIZED_AGENT_SIZE, { w: 340, h: 440 })
-assert.equal(LAYOUT_DEFAULTS_REVISION, 5)
+assert.deepEqual(LEGACY_SPLIT_CONVERSATION_AGENT_SIZE, { w: 380, h: 480 })
+assert.equal(LAYOUT_DEFAULTS_REVISION, 6)
 assert.deepEqual(
   migrateAgentDefaultSize(LEGACY_UNCUSTOMIZED_AGENT_SIZE, currentAgentDefault, undefined),
   currentAgentDefault,
-  "pre-PR#22 default agent size must pick up 380×480",
+  "pre-PR#22 default agent size must pick up the composer-sized default",
+)
+assert.deepEqual(
+  migrateAgentDefaultSize(LEGACY_SPLIT_CONVERSATION_AGENT_SIZE, currentAgentDefault, 5),
+  currentAgentDefault,
+  "post-PR#23 default 380×480 must grow for the in-card composer",
 )
 assert.deepEqual(
   migrateAgentDefaultSize({ w: 400, h: 520 }, currentAgentDefault, undefined),
@@ -852,9 +871,9 @@ assert.deepEqual(
   "a user-resized agent card must stay put",
 )
 assert.deepEqual(
-  migrateAgentDefaultSize(LEGACY_UNCUSTOMIZED_AGENT_SIZE, currentAgentDefault, 5),
+  migrateAgentDefaultSize(LEGACY_UNCUSTOMIZED_AGENT_SIZE, currentAgentDefault, 6),
   LEGACY_UNCUSTOMIZED_AGENT_SIZE,
-  "after the defaults revision is stamped, 340×440 is a real user choice",
+  "after revision 6 is stamped, 340×440 is a real user choice",
 )
 assert.deepEqual(
   migrateAgentDefaultSize({ w: 360, h: 440 }, currentAgentDefault, 4),
@@ -862,21 +881,95 @@ assert.deepEqual(
   "nearby but customized widths must not be treated as the legacy default",
 )
 
-assert.equal(COMPACT_CHAT_HEIGHT, 216)
-assert.equal(isChatComposerCompact({ isStreaming: true, hasPendingQuestion: false }), true)
-assert.equal(isChatComposerCompact({ isStreaming: false, hasPendingQuestion: true }), true)
-assert.equal(isChatComposerCompact({ isStreaming: false, hasPendingQuestion: false }), false)
-assert.equal(chatDisplayHeight(440, false), 440, "idle Chat keeps the saved height")
-assert.equal(chatDisplayHeight(440, true), 216, "streaming Chat shrinks to the composer")
-assert.equal(
-  chatDisplayHeight(200, true),
-  200,
-  "an already-smaller Chat must not grow when compacting",
+const knownFaces = ["choices", "versions", "blocks", "map", "agent"] as const
+assert.deepEqual(
+  migrateDockedFaces(
+    ["choices", "versions", "blocks", "map"],
+    knownFaces,
+    5,
+  ),
+  ["choices", "versions", "blocks", "map"],
+  "default docks stay when Chat and Sajtagent were both open",
+)
+assert.deepEqual(
+  migrateDockedFaces(
+    ["choices", "versions", "blocks", "map", "agent"],
+    knownFaces,
+    5,
+  ),
+  ["choices", "versions", "blocks", "map"],
+  "open Chat + docked Sajtagent must reopen Sajtagent so the composer is not lost",
+)
+assert.deepEqual(
+  migrateDockedFaces(
+    ["choices", "versions", "blocks", "map", "chat"],
+    knownFaces,
+    5,
+  ),
+  ["choices", "versions", "blocks", "map"],
+  "a docked Chat id is dropped without opening extra faces",
+)
+assert.deepEqual(
+  migrateDockedFaces(
+    ["choices", "versions", "blocks", "map", "chat", "agent"],
+    knownFaces,
+    5,
+  ),
+  ["choices", "versions", "blocks", "map", "agent"],
+  "both conversation cards docked stays docked except the retired Chat id",
+)
+assert.deepEqual(
+  migrateDockedFaces(
+    ["choices", "versions", "blocks", "map", "agent"],
+    knownFaces,
+    6,
+  ),
+  ["choices", "versions", "blocks", "map", "agent"],
+  "after revision 6 a docked Sajtagent is a real user choice",
 )
 assert.equal(
-  CHAT_STATUS_STREAMING,
-  "Sajtagent svarar i sitt kort…",
-  "streaming wait copy stays on the Chat status line",
+  CONVERSATION_STATUS_STREAMING,
+  "Sajtagent svarar…",
+  "streaming wait copy stays on the composer status line",
+)
+assert.equal(
+  conversationComposerStatus({
+    hasPendingQuestion: false,
+    sessionStatus: "error",
+    projectionInvalid: true,
+    isStreaming: false,
+    hasUserMessage: false,
+  }),
+  CONVERSATION_STATUS_SESSION_ERROR,
+  "session-open failure must beat integrity copy",
+)
+assert.equal(
+  conversationComposerStatus({
+    hasPendingQuestion: false,
+    sessionStatus: "ready",
+    projectionInvalid: true,
+    isStreaming: false,
+    hasUserMessage: true,
+  }),
+  CONVERSATION_STATUS_INTEGRITY,
+)
+assert.equal(
+  conversationComposerStatus({
+    hasPendingQuestion: true,
+    sessionStatus: "ready",
+    projectionInvalid: false,
+    isStreaming: false,
+    hasUserMessage: true,
+  }),
+  CONVERSATION_STATUS_QUESTION,
+)
+assert.equal(
+  conversationComposerPlaceholder({
+    hasPendingQuestion: false,
+    sessionStatus: "ready",
+    projectionInvalid: false,
+  }),
+  CONVERSATION_PLACEHOLDER,
 )
 
 console.log(

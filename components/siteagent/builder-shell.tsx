@@ -1,7 +1,7 @@
 "use client"
 
 // Skalet för /builder: provider + toppbar + kortscen (preview i bakgrunden,
-// sex nedvikbara kort ovanpå). Layouten (nedvikta kort, storlekar, skala)
+// fem nedvikbara kort ovanpå). Layouten (nedvikta kort, storlekar, skala)
 // sparas via use-layout-prefs. Toppbarens "Versioner" togglar Versioner-kortet.
 
 import React from "react"

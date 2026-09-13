@@ -12,9 +12,9 @@ The Builder now uses Sajtagent-owned product routes:
 - no browser-callable build-job route exists. The AgentTurn route now injects
   the Site-owned BuildJob controller, ArtifactRead gate and version committer;
 - Supabase SSR cookies and verified claims resolve the server principal;
-- V1 exposes the user's input in a separate Chat card;
-- replies, progress and fail-closed errors appear in the Sajtagent card, which
-  is the product surface for the OpenClaw-backed agent;
+- the user writes and reads in the Sajtagent card (Chat is absorbed);
+- replies, progress, pending questions and fail-closed errors stay in that
+  same card, which is the product surface for the OpenClaw-backed agent;
 - Build choices can be opened beside the conversation or folded down;
 - the old `/api/engine/chats/stream` request and simulated HTML fallback no
   longer exist in production code.
@@ -76,7 +76,7 @@ owner-bound project state and versions read models. Reload restores Versioner,
 Karta, and Preview from those read models. The preview iframe uses only the
 authenticated Site route; inline `srcDoc` is not part of the product flow.
 
-Chat uses one continuous Sajtagent `AgentSession`. The browser opens a
+The conversation uses one continuous Sajtagent `AgentSession`. The browser opens a
 Site-owned session, POSTs strict `AgentTurnRequestV1`, consumes Site SSE and
 resumes from its last verified global sequence. It never creates `BuildJobV1`:
 that remains a subordinate server-owned mutation envelope minted only after an

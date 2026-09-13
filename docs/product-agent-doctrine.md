@@ -7,7 +7,7 @@ card-deck or a one-shot build wizard. A user can ask a question, give a site
 brief, look at the preview, and keep prompting.
 
 ```text
-/builder Chat
+/builder Sajtagent
   -> AgentTurnRequestV1
   -> Site policy (conversation.respond always;
                   build.request only for a clear build path)

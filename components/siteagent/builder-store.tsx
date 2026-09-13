@@ -1,8 +1,9 @@
 "use client"
 
-// One small browser projection for the Builder. Chat sends AgentTurnRequestV1
-// to Site-owned routes; BuildJobV1 is never created in the browser. Preview and
-// versions still come only from canonical owner-bound read models.
+// One small browser projection for the Builder. Sajtagent sends
+// AgentTurnRequestV1 to Site-owned routes; BuildJobV1 is never created in the
+// browser. Preview and versions still come only from canonical owner-bound
+// read models.
 
 import {
   createContext,

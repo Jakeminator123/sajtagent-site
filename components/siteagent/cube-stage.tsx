@@ -190,7 +190,7 @@ function FaceCard({
           <button
             type="button"
             onClick={() => onFlip(face.id)}
-            className="p-1 rounded text-workflow-text-subtle hover:text-workflow-text transition-colors duration-150 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-workflow-border"
+            className="p-1 rounded text-workflow-text-subtle hover:text-workflow-text transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-workflow-text"
             aria-label={`Vänd ${face.label}`}
             title={flipped ? "Vänd till framsidan" : "Vänd till baksidan"}
           >
@@ -200,7 +200,7 @@ function FaceCard({
         <button
           type="button"
           onClick={() => scaleFace(face.id, 0.88)}
-          className="p-1 rounded text-workflow-text-subtle hover:text-workflow-text transition-colors duration-150 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-workflow-border"
+          className="p-1 rounded text-workflow-text-subtle hover:text-workflow-text transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-workflow-text"
           aria-label={`Förminska ${face.label}`}
           title="Mindre"
         >
@@ -209,7 +209,7 @@ function FaceCard({
         <button
           type="button"
           onClick={() => scaleFace(face.id, 1.14)}
-          className="p-1 rounded text-workflow-text-subtle hover:text-workflow-text transition-colors duration-150 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-workflow-border"
+          className="p-1 rounded text-workflow-text-subtle hover:text-workflow-text transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-workflow-text"
           aria-label={`Förstora ${face.label}`}
           title="Större"
         >
@@ -218,7 +218,7 @@ function FaceCard({
         <button
           type="button"
           onClick={() => resetFace(face.id)}
-          className="p-1 rounded text-workflow-text-subtle hover:text-workflow-text transition-colors duration-150 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-workflow-border"
+          className="p-1 rounded text-workflow-text-subtle hover:text-workflow-text transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-workflow-text"
           aria-label={`Återställ ${face.label}`}
           title="Återställ storlek och position"
         >
@@ -227,7 +227,7 @@ function FaceCard({
         <button
           type="button"
           onClick={() => onToggle(face.id)}
-          className="p-1 rounded text-workflow-text-muted hover:text-workflow-text transition-colors duration-150 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-workflow-border"
+          className="p-1 rounded text-workflow-text-muted hover:text-workflow-text transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-workflow-text"
           aria-label={`Vik ner ${face.label} till kortleken`}
           title="Vik ner till kortleken"
         >

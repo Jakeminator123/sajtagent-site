@@ -2,8 +2,7 @@
 // Ingen React, ingen persistens — FaceCard/ChatFace äger rendering.
 
 export const CHAT_WRITE_HERE_TITLE = "Skriv här"
-export const CHAT_WRITE_HERE_BODY =
-  "Fråga eller beskriv sajten. Svaret syns i Sajtagent-kortet."
+export const CHAT_WRITE_HERE_BODY = "Fråga eller beskriv sajten."
 export const CHAT_BUILD_CHOICES_HINT =
   "Byggval kan öppnas när du vill komplettera uppdraget."
 export const CHAT_ANSWER_PLACEHOLDER = "Svaret syns i Sajtagent-kortet"

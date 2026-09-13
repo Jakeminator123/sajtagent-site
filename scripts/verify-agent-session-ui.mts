@@ -41,6 +41,8 @@ import {
 } from "../components/siteagent/layout-prefs.ts"
 import {
   AGENT_LISTEN_BODY,
+  CHAT_ANSWER_PLACEHOLDER,
+  CHAT_STATUS_READY,
   CHAT_STATUS_STREAMING,
   CHAT_WRITE_HERE_BODY,
   COMPACT_CHAT_HEIGHT,
@@ -594,11 +596,9 @@ assert.doesNotMatch(
   /Sajtagents svar visas i det här kortet/,
   "Sajtagent empty copy must not repeat Chat's write-here paragraph",
 )
-assert.match(
-  CHAT_WRITE_HERE_BODY,
-  /Svaret syns i Sajtagent-kortet/,
-  "Chat empty copy must send answers to the Sajtagent card",
-)
+assert.equal(CHAT_WRITE_HERE_BODY, "Fråga eller beskriv sajten.")
+assert.equal(CHAT_ANSWER_PLACEHOLDER, "Svaret syns i Sajtagent-kortet")
+assert.equal(CHAT_STATUS_READY, "Skriv här. Svaret syns i Sajtagent-kortet.")
 assert.match(agentFaceSource, /data-agent-streaming/)
 assert.match(agentFaceSource, /data-card-state/)
 assert.match(agentFaceSource, /SESSION_TURN_MISMATCH_MESSAGE_V1/)

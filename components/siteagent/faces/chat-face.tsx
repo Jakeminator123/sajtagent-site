@@ -84,7 +84,9 @@ export function ChatFace() {
           ? CHAT_STATUS_OPENING
           : isStreaming
             ? CHAT_STATUS_STREAMING
-            : CHAT_STATUS_READY
+            : userMessages.length === 0
+              ? null
+              : CHAT_STATUS_READY
 
   return (
     <div
@@ -129,7 +131,7 @@ export function ChatFace() {
             data-chat-waiting={isStreaming ? "" : undefined}
             aria-live="polite"
             className={cn(
-              "font-mono text-[10px]",
+              "min-h-4 font-mono text-[10px]",
               chatState === "error" ? "text-rose-700 dark:text-rose-300" : "text-workflow-text-subtle",
             )}
           >

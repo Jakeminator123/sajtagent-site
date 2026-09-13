@@ -185,6 +185,26 @@ assert.match(
   "compact Chat height helper must stay a presentation constant",
 )
 assert.match(
+  conversationHandoffSource,
+  /CHAT_WRITE_HERE_BODY = "Fråga eller beskriv sajten."/,
+  "empty Chat body must stay one short ask line",
+)
+assert.match(
+  conversationHandoffSource,
+  /CHAT_STATUS_READY = "Skriv här. Svaret syns i Sajtagent-kortet."/,
+  "Chat composer status must name the Sajtagent card after the first send",
+)
+assert.match(
+  conversationHandoffSource,
+  /CHAT_ANSWER_PLACEHOLDER = "Svaret syns i Sajtagent-kortet"/,
+  "Chat placeholder must keep the answer-there handoff",
+)
+assert.match(
+  chatFaceSource,
+  /userMessages\.length === 0\s*\?\s*null/,
+  "empty Chat must not repeat skriv-här on the status line",
+)
+assert.match(
   cardStatesSource,
   /role="img"/,
   "status dots need a role so their aria-label is exposed",

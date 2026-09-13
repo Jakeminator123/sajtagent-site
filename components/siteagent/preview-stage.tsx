@@ -9,6 +9,7 @@ import { ExternalLink, Globe, Loader2, Monitor, TriangleAlert } from "lucide-rea
 import { cn } from "@/lib/utils"
 import { previewAddressLabel, previewStatusChip } from "./card-states"
 import { useBuilder } from "./builder-store"
+import { NextPreviewPanel } from "./next-preview-panel"
 
 function PreviewFrame({ className }: { className?: string }) {
   const { previewUrl } = useBuilder()
@@ -24,13 +25,14 @@ function PreviewFrame({ className }: { className?: string }) {
 }
 
 export function PreviewStage() {
-  const { previewStatus, previewUrl } = useBuilder()
+  const { previewStatus, previewUrl, projectId } = useBuilder()
   const hasContent = Boolean(previewUrl)
   const chip = previewStatusChip(previewStatus, hasContent)
   const address = previewAddressLabel(previewStatus, previewUrl)
 
   return (
     <div className="absolute inset-0 bg-workflow-canvas transition-colors duration-200">
+      <NextPreviewPanel key={projectId} projectId={projectId} />
       {/* Prickmönster som i canvas-vyn */}
       <div
         aria-hidden="true"

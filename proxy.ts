@@ -3,6 +3,12 @@ import { NextResponse, type NextRequest } from "next/server"
 import { refreshSupabaseSession } from "./lib/supabase/proxy"
 
 export async function proxy(request: NextRequest) {
+  const publishedDomain = process.env.SITEAGENT_PUBLISHED_DOMAIN
+  if (publishedDomain && (request.nextUrl.hostname === publishedDomain || request.nextUrl.hostname.endsWith(`.${publishedDomain}`))) {
+    // Public customer code never reaches Site auth, APIs, assets or redirects.
+    const { handlePublishedGateway } = await import("./lib/siteagent/server/next-publication-gateway")
+    return handlePublishedGateway(request)
+  }
   const domain = process.env.SITEAGENT_NEXT_PREVIEW_DOMAIN
   const hostname = request.nextUrl.hostname
   if (domain && (hostname === domain || hostname.endsWith(`.${domain}`))) {

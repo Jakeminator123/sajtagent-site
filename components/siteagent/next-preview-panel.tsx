@@ -1,8 +1,9 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
+import { NextPublicationControl } from "./next-publication-control"
 
-type State = { current: {jobId:string;status:string;failureCode?:string}|null; accepted:{sourceRevisionId:string;previewRef:string}|null }
+type State = { current: {jobId:string;status:string;failureCode?:string}|null; accepted:{sourceRevisionId:string;previewRef:string;jobId:string}|null }
 
 /** Opt-in first Next static-export profile; the V1 iframe remains unchanged. */
 export function NextPreviewPanel({projectId}:{projectId:string|null}) {
@@ -88,6 +89,7 @@ function ProjectNextPreviewPanel({projectId}:{projectId:string|null}) {
   return <section className="absolute inset-4 z-20 flex flex-col rounded-xl border bg-background shadow-lg" aria-label="Next.js-preview V2">
     <div className="flex flex-wrap items-center gap-2 border-b px-4 py-2 text-sm">
       <strong>Next.js · statisk export</strong>
+      {projectId && <NextPublicationControl key={projectId} projectId={projectId} accepted={state.accepted} />}
       <span>{state.current?.status==="building"?"Bygger…":state.accepted?"Verifierad preview":"Redo för första Next-bygget"}</span>
       <button type="button" className="ml-auto underline" onClick={()=>void restore()}>Öppna accepterad källa</button>
       {state.accepted&&<button type="button" className="underline" onClick={()=>setRefresh(value=>value+1)}>Uppdatera preview</button>}

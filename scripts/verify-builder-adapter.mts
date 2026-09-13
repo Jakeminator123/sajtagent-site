@@ -253,7 +253,7 @@ assert.match(previewSource, /Previewn stannar här så du kan fortsätta prompta
 
 assert.deepEqual([...NEW_DRAFT_INTENTS], ["new-chat", "new-project"])
 assert.equal(newDraftResetsProject("new-chat"), false)
-assert.equal(newDraftResetsProject("new-project"), true)
+assert.equal(newDraftResetsProject("new-project"), false)
 
 const newChatBlock = storeSource.slice(
   storeSource.indexOf("const newChat = useCallback"),
@@ -261,13 +261,14 @@ const newChatBlock = storeSource.slice(
 )
 const newProjectBlock = storeSource.slice(
   storeSource.indexOf("const newProject = useCallback"),
-  storeSource.indexOf("const publish = useCallback"),
+  storeSource.indexOf("const resetStarter = useCallback"),
 )
 assert.match(newChatBlock, /beginFreshSession\(false\)/)
 assert.doesNotMatch(newChatBlock, /resetPersonalStarterProject/)
 assert.doesNotMatch(newChatBlock, /setVersions\(\[\]\)/)
-assert.match(newProjectBlock, /resetPersonalStarterProject/)
-assert.match(newProjectBlock, /beginFreshSession\(true\)/)
+assert.doesNotMatch(newProjectBlock, /resetPersonalStarterProject/)
+assert.match(newProjectBlock, /createProject\(name\)/)
+assert.match(newProjectBlock, /window\.location\.assign/)
 assert.match(storeSource, /if \(clearProject\) \{\s*setVersions\(\[\]\)/)
 
 const projectFetchCalls: Array<{ url: string; method?: string }> = []

@@ -289,12 +289,12 @@ assert.match(newDraftMenuSource, /\{NEW_CHAT_LABEL\}/, "Ny chatt remains a named
 assert.match(newDraftMenuSource, /\{NEW_PROJECT_LABEL\}/, "Nytt projekt is the second named menu intent")
 assert.match(
   newDraftCopySource,
-  /NEW_PROJECT_CONFIRM_DESCRIPTION =\s*"Versioner och preview för det här utkastet försvinner\. Fortsätt\?"/,
-  "Nytt projekt must confirm that versions and preview disappear",
+  /NEW_PROJECT_CONFIRM_DESCRIPTION =\s*"Ett separat projekt skapas\. Dina tidigare projekt, versioner och previews finns kvar\."/,
+  "Nytt projekt preserves previous projects",
 )
 assert.match(newDraftCopySource, /NEW_PROJECT_CONFIRM_CANCEL = "Avbryt"/)
-assert.match(newDraftCopySource, /NEW_PROJECT_CONFIRM_ACTION = "Fortsätt"/)
-assert.match(newDraftMenuSource, /variant: "destructive"/, "confirm is a danger action")
+assert.match(newDraftCopySource, /NEW_PROJECT_CONFIRM_ACTION = "Skapa projekt"/)
+assert.doesNotMatch(newDraftMenuSource, /variant: "destructive"/, "creating a project is non-destructive")
 assert.match(newDraftMenuSource, /aria-label=\{NEW_DRAFT_TRIGGER_ARIA_LABEL\}/)
 assert.match(newDraftMenuSource, /onEscapeKeyDown/)
 assert.equal(

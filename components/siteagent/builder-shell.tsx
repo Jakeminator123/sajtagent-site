@@ -11,11 +11,11 @@ import { CubeStage } from "./cube-stage"
 import { useLayoutPrefs } from "./use-layout-prefs"
 import { LandingPromptHandoff } from "./landing-prompt-handoff"
 
-export function BuilderShell() {
+export function BuilderShell({ initialProjectId = null }: { initialProjectId?: string | null }) {
   const layout = useLayoutPrefs()
 
   return (
-    <BuilderProvider>
+    <BuilderProvider key={initialProjectId ?? "default"} initialProjectId={initialProjectId}>
       <LandingPromptHandoff />
       <div className="h-screen flex flex-col bg-workflow-bg transition-colors duration-200">
         <BuilderHeader

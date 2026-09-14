@@ -1,5 +1,5 @@
 import assert from "node:assert/strict"
-import { canFinishJob, gatewayHost, outputDigest, previewBasePath, sourceRevisionId, validateSourceFiles, validateStaticFiles, type NextAccepted, type NextJob, type NextState } from "../lib/siteagent/server/next-preview-model.ts"
+import { assertPreviewSiteOrigin, canFinishJob, gatewayHost, outputDigest, previewBasePath, sourceRevisionId, validateSourceFiles, validateStaticFiles, type NextAccepted, type NextJob, type NextState } from "../lib/siteagent/server/next-preview-model.ts"
 import { serveAcceptedStatic, gatewayHostnameAllowed } from "../lib/siteagent/server/next-preview-gateway.ts"
 
 let checks=0
@@ -31,6 +31,15 @@ check(()=>assert.equal(gatewayHostnameAllowed(host,"preview.example.com"),true))
 check(()=>assert.equal(gatewayHostnameAllowed("preview.example.com.evil.test","preview.example.com"),false))
 check(()=>assert.notEqual(host,gatewayHost("tenant:a","project:b","preview.example.com")))
 check(()=>assert.throws(()=>gatewayHost("a","b","sajtagent-site.vercel.app")))
+// Proxy reserves the whole preview zone, including its apex; Site cannot live there.
+for (const origin of ["https://preview.example.com", "https://app.preview.example.com"]) {
+  check(()=>assert.throws(()=>assertPreviewSiteOrigin(origin,"preview.example.com"),/invalid_site_origin/))
+}
+for (const origin of ["http://site.example.com", "https://site.example.com/builder"]) {
+  check(()=>assert.throws(()=>assertPreviewSiteOrigin(origin,"preview.example.com"),/invalid_site_origin/))
+}
+check(()=>assert.doesNotThrow(()=>assertPreviewSiteOrigin("https://site.example.com","preview.example.com")))
+check(()=>assert.doesNotThrow(()=>assertPreviewSiteOrigin("https://site.example.com","preview.site.example.com")))
 check(()=>assert.equal(previewBasePath(job.previewRef),"/api/siteagent/next-previews/preview%3Aabcdefghijklmnop/content"))
 const accepted:NextAccepted={...job,deploymentId:"dpl_real",deploymentUrl:"https://real.vercel.app",acceptedAt:new Date().toISOString(),outputSha256:outputDigest(output),files:output}
 const response=serveAcceptedStatic(accepted,[],new Request("https://preview.example.com/"),"https://site.example.com")

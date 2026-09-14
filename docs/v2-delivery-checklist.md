@@ -1,5 +1,11 @@
 # Sajtagent V2 — leveranschecklista
 
+**Uppdatering 2026-09-14:** Site #28/#29 och Sprites #29 är nu mergade.
+B/D/F-migrationerna är applicerade och behörighetskontrollerade i Sajtagents
+live-databas. Se [aktuell integrations- och driftstatus](v2-live-rollout-2026-09-14.md)
+för bevis och kvarvarande driftsteg. Tabellen nedan bevarar nattens historiska
+status; dess öppna PR-/migrationspunkter är överspelade av uppdateringen.
+
 Statusbild: 2026-09-13, efter verifierad F-merge och slutlig grön B-integration.
 Detta är en spårbar kodleverans, **inte ett godkänt live-E2E**.
 Uppdatera slutstatusfälten längst ned efter återstående integration/driftsättning.

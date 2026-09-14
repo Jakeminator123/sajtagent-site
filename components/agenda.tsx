@@ -60,7 +60,7 @@ export default function Agenda() {
                                 <span className='text-muted-foreground font-mono '>04</span>
                                 <span>Forma och godkänn</span>
                             </div>
-                            <p className="text-muted-foreground mt-4">Be om ändringar och jämför sparade versioner. HTML-versionen kan laddas ned som ZIP. Publicering ingår ännu inte i detta byggflöde.</p>
+                            <p className="text-muted-foreground mt-4">Be om ändringar och jämför sparade versioner. I Buildern ser du vilka export- och publiceringsalternativ som finns för projektet.</p>
                         </div>
                     </AnimatedGroup>
                 </div>

@@ -28,6 +28,8 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { useBuilder } from "./builder-store"
 import { NewDraftMenu } from "./new-draft-menu"
+import { ProjectSelector } from "./project-selector"
+import { ResetStarterDialog } from "./reset-starter-dialog"
 
 interface BuilderHeaderProps {
   showDrawer: boolean
@@ -35,7 +37,8 @@ interface BuilderHeaderProps {
 }
 
 export function BuilderHeader({ showDrawer, onToggleDrawer }: BuilderHeaderProps) {
-  const { newChat, newProject, isResettingProject } = useBuilder()
+  const { newChat, newProject, isResettingProject, projectId } = useBuilder()
+  const [resetOpen, setResetOpen] = React.useState(false)
 
   return (
     <header className="h-14 bg-workflow-bg border-b border-workflow-border flex items-center justify-between px-4 transition-colors duration-200">
@@ -49,6 +52,7 @@ export function BuilderHeader({ showDrawer, onToggleDrawer }: BuilderHeaderProps
         <span className="font-mono text-[10px] text-workflow-text-subtle border border-workflow-border-subtle rounded px-1.5 py-0.5">
           studio
         </span>
+        <ProjectSelector />
       </div>
 
       <div className="flex items-center gap-2">
@@ -95,8 +99,17 @@ export function BuilderHeader({ showDrawer, onToggleDrawer }: BuilderHeaderProps
             <DropdownMenuItem disabled>
               <Download className="w-3.5 h-3.5 mr-2" /> Ladda ner ZIP
             </DropdownMenuItem>
+            {projectId?.startsWith("project:personal:") ? (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem disabled={isResettingProject} className="text-destructive" onSelect={() => setResetOpen(true)}>
+                  Återställ personligt startprojekt…
+                </DropdownMenuItem>
+              </>
+            ) : null}
           </DropdownMenuContent>
         </DropdownMenu>
+        <ResetStarterDialog open={resetOpen} onOpenChange={setResetOpen} />
 
         <NewDraftMenu
           newChat={newChat}

@@ -36,7 +36,7 @@ const headerControlClassName =
 
 interface NewDraftMenuProps {
   newChat: () => void
-  newProject: () => Promise<{ ok: true } | { ok: false; error: string }>
+  newProject: (name?: string) => Promise<{ ok: true } | { ok: false; error: string }>
   isResettingProject: boolean
 }
 
@@ -48,15 +48,17 @@ export function NewDraftMenu({
   const triggerRef = useRef<HTMLButtonElement>(null)
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [confirmError, setConfirmError] = useState<string | null>(null)
+  const [name, setName] = useState("")
 
   const openConfirm = () => {
     setConfirmError(null)
+    setName("")
     setConfirmOpen(true)
   }
 
   const handleConfirm = async (event: MouseEvent<HTMLButtonElement>) => {
     event.preventDefault()
-    const result = await newProject()
+    const result = await newProject(name.trim() || undefined)
     if (!result.ok) {
       setConfirmError(result.error)
       return
@@ -131,6 +133,17 @@ export function NewDraftMenu({
               {NEW_PROJECT_CONFIRM_DESCRIPTION}
             </AlertDialogDescription>
           </AlertDialogHeader>
+          <label className="grid gap-2 text-sm">
+            Projektnamn
+            <input
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              maxLength={160}
+              disabled={isResettingProject}
+              placeholder="Ny sajt"
+              className="rounded border border-workflow-border bg-workflow-surface px-3 py-2"
+            />
+          </label>
           {confirmError ? (
             <p role="alert" className="text-sm text-destructive">
               {confirmError}
@@ -143,7 +156,7 @@ export function NewDraftMenu({
             <AlertDialogAction
               disabled={isResettingProject}
               className={cn(
-                buttonVariants({ variant: "destructive" }),
+                buttonVariants({ variant: "default" }),
                 "font-mono",
               )}
               onClick={(event) => {

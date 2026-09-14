@@ -22,6 +22,7 @@ import type {
   AgentTurnRequestV1,
 } from "@/contracts/agent-session-v1"
 import * as adapter from "@/lib/siteagent/adapter"
+import { builderProjectHref, createProject, openProject } from "@/lib/siteagent/project-browser"
 import { applyExpectedTurnStreamEventV1 } from "@/lib/siteagent/agent-event-stream-apply"
 import {
   createAgentEventProjectionV1,
@@ -71,7 +72,8 @@ interface BuilderStore {
   togglePin: (id: string) => void
 
   newChat: () => void
-  newProject: () => Promise<{ ok: true } | { ok: false; error: string }>
+  newProject: (name?: string) => Promise<{ ok: true } | { ok: false; error: string }>
+  resetStarter: () => Promise<{ ok: true } | { ok: false; error: string }>
   isResettingProject: boolean
   publishState: PublishState
   publish: () => Promise<void>
@@ -136,8 +138,8 @@ function projectionAllowsRetry(projection: AgentEventProjectionV1): boolean {
   return projection.status !== "invalid"
 }
 
-export function BuilderProvider({ children }: { children: ReactNode }) {
-  const [projectId, setProjectId] = useState<string | null>(null)
+export function BuilderProvider({ children, initialProjectId = null }: { children: ReactNode; initialProjectId?: string | null }) {
+  const [projectId, setProjectId] = useState<string | null>(initialProjectId)
   const [choices, setChoices] = useState<BuildChoices>(defaultBuildChoices)
   const [userMessages, setUserMessages] = useState<ChatMessage[]>([])
   const [isStreaming, setIsStreaming] = useState(false)
@@ -151,7 +153,7 @@ export function BuilderProvider({ children }: { children: ReactNode }) {
   const [isResettingProject, setIsResettingProject] = useState(false)
   const [logs, setLogs] = useState<string[]>([])
 
-  const projectIdRef = useRef<string | null>(null)
+  const projectIdRef = useRef<string | null>(initialProjectId)
   const baseRevisionIdRef = useRef<string | null>(null)
   const sessionRef = useRef<AgentSessionV1 | null>(null)
   const projectionRef = useRef<AgentEventProjectionV1>(agentProjection)
@@ -212,7 +214,7 @@ export function BuilderProvider({ children }: { children: ReactNode }) {
         ? "error"
         : "idle"
   const canSendTurn =
-    !isStreaming &&
+    !isStreaming && !isResettingProject &&
     sessionStatus === "ready" &&
     !agentProjection.pendingQuestion &&
     agentProjection.status !== "invalid"
@@ -251,11 +253,20 @@ export function BuilderProvider({ children }: { children: ReactNode }) {
       setSessionStatus("opening")
       const sessionGeneration = ++sessionGenerationRef.current
       const promise = (async () => {
-        const opened = await adapter.openDefaultProject(signal)
+        const requestedProjectId = projectIdRef.current
+        const opened = requestedProjectId
+          ? { ok: true as const, project: await openProject(requestedProjectId, signal) }
+          : await adapter.openDefaultProject(signal)
         if (!opened.ok) throw new Error(opened.error)
+        // A cancelled bootstrap must not overwrite a newer project/session.
+        if (signal?.aborted || sessionGeneration !== sessionGenerationRef.current) {
+          throw new DOMException("Aborted", "AbortError")
+        }
         projectIdRef.current = opened.project.projectId
         setProjectId(opened.project.projectId)
-        baseRevisionIdRef.current = opened.project.activeRevisionId
+        const url = new URL(window.location.href)
+        url.searchParams.set("project", opened.project.projectId)
+        window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`)
 
         const readModelPromise = loadCanonicalProjectV1(
           opened.project.projectId,
@@ -302,7 +313,12 @@ export function BuilderProvider({ children }: { children: ReactNode }) {
           pushLog("canonical state: basrevisionen ändrades medan sessionen öppnades.")
         }
         return session
-      })()
+      })().catch((error: unknown) => {
+        if (signal?.aborted || sessionGeneration !== sessionGenerationRef.current) {
+          throw new DOMException("Aborted", "AbortError")
+        }
+        throw error
+      })
 
       bootstrapPromiseRef.current = promise
       const clearBootstrap = () => {
@@ -328,10 +344,9 @@ export function BuilderProvider({ children }: { children: ReactNode }) {
     })
     return () => {
       controller.abort()
-      if (!sessionRef.current) {
-        sessionGenerationRef.current += 1
-        bootstrapPromiseRef.current = null
-      }
+      sessionGenerationRef.current += 1
+      requestGenerationRef.current += 1
+      bootstrapPromiseRef.current = null
       abortRef.current?.abort()
     }
   }, [applyProjection, startSession])
@@ -354,7 +369,7 @@ export function BuilderProvider({ children }: { children: ReactNode }) {
       } = {},
     ) => {
       const trimmed = text.trim()
-      if (!trimmed || abortRef.current) return
+      if (!trimmed || abortRef.current || resettingProjectRef.current) return
       if (projectionRef.current.status === "invalid") {
         pushLog("meddelandet stoppades: öppna en ny chatt efter integritetsfelet.")
         return
@@ -386,6 +401,7 @@ export function BuilderProvider({ children }: { children: ReactNode }) {
           const caughtUp = await catchUpAgentEventProjectionV1(seeded, {
             signal: controller.signal,
           })
+          if (controller.signal.aborted || requestGeneration !== requestGenerationRef.current) return current
           applyProjection(caughtUp)
           return caughtUp
         }
@@ -408,6 +424,7 @@ export function BuilderProvider({ children }: { children: ReactNode }) {
             controller.signal,
           )
           if (
+            !controller.signal.aborted && requestGeneration === requestGenerationRef.current &&
             loaded.ok &&
             reconcileAgentPreviewV1(latestTurn.previewResult, loaded.readModel)
           ) {
@@ -423,6 +440,7 @@ export function BuilderProvider({ children }: { children: ReactNode }) {
           return
         }
         await reconcileLatestBuiltTurn()
+        if (controller.signal.aborted || requestGeneration !== requestGenerationRef.current) return
 
         const openTurnId = projectionRef.current.activeTurnId
         const openTurn = openTurnId
@@ -464,12 +482,14 @@ export function BuilderProvider({ children }: { children: ReactNode }) {
         pushLog("> skickar agentturn till Sajtagent")
 
         const onEvent = async (event: AgentEventV1) => {
+          if (controller.signal.aborted || requestGeneration !== requestGenerationRef.current) return
           if (event.sequence > projectionRef.current.lastSequence + 1) {
             pushLog(
               `synkroniserar agenthistorik efter sekvens ${projectionRef.current.lastSequence}`,
             )
             await syncSessionProjection()
           }
+          if (controller.signal.aborted || requestGeneration !== requestGenerationRef.current) return
           const result = applyExpectedTurnStreamEventV1({
             projection: projectionRef.current,
             event,
@@ -570,6 +590,7 @@ export function BuilderProvider({ children }: { children: ReactNode }) {
           const loaded = projectId
             ? await loadCanonicalProjectV1(projectId, controller.signal)
             : { ok: false as const, error: "Agentturnen saknade projektidentitet." }
+          if (controller.signal.aborted || requestGeneration !== requestGenerationRef.current) return
           if (
             !loaded.ok ||
             !reconcileAgentPreviewV1(previewCandidate, loaded.readModel)
@@ -697,31 +718,58 @@ export function BuilderProvider({ children }: { children: ReactNode }) {
   )
 
   const newChat = useCallback(() => {
+    if (resettingProjectRef.current) return
     beginFreshSession(false)
   }, [beginFreshSession])
 
-  const newProject = useCallback(async () => {
+  const newProject = useCallback(async (name?: string) => {
     if (resettingProjectRef.current) {
       return { ok: false as const, error: "Ett nytt projekt startas redan." }
     }
     resettingProjectRef.current = true
     setIsResettingProject(true)
     try {
-      const reset = await adapter.resetPersonalStarterProject()
-      if (!reset.ok) {
-        pushLog(`nytt projekt: ${reset.error}`)
-        return { ok: false as const, error: reset.error }
-      }
-      projectIdRef.current = reset.project.projectId
-      setProjectId(reset.project.projectId)
-      baseRevisionIdRef.current = reset.project.activeRevisionId
-      beginFreshSession(true)
+      const created = await createProject(name)
+      // Full-document navigation deliberately discards every project-scoped
+      // projection, in-flight callback and card state before opening another.
+      window.location.assign(builderProjectHref(created.projectId))
       return { ok: true as const }
+    } catch (error) {
+      return { ok: false as const, error: errorMessage(error, "Projektet kunde inte skapas.") }
     } finally {
       resettingProjectRef.current = false
       setIsResettingProject(false)
     }
-  }, [beginFreshSession, pushLog])
+  }, [])
+
+  const resetStarter = useCallback(async () => {
+    if (resettingProjectRef.current || !projectIdRef.current?.startsWith("project:personal:")) {
+      return { ok: false as const, error: "Öppna ditt personliga startprojekt före återställning." }
+    }
+    resettingProjectRef.current = true
+    setIsResettingProject(true)
+    requestGenerationRef.current += 1
+    sessionGenerationRef.current += 1
+    bootstrapPromiseRef.current = null
+    abortRef.current?.abort()
+    try {
+      const reset = await adapter.resetPersonalStarterProject()
+      if (!reset.ok) {
+        if (!sessionRef.current) setSessionStatus("error")
+        return reset
+      }
+      window.location.assign(builderProjectHref(reset.project.projectId))
+      return { ok: true as const }
+    } catch (error) {
+      if (!sessionRef.current) setSessionStatus("error")
+      return { ok: false as const, error: errorMessage(error, "Startprojektet kunde inte återställas.") }
+    } finally {
+      resettingProjectRef.current = false
+      setIsResettingProject(false)
+      abortRef.current = null
+      setIsStreaming(false)
+    }
+  }, [])
 
   const publish = useCallback(async () => {
     if (publishState === "publishing") return
@@ -733,6 +781,7 @@ export function BuilderProvider({ children }: { children: ReactNode }) {
   const value = useMemo<BuilderStore>(
     () => ({
       projectId,
+      resetStarter,
       choices,
       setChoice,
       setPageCount,
@@ -760,6 +809,7 @@ export function BuilderProvider({ children }: { children: ReactNode }) {
     }),
     [
       projectId,
+      resetStarter,
       choices,
       setChoice,
       setPageCount,

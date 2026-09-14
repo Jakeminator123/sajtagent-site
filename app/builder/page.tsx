@@ -7,6 +7,12 @@ export const metadata: Metadata = {
   description: "Bygg och förhandsgranska webbplatser i Sajtagents Builder.",
 }
 
-export default function BuilderPage() {
-  return <BuilderShell />
+export default async function BuilderPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ project?: string | string[] }>
+}) {
+  const { project } = await searchParams
+  const projectId = typeof project === "string" ? project : null
+  return <BuilderShell key={projectId ?? "default"} initialProjectId={projectId} />
 }

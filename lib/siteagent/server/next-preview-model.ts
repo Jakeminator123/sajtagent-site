@@ -11,6 +11,11 @@ export type NextAccepted = NextBinding & { deploymentId: string; deploymentUrl: 
 export type NextJob = NextBinding & { status: "building" | "accepted" | "failed"; expiresAt: string; failureCode?: string }
 export type NextState = { current: NextJob | null; accepted: NextAccepted | null }
 
+/** The deployer and operator preflight must accept exactly the same protection. */
+export function supportedArtifactProtection(mode: unknown): boolean {
+  return typeof mode === "string" && ["all", "preview", "all_except_custom_domains"].includes(mode)
+}
+
 export function safeFilePath(path: string): boolean {
   return path.length <= 240 && !path.startsWith("/") && !/[\\\x00-\x20?#%]/.test(path) &&
     path.split("/").every((part) => part !== "" && part !== "." && part !== "..")

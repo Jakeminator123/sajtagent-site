@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto"
 import { z } from "zod"
-import { outputDigest, type NextBinding, type StaticFile } from "./next-preview-model.ts"
+import { outputDigest, supportedArtifactProtection, type NextBinding, type StaticFile } from "./next-preview-model.ts"
 
 const DeploymentSchema = z.object({ id: z.string().regex(/^dpl_/), url: z.string(), readyState: z.string(), projectId: z.string(), meta: z.record(z.string()).optional() }).passthrough()
 export type DeploymentReceipt = { deploymentId: string; deploymentUrl: string; outputSha256: string }
@@ -20,7 +20,7 @@ export class StaticNextDeployer {
 
   async deploy(binding: NextBinding, files: StaticFile[], deadline: number): Promise<DeploymentReceipt> {
     const project = z.object({ id: z.string(), ssoProtection: z.object({ deploymentType: z.string() }).nullable().optional() }).passthrough().parse(await this.api(`/v9/projects/${encodeURIComponent(this.config.projectId)}`))
-    if (project.id !== this.config.projectId || !["all", "preview", "all_except_custom_domains"].includes(project.ssoProtection?.deploymentType ?? "")) throw new Error("preview_protection_required")
+    if (project.id !== this.config.projectId || !supportedArtifactProtection(project.ssoProtection?.deploymentType)) throw new Error("preview_protection_required")
     const digest = outputDigest(files)
     const meta = { sajtagentJob: binding.jobId, sajtagentRevision: binding.sourceRevisionId, sajtagentProject: binding.projectId, sajtagentOutput: digest }
     const started = z.object({ id: z.string().regex(/^dpl_/) }).parse(await this.api("/v13/deployments", {

@@ -1,4 +1,9 @@
-# Sajtagent V2 — leveranschecklista
+# Sajtagent V2 — historisk leveranschecklista
+
+Den här filen bevarar kodleveransens statusbild och granskningar.
+Löpande driftansvar och återstående bevis samlas i
+[Platform-handoff](https://github.com/Jakeminator123/sajtagent-platform/blob/main/docs/v2-rollout-handoff.md).
+Historiska `KVAR`/`EJ APPLICERADE` nedan ska inte användas som nya arbetsorder.
 
 **Uppdatering 2026-09-14:** Site #28/#29 och Sprites #29 är nu mergade.
 B/D/F-migrationerna är applicerade och behörighetskontrollerade i Sajtagents
@@ -8,7 +13,7 @@ status; dess öppna PR-/migrationspunkter är överspelade av uppdateringen.
 
 Statusbild: 2026-09-13, efter verifierad F-merge och slutlig grön B-integration.
 Detta är en spårbar kodleverans, **inte ett godkänt live-E2E**.
-Uppdatera slutstatusfälten längst ned efter återstående integration/driftsättning.
+Slutstatusfälten längst ned hör till den historiska statusbilden.
 
 ## Avgränsning och vad som går att använda
 
@@ -115,7 +120,7 @@ Behåll V2 feature-gated tills dessa beroenden och säkerhetskontroller faktiskt
 fungerar. Ingen användardata, hemlighet eller privat driftlogg ska läggas i PR
 eller i denna checklista.
 
-## Körbar verifiering och slutstatus att fylla i
+## Körbar verifiering och historiska slutstatusfält
 
 Se [E2E-smoke](v2-e2e-smoke.md), [preview/driftkrav](next-preview-v2.md)
 och [publicering/driftkrav](next-publication-v2.md). Körbar ingång:
@@ -129,7 +134,7 @@ dedikerade testkonton. Den skriver redigerad evidens, aldrig auth-/grantvärden.
 Exit 2 betyder att de körbara browser/API-kontrollerna passerat men separat
 runtime-evidens fortfarande saknas; det får inte omtolkas som fullgod V2.
 
-| Slutfält | Senast kända status / fyll i vid faktisk ändring |
+| Slutfält | Status vid den historiska leveransen |
 | --- | --- |
 | Site #28 överlämnad och mergad | **KVAR:** lokal agent äger fortfarande merge; ange merge-SHA när verifierad. |
 | Site #29 slutligt integrerat remote-head | `99e43c50f9dbd9a34f5ffeddc8d549893eb5c624`, tree `84132a139114dd5c9549c3e64bfdea4e6be7da91`. Lokal full check/E-harness-check och CI 34783114045 gröna; oberoende slutreview godkänd. **KVAR:** efter #28-merge, retarget till main och samordnad merge. Merga inte UI-PR:n in i lokala agentens branch. |

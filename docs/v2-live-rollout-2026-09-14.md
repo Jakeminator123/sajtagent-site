@@ -1,8 +1,11 @@
 # Sajtagent V2 — integration och drift 2026-09-14
 
-Denna status ersätter de öppna integrations- och migrationspunkterna i
-[leveranschecklistans historiska statusbild](v2-delivery-checklist.md).
-Kod och databas har kommit vidare; full live-V2 är fortfarande inte godkänd.
+Historisk statusbild från integrationspasset 2026-09-14. Den ersatte då de öppna
+integrations- och migrationspunkterna i [leveranschecklistan](v2-delivery-checklist.md).
+Senare deployer, operatörsåtkomst och liveprov måste stämmas av mot
+[Platform-handoff](https://github.com/Jakeminator123/sajtagent-platform/blob/main/docs/v2-rollout-handoff.md).
+Nedan bevaras passets bevis och då återstående steg; full live-V2 är inte
+godkänd av denna rapport.
 
 ## Genomfört
 
@@ -53,7 +56,7 @@ Efterkontroll:
   klientpolicy. Det är inte skäl att öppna dem. Den tidigare varningen om
   avstängt skydd mot läckta lösenord kvarstår och är separat från V2-migrationerna.
 
-## Nästa driftsteg
+## Driftsteg som återstod vid denna statusbild
 
 1. Anslut Sajtagents auktoriserade Sprite-administration. I denna session finns
    ingen sådan anslutning eller token, och pluginsökningen hittade ingen Sprites-

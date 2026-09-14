@@ -51,7 +51,9 @@ try {
           where n.nspname = 'auth' and c.relname = 'sessions') as session_read,
       (select bool_and(not has_table_privilege(role_name, oid, 'SELECT,INSERT,UPDATE,DELETE')
         and not has_any_column_privilege(role_name, oid, 'SELECT,INSERT,UPDATE'))
-        from tables cross join (values ('anon'), ('authenticated')) roles(role_name)) as browser_closed
+        from tables cross join (values ('anon'), ('authenticated')) roles(role_name))
+        and (select bool_and(not has_any_column_privilege(role_name, 'auth.sessions', 'SELECT'))
+          from (values ('anon'), ('authenticated')) roles(role_name)) as browser_closed
   `)
   const value = Object.fromEntries(["schema_ready", "app_dml", "session_read", "browser_closed"].map(key => [key, result.rows[0]?.[key] === true]))
   process.stdout.write(JSON.stringify(value))

@@ -63,6 +63,12 @@ for (const overrides of [
   { NEXT_PUBLIC_SITEAGENT_RUNTIME_SIGNING_KEY: "public-secret" },
   { NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY: "public-secret" },
   { NEXT_PUBLIC_INNOCENT_ALIAS: env.SITEAGENT_NEXT_VERCEL_BYPASS },
+  { NEXT_PUBLIC_INNOCENT_ALIAS: env.POSTGRES_URL },
+  { NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "sb_secret_test-only" },
+  { NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "  sb_secret_test-only  " },
+  { NEXT_PUBLIC_INNOCENT_ALIAS: `  ${env.POSTGRES_URL}  ` },
+  { SUPABASE_SERVICE_ROLE_KEY: "  private-service-role  ", NEXT_PUBLIC_INNOCENT_ALIAS: "private-service-role" },
+  { SUPABASE_SERVICE_ROLE_KEY: "private-service-role", NEXT_PUBLIC_INNOCENT_ALIAS: "private-service-role" },
 ]) expectCheck(overrides, "secret_placement", "fail")
 
 assert.equal(databaseIsSajtagent(`postgres://app:pw@db.${TARGET.supabase}.supabase.co:5432/postgres`), true)

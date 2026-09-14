@@ -82,7 +82,8 @@ node --env-file=.env.rollout.local --disable-warning=MODULE_TYPELESS_PACKAGE_JSO
   Supabase host/project username can be contacted; query-string host/user overrides
   are rejected. Fixed read-only SQL checks the V2 tables, worker column, server
   DML rights with effective RLS access, `auth.sessions` column privileges and
-  effective access, and closed browser access. The V2 server tables intentionally
+  effective access, and closed browser access to both V2 tables and session
+  columns (including accidental column-only grants). The V2 server tables intentionally
   have no client policies: a bare DML grant to a role still subject to RLS is not
   sufficient. The diagnostic requires existing effective server access; it never
   grants a role BYPASSRLS or suggests opening client policies. It does
@@ -117,7 +118,9 @@ bypass token. Use the [E2E harness](v2-e2e-smoke.md) after DNS is ready.
 `npm run check:v2-rollout` runs negative configuration cases, wrong-project and
 credential-redaction regressions, CLI exit checks, and mocked API/DB-result checks.
 CI runs this through `npm run check`. These tests do not prove live permissions.
-Local verification was Linux/Node 24; Windows execution remains to be verified.
+Local verification was Linux/Node 24. A focused Windows workflow runs the same
+CLI/child-process checks on relevant changes; its actual CI result must be recorded
+separately before claiming Windows verification.
 
 References verified 2026-09-14:
 - [Vercel project GET schema](https://vercel.com/docs/rest-api/projects/find-a-project-by-id-or-name)

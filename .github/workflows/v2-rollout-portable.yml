@@ -1,0 +1,43 @@
+name: V2 rollout portability
+
+on:
+  push:
+    paths:
+      - '.github/workflows/v2-rollout-portable.yml'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'scripts/*v2-rollout*.mjs'
+      - 'scripts/fixtures/v2-preflight-*.mjs'
+      - 'lib/db/**'
+      - 'lib/siteagent/server/next-preview-model.ts'
+      - 'lib/siteagent/server/next-publication-model.ts'
+      - 'contracts/**'
+  pull_request:
+    paths:
+      - '.github/workflows/v2-rollout-portable.yml'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'scripts/*v2-rollout*.mjs'
+      - 'scripts/fixtures/v2-preflight-*.mjs'
+      - 'lib/db/**'
+      - 'lib/siteagent/server/next-preview-model.ts'
+      - 'lib/siteagent/server/next-publication-model.ts'
+      - 'contracts/**'
+
+permissions:
+  contents: read
+
+jobs:
+  windows-preflight:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: package.json
+          cache: npm
+      - name: Install locked dependencies without package scripts
+        run: npm ci --ignore-scripts
+      - name: Exercise portable CLI and application-Pool child with mocked pg
+        run: npm run check:v2-rollout

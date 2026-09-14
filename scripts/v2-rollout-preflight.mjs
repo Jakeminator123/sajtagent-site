@@ -2,7 +2,7 @@ import { execFile } from "node:child_process"
 import { fileURLToPath, pathToFileURL } from "node:url"
 import { resolve } from "node:path"
 import { promisify } from "node:util"
-import { resolveConfiguredDbEnv } from "../lib/db/env.ts"
+import { DB_ENV_VARS, resolveConfiguredDbEnv } from "../lib/db/env.ts"
 import { assertPreviewSiteOrigin, gatewayHost, supportedArtifactProtection } from "../lib/siteagent/server/next-preview-model.ts"
 import { publicationDomain } from "../lib/siteagent/server/next-publication-model.ts"
 
@@ -39,10 +39,14 @@ export function inspectConfiguration(env) {
     enabled === "true" ? "V2 is enabled. This audit cannot authorize customer rollout." : "V2 can remain disabled during preparation."))
 
   let secretPlacement = !RUNTIME_ONLY.some(key => present(env[key]))
-  const privateValues = [...PRIVATE_KEYS, ...RUNTIME_ONLY].map(key => env[key]).filter(present)
+  const privateValues = [...PRIVATE_KEYS, ...RUNTIME_ONLY, ...DB_ENV_VARS, "SUPABASE_SERVICE_ROLE_KEY", "SUPABASE_SECRET_KEY"]
+    .map(key => env[key]).filter(present).map(value => value.trim())
+  const selectedDb = resolveConfiguredDbEnv(env)
+  if (selectedDb) privateValues.push(selectedDb.connectionString)
   for (const [key, value] of Object.entries(env)) {
     if (!key.startsWith("NEXT_PUBLIC_") || !present(value)) continue
-    if (/SPRITE|SIGNING|BYPASS|VERCEL_TOKEN|SERVICE_ROLE|SECRET|POSTGRES|DATABASE_URL/.test(key) || privateValues.includes(value)) secretPlacement = false
+    const normalized = value.trim()
+    if (/SPRITE|SIGNING|BYPASS|VERCEL_TOKEN|SERVICE_ROLE|SECRET|POSTGRES|DATABASE_URL/.test(key) || privateValues.includes(normalized) || normalized.startsWith("sb_secret_")) secretPlacement = false
   }
   checks.push(check("secret_placement", secretPlacement ? "pass" : "fail", secretPlacement
     ? "No recognized runtime token or public secret alias is present. Vercel secret types still require verification."

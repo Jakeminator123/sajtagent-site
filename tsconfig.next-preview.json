@@ -1,5 +1,5 @@
 {
   "extends": "./tsconfig.json",
   "compilerOptions": {"incremental": false,"module":"NodeNext","moduleResolution":"NodeNext","target":"ES2022","types":["node"]},
-  "include": ["lib/siteagent/server/next-preview-*.ts", "app/api/siteagent/projects/[projectId]/next/**/*.ts", "app/api/siteagent/next-gateway/**/*.ts", "app/api/siteagent/next-previews/**/*.ts", "components/siteagent/next-preview-panel.tsx", "scripts/verify-next-preview-server.mts", "scripts/verify-next-preview-runtime.mts"]
+  "include": ["lib/siteagent/next-preview-poll.ts", "lib/siteagent/server/next-preview-*.ts", "app/api/siteagent/projects/[projectId]/next/**/*.ts", "app/api/siteagent/next-gateway/**/*.ts", "app/api/siteagent/next-previews/**/*.ts", "components/siteagent/next-preview-panel.tsx", "scripts/verify-next-preview-server.mts", "scripts/verify-next-preview-runtime.mts"]
 }

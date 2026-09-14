@@ -2,7 +2,11 @@
 
 Implemented code is not evidence of configured deployment or a live E2E.
 V1 remains unchanged unless `SITEAGENT_NEXT_ENABLED=true` and every required
-server setting is present. The first profile is genuine Next `output: export`
+server setting is present. If the flag is off or a required setting is missing,
+authenticated `GET /api/siteagent/projects/:id/next` returns **404**
+`{error:"next_preview_unavailable"}` so Vercel 5xx monitors do not treat the
+intentional fail-closed path as an outage. Unexpected failures after V2 is
+enabled still return 503. The first profile is genuine Next `output: export`
 with interactive client JavaScript; SSR, customer API routes, arbitrary build
 configuration and secrets in customer execution are not supported.
 

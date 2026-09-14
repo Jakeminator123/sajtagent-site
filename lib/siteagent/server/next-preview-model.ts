@@ -80,6 +80,45 @@ export function assertPreviewSiteOrigin(siteOrigin: string, previewDomain: strin
   }
 }
 
+export const NEXT_PREVIEW_UNAVAILABLE = "next_preview_unavailable"
+const NEXT_PREVIEW_ENV_KEYS = [
+  "SITEAGENT_NEXT_PREVIEW_DOMAIN",
+  "SITEAGENT_SITE_ORIGIN",
+  "SITEAGENT_RUNTIME_URL",
+  "SITEAGENT_RUNTIME_SIGNING_KEY",
+  "SITEAGENT_NEXT_VERCEL_TOKEN",
+  "SITEAGENT_NEXT_VERCEL_TEAM_ID",
+  "SITEAGENT_NEXT_VERCEL_PROJECT_ID",
+  "SITEAGENT_NEXT_VERCEL_BYPASS",
+] as const
+
+export type NextPreviewConfig = Record<(typeof NEXT_PREVIEW_ENV_KEYS)[number], string>
+
+/** V2 off or incomplete config is fail-closed, not an outage. */
+export function isNextPreviewUnavailableError(error: unknown): boolean {
+  return error instanceof Error && error.message === NEXT_PREVIEW_UNAVAILABLE
+}
+
+/** 404 avoids Vercel 5xx alerts; unexpected runtime failures stay 503. */
+export function nextPreviewFailureStatus(error: unknown): 404 | 503 {
+  return isNextPreviewUnavailableError(error) ? 404 : 503
+}
+
+export function nextPreviewConfig(env: NodeJS.ProcessEnv | Record<string, string | undefined> = process.env): NextPreviewConfig {
+  try {
+    if (env.SITEAGENT_NEXT_ENABLED !== "true" || NEXT_PREVIEW_ENV_KEYS.some(key => !env[key])) {
+      throw new Error(NEXT_PREVIEW_UNAVAILABLE)
+    }
+    const config = Object.fromEntries(NEXT_PREVIEW_ENV_KEYS.map(key => [key, env[key]!])) as NextPreviewConfig
+    assertPreviewSiteOrigin(config.SITEAGENT_SITE_ORIGIN, config.SITEAGENT_NEXT_PREVIEW_DOMAIN)
+    gatewayHost("check", "check", config.SITEAGENT_NEXT_PREVIEW_DOMAIN)
+    return config
+  } catch (error) {
+    if (isNextPreviewUnavailableError(error)) throw error
+    throw new Error(NEXT_PREVIEW_UNAVAILABLE)
+  }
+}
+
 export function previewBasePath(previewRef: string): string {
   PreviewRefV2Schema.parse(previewRef)
   return `/api/siteagent/next-previews/${encodeURIComponent(previewRef)}/content`

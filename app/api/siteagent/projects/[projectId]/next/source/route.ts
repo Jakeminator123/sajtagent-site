@@ -1,5 +1,5 @@
 import { resolveBuildPrincipalV1 } from "../../../../../../../lib/siteagent/server/principal.ts"
-import { privateHeaders } from "../../../../../../../lib/siteagent/server/next-preview-model.ts"
+import { isNextPreviewUnavailableError, privateHeaders } from "../../../../../../../lib/siteagent/server/next-preview-model.ts"
 import { nextPreviewRepository, nextPreviewConfig } from "../../../../../../../lib/siteagent/server/next-preview-service.ts"
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -12,5 +12,8 @@ export async function GET(request:Request,{params}:{params:Promise<{projectId:st
     const accepted = await repo.getAccepted(principal,projectId), files = await repo.getAcceptedSource(principal,projectId)
     if (!accepted || !files) return Response.json({error:"source_not_found"},{status:404,headers:privateHeaders()})
     return Response.json({schemaVersion:2,sourceRevisionId:accepted.sourceRevisionId,files},{headers:privateHeaders()})
-  } catch { return Response.json({error:"source_unavailable"},{status:503,headers:privateHeaders()}) }
+  } catch (error) {
+    if (isNextPreviewUnavailableError(error)) return Response.json({error:"next_preview_unavailable"},{status:404,headers:privateHeaders()})
+    return Response.json({error:"source_unavailable"},{status:503,headers:privateHeaders()})
+  }
 }

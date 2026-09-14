@@ -1,5 +1,9 @@
 import assert from "node:assert/strict"
-import { assertPreviewSiteOrigin, canFinishJob, gatewayHost, outputDigest, previewBasePath, sourceRevisionId, validateSourceFiles, validateStaticFiles, type NextAccepted, type NextJob, type NextState } from "../lib/siteagent/server/next-preview-model.ts"
+import { readFileSync } from "node:fs"
+import { dirname, resolve } from "node:path"
+import { fileURLToPath } from "node:url"
+import { shouldIdleNextPreviewPoll } from "../lib/siteagent/next-preview-poll.ts"
+import { assertPreviewSiteOrigin, canFinishJob, gatewayHost, isNextPreviewUnavailableError, nextPreviewConfig, nextPreviewFailureStatus, outputDigest, previewBasePath, sourceRevisionId, validateSourceFiles, validateStaticFiles, type NextAccepted, type NextJob, type NextState } from "../lib/siteagent/server/next-preview-model.ts"
 import { serveAcceptedStatic, gatewayHostnameAllowed } from "../lib/siteagent/server/next-preview-gateway.ts"
 
 let checks=0
@@ -49,4 +53,46 @@ check(()=>assert.match(response.headers.get("content-security-policy")!,/worker-
 check(()=>assert.equal(response.headers.get("set-cookie"),null))
 check(()=>assert.equal(serveAcceptedStatic(accepted,["index.html"],new Request("https://preview.example.com/",{headers:{"service-worker":"script"}}),"https://site.example.com").status,403))
 check(()=>assert.equal(serveAcceptedStatic(accepted,["..","secret"],new Request("https://preview.example.com/"),"https://site.example.com").status,404))
+
+const completeNextEnv = {
+  SITEAGENT_NEXT_ENABLED: "true",
+  SITEAGENT_NEXT_PREVIEW_DOMAIN: "preview.example.com",
+  SITEAGENT_SITE_ORIGIN: "https://site.example.com",
+  SITEAGENT_RUNTIME_URL: "https://runtime.example.com",
+  SITEAGENT_RUNTIME_SIGNING_KEY: "k".repeat(32),
+  SITEAGENT_NEXT_VERCEL_TOKEN: "token",
+  SITEAGENT_NEXT_VERCEL_TEAM_ID: "team",
+  SITEAGENT_NEXT_VERCEL_PROJECT_ID: "prj",
+  SITEAGENT_NEXT_VERCEL_BYPASS: "bypass",
+}
+check(() => assert.equal(nextPreviewConfig(completeNextEnv).SITEAGENT_SITE_ORIGIN, completeNextEnv.SITEAGENT_SITE_ORIGIN))
+for (const env of [
+  {},
+  { ...completeNextEnv, SITEAGENT_NEXT_ENABLED: "false" },
+  { ...completeNextEnv, SITEAGENT_NEXT_ENABLED: "yes" },
+  { ...completeNextEnv, SITEAGENT_RUNTIME_URL: "" },
+  { ...completeNextEnv, SITEAGENT_SITE_ORIGIN: "https://preview.example.com" },
+  { ...completeNextEnv, SITEAGENT_NEXT_PREVIEW_DOMAIN: "preview.vercel.app" },
+]) {
+  check(() => assert.throws(() => nextPreviewConfig(env), error => isNextPreviewUnavailableError(error)))
+}
+check(() => assert.equal(nextPreviewFailureStatus(new Error("next_preview_unavailable")), 404))
+check(() => assert.equal(nextPreviewFailureStatus(new Error("persistence_unavailable")), 503))
+check(() => assert.equal(nextPreviewFailureStatus(new Error("db_boom")), 503))
+check(() => assert.equal(shouldIdleNextPreviewPoll(404), true))
+check(() => assert.equal(shouldIdleNextPreviewPoll(503), false))
+check(() => assert.equal(shouldIdleNextPreviewPoll(401), false))
+check(() => assert.equal(shouldIdleNextPreviewPoll(200), false))
+
+const here = dirname(fileURLToPath(import.meta.url))
+const nextRoute = readFileSync(resolve(here, "../app/api/siteagent/projects/[projectId]/next/route.ts"), "utf8")
+const sourceRoute = readFileSync(resolve(here, "../app/api/siteagent/projects/[projectId]/next/source/route.ts"), "utf8")
+const panel = readFileSync(resolve(here, "../components/siteagent/next-preview-panel.tsx"), "utf8")
+check(() => assert.match(nextRoute, /nextPreviewFailureStatus\(error\)/))
+check(() => assert.doesNotMatch(nextRoute, /catch \{ return json\(503,\{error:"next_preview_unavailable"\}\)/))
+check(() => assert.match(nextRoute, /isNextPreviewUnavailableError\(error\) return json\(404,\{error:"next_preview_unavailable"\}\)/))
+check(() => assert.match(sourceRoute, /error:"next_preview_unavailable"\},\{status:404/))
+check(() => assert.match(sourceRoute, /error:"source_unavailable"\},\{status:503/))
+check(() => assert.match(panel, /shouldIdleNextPreviewPoll\(response\.status\)/))
+
 console.log(`Next preview server: ${checks} assertions passed (local, not live E2E).`)

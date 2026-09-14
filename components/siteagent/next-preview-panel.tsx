@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
+import { shouldIdleNextPreviewPoll } from "../../lib/siteagent/next-preview-poll.ts"
 import { NextPublicationControl } from "./next-publication-control"
 
 type State = { current: {jobId:string;status:string;failureCode?:string}|null; accepted:{sourceRevisionId:string;previewRef:string;jobId:string}|null }
@@ -27,13 +28,25 @@ function ProjectNextPreviewPanel({projectId}:{projectId:string|null}) {
   useEffect(()=>{
     if(!endpoint)return
     const abort=new AbortController()
+    let timer:ReturnType<typeof setInterval>|undefined
     async function poll(){
-      try { const response=await fetch(endpoint!,{cache:"no-store",signal:abort.signal}); if(response.ok){ const body=await response.json(); if(!abort.signal.aborted)setState(body.state) } }
+      try {
+        const response=await fetch(endpoint!,{cache:"no-store",signal:abort.signal})
+        if(abort.signal.aborted)return
+        if(shouldIdleNextPreviewPoll(response.status)){
+          if(timer!==undefined){clearInterval(timer);timer=undefined}
+          return
+        }
+        if(response.ok){
+          const body=await response.json()
+          if(!abort.signal.aborted)setState(body.state)
+        }
+      }
       catch { /* Missing feature configuration intentionally leaves V1 visible. */ }
     }
     void poll()
-    const timer=setInterval(()=>void poll(),3000)
-    return ()=>{abort.abort();clearInterval(timer);opened.current=null}
+    timer=setInterval(()=>void poll(),3000)
+    return ()=>{abort.abort();if(timer!==undefined)clearInterval(timer);opened.current=null}
   },[endpoint])
 
   useEffect(()=>{

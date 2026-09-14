@@ -38,6 +38,10 @@
     "components/siteagent/conversation-handoff.ts",
     "components/siteagent/layout-prefs.ts",
     "components/siteagent/use-layout-prefs.ts",
-    "scripts/verify-entry-ux.mts"
+    "scripts/verify-entry-ux.mts",
+    "lib/siteagent/next-preview-client.ts",
+    "components/siteagent/use-next-project.ts",
+    "components/siteagent/next-preview-frame.tsx",
+    "scripts/verify-next-chat-ui.mts"
   ]
 }

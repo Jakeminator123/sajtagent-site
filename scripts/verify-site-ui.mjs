@@ -392,7 +392,7 @@ assert.match(
 )
 assert.match(
   previewStageSource,
-  /const hasContent = Boolean\(previewUrl\)/,
+  /const hasContent = nextAvailability !== "loading" && Boolean\(previewUrl \|\| accepted\)/,
   "a verified preview iframe stays mounted for follow-up prompts",
 )
 assert.match(

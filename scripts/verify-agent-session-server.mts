@@ -22,6 +22,7 @@ import {
   SHORT_BUILD_SUCCESS_STATUS_DELTA_V1,
 } from "../lib/siteagent/server/agent-session-public-text.ts"
 import { classifyAgentTurnModeV1 } from "../lib/siteagent/agent-turn-mode.ts"
+import { agentBuildProfile } from "../lib/siteagent/server/agent-build-profile.ts"
 import type { AgentTurnBuildCoordinatorV1 } from "../lib/siteagent/server/agent-turn-build-join.ts"
 import { MemoryAgentSessionRepositoryV1 } from "../lib/siteagent/server/agent-session-repository.ts"
 import type { StoredBuildJobV1 } from "../lib/siteagent/server/build-job-repository.ts"
@@ -2001,5 +2002,191 @@ check(
     !mismatchedIds.events.some((event) => event.type === "message.delta"),
   "runtime events stamped for another turnId fail closed as a contract error",
 )
+
+
+// Next chat joins the same policy-gated turn, without fabricating V1 versions.
+const nextConfigForChat = {
+  SITEAGENT_NEXT_ENABLED: "true", SITEAGENT_NEXT_PREVIEW_DOMAIN: "preview.example.com",
+  SITEAGENT_SITE_ORIGIN: "https://site.example.com", SITEAGENT_RUNTIME_URL: "https://runtime.example.com",
+  SITEAGENT_RUNTIME_SIGNING_KEY: "k".repeat(32), SITEAGENT_NEXT_VERCEL_TOKEN: "test-token",
+  SITEAGENT_NEXT_VERCEL_TEAM_ID: "team-test", SITEAGENT_NEXT_VERCEL_PROJECT_ID: "prj-test",
+  SITEAGENT_NEXT_VERCEL_BYPASS: "test-bypass",
+}
+check(agentBuildProfile(nextConfigForChat, { current: null, accepted: null }) === "next",
+  "fully configured Next is selected on the server for new chat builds")
+check(agentBuildProfile({ SITEAGENT_NEXT_ENABLED: "true" }, { current: null, accepted: null }) === "html" &&
+  agentBuildProfile({ ...nextConfigForChat, SITEAGENT_NEXT_ENABLED: "false" }, { current: null, accepted: null }) === "html",
+  "disabled or incomplete Next configuration preserves the existing HTML lane for new projects")
+const previousNextAcceptance = {
+  tenantId: principal.tenantId, projectId: "project:next-chat", jobId: "job:previous-next",
+  sourceRevisionId: `revision:sha256:${"a".repeat(64)}`, previewRef: "preview:previousnextabcdefghijklmnop",
+  deploymentId: "dpl_previous", deploymentUrl: "https://previous.vercel.app",
+  acceptedAt: "2026-09-01T19:00:00.000Z", outputSha256: "a".repeat(64), files: [],
+}
+check(agentBuildProfile({}, { current: null, accepted: previousNextAcceptance }) === "next",
+  "flag rollback cannot silently downgrade a previously accepted Next project to HTML")
+const nextRepository = new MemoryAgentSessionRepositoryV1()
+nextRepository.addProject(principal, "project:next-chat", "revision:html-base")
+const nextBuildRuntime: AgentSessionRuntimeClientV1 = {
+  async *streamTurn(input) {
+    for await (const value of buildRuntime.streamTurn(input)) {
+      const event = value as { eventId: string; sequence: number }
+      yield { ...event, eventId: `event:${input.request.turnId.slice(5)}-${event.sequence}` }
+    }
+  },
+}
+const nextDeps = {
+  repository: nextRepository, runtime: nextBuildRuntime, now: clock(), createId: ids(),
+  createSessionSecret: () => "NextChatABCDEFGHIJKLMNOPQRSTUVWXYZ",
+}
+const nextSession = await openAgentSessionV1("project:next-chat", principal, nextDeps)
+if (nextSession.kind !== "opened") throw new Error("next_session_missing")
+let nextRuns = 0
+let nextCommitted = false
+const nextCoordinator: AgentTurnBuildCoordinatorV1 = {
+  async plan(input) {
+    if (classifyAgentTurnModeV1(input.request) !== "build.request") return null
+    const plan = await buildCoordinator.plan(input)
+    return plan ? { ...plan, profile: "next" } : null
+  },
+  async run(input) {
+    nextRuns++
+    check(!!input.latestStartAt && !!input.deadlineAt, "Next runs receive policy-start and route deadlines")
+    await input.onStarted?.({ job: { jobId: "job:next-chat", createdAt: buildVerifiedAt } })
+    nextCommitted = true
+    return {
+      kind: "next", record: null, httpStatus: 201,
+      nextResult: {
+        schemaVersion: 2, status: "succeeded", projectId: input.plan.request.projectId,
+        jobId: "job:next-chat", sourceRevisionId: `revision:sha256:${"a".repeat(64)}`,
+        previewRef: "preview:nextchatabcdefghijklmnop", verifiedAt: buildVerifiedAt,
+      },
+    }
+  },
+}
+const nextRequest = request({
+  sessionId: nextSession.session.sessionId, turnId: "turn:next-chat-build0001",
+  idempotencyKey: "idem:next-chat-build", revisionId: "revision:html-base",
+  message: "Bygg en ny sida om skidåkning.",
+})
+const nextBuilt = await startAgentTurnV1(nextRequest, principal, { ...nextDeps, buildCoordinator: nextCoordinator })
+check(nextBuilt.kind === "created", "Next chat build is accepted through the ordinary turn controller")
+if (nextBuilt.kind !== "created") throw new Error("next_build_missing")
+check(nextCommitted && nextBuilt.events.map(event => event.type).join(",") ===
+  "turn.accepted,tool.started,build.started,tool.completed,next.preview.ready,message.delta,turn.completed",
+  "Site emits Next preview and built only after accepted result, using the existing ordered stream")
+check(nextBuilt.events.some(event => event.type === "tool.completed" && event.payload.receipts.length === 0),
+  "Next completion does not invent V1 receipts")
+check((await nextRepository.getSession(principal, nextSession.session.sessionId))?.session.activeBaseRevisionId === "revision:html-base",
+  "Next acceptance never changes the V1 session base revision")
+const nextReplay = await startAgentTurnV1(nextRequest, principal, { ...nextDeps, buildCoordinator: nextCoordinator })
+check(nextReplay.kind === "existing" && nextRuns === 1 && JSON.stringify(nextReplay.events) === JSON.stringify(nextBuilt.events),
+  "an idempotent Next turn replay reuses accepted events without another generation")
+const nextStranger = await startAgentTurnV1(nextRequest, stranger, { ...nextDeps, buildCoordinator: nextCoordinator })
+check(nextStranger.kind === "session_not_found" && nextRuns === 1,
+  "another account cannot start or replay the owner's Next turn")
+
+const nextAnswerRuntime: AgentSessionRuntimeClientV1 = {
+  async *streamTurn(input) {
+    check(input.policy.capabilities.join(",") === "conversation.respond", "Next availability does not authorize a build for a question")
+    const base = { schemaVersion: 1 as const, sessionId: input.session.sessionId, turnId: input.request.turnId, occurredAt: input.policy.issuedAt }
+    yield { ...base, eventId: "event:nextansweraccepted01", sequence: input.baseSequence + 1, type: "turn.accepted", payload: { acceptedAt: input.policy.issuedAt } }
+    yield { ...base, eventId: "event:nextanswermessage001", sequence: input.baseSequence + 2, type: "message.delta", payload: { messageId: "message:nextanswer", delta: "Din sida finns kvar." } }
+    yield { ...base, eventId: "event:nextanswercomplete01", sequence: input.baseSequence + 3, type: "turn.completed", payload: { outcome: "answered" } }
+  },
+}
+const nextAnswered = await startAgentTurnV1({ ...nextRequest, turnId: "turn:next-chat-answer001", idempotencyKey: "idem:next-answer", message: "Vad är statusen?" }, principal,
+  { ...nextDeps, runtime: nextAnswerRuntime, buildCoordinator: nextCoordinator })
+check(nextAnswered.kind === "created" && nextRuns === 1 && !nextAnswered.events.some(event => event.type === "build.started"),
+  "ordinary questions remain conversation-only after a Next build")
+
+for (const failureMode of ["before-start", "after-start", "wrong-job", "throws-after-start"] as const) {
+  const coordinator: AgentTurnBuildCoordinatorV1 = {
+    plan: nextCoordinator.plan,
+    async run(input) {
+      if (failureMode !== "before-start") await input.onStarted?.({ job: { jobId: "job:next-failing", createdAt: buildVerifiedAt } })
+      if (failureMode === "throws-after-start") throw new Error("deliberate_coordinator_failure")
+      if (failureMode === "wrong-job") return {
+        kind: "next", record: null, httpStatus: 201,
+        nextResult: { schemaVersion: 2, status: "succeeded", projectId: input.plan.request.projectId,
+          jobId: "job:another", sourceRevisionId: `revision:sha256:${"b".repeat(64)}`,
+          previewRef: "preview:wrongjobabcdefghijklmnop", verifiedAt: buildVerifiedAt },
+      }
+      return { kind: "next", record: null, httpStatus: 503, nextResult: null,
+        failure: { code: "next_build_failed", retryable: true, failedAt: buildVerifiedAt } }
+    },
+  }
+  const failedNext = await startAgentTurnV1({ ...nextRequest, turnId: `turn:next-${failureMode}-0001`, idempotencyKey: `idem:next-${failureMode}` }, principal,
+    { ...nextDeps, buildCoordinator: coordinator })
+  check(failedNext.kind === "created" && failedNext.events.at(-1)?.type === "turn.failed" &&
+    !failedNext.events.some(event => event.type === "next.preview.ready" || event.type === "preview.ready" || event.type === "turn.completed"),
+    `${failureMode}: Next failure cannot claim a preview or strand the turn after build.started`)
+}
+const allNextHistory = await nextRepository.readEvents(principal, nextSession.session.sessionId, 0)
+check(allNextHistory.kind === "found" && validateAgentSessionHistoryV1(allNextHistory.events).success,
+  "mixed Next success, answer and failures persist replayable session-global sequences")
+
+const forgedNextRuntime: AgentSessionRuntimeClientV1 = {
+  async *streamTurn(input) {
+    yield { schemaVersion: 1, sessionId: input.session.sessionId, turnId: input.request.turnId,
+      eventId: "event:forgednextaccepted01", sequence: input.baseSequence + 1,
+      occurredAt: input.policy.issuedAt, type: "turn.accepted", payload: { acceptedAt: input.policy.issuedAt } }
+    const ready = nextBuilt.events.find(event => event.type === "next.preview.ready")!
+    yield { ...ready, sessionId: input.session.sessionId, turnId: input.request.turnId,
+      eventId: "event:forgednextpreview001", sequence: input.baseSequence + 2 }
+  },
+}
+const forgedNext = await startAgentTurnV1({ ...nextRequest, turnId: "turn:next-forged-ready001", idempotencyKey: "idem:next-forged-ready" }, principal,
+  { ...nextDeps, runtime: forgedNextRuntime, buildCoordinator: nextCoordinator })
+check(forgedNext.kind === "created" && forgedNext.events.at(-1)?.type === "turn.failed" &&
+  !forgedNext.events.some(event => event.type === "next.preview.ready") && nextRuns === 1,
+  "runtime cannot forge Site's Next acceptance event")
+
+
+// Simulate a process dying after reservation, before it writes any SSE event.
+const crashRepository = new MemoryAgentSessionRepositoryV1()
+crashRepository.addProject(principal, "project:crash-recovery", "revision:crash-base")
+const crashStart = Date.parse("2026-09-14T18:00:00.000Z")
+let crashNow = crashStart
+const crashDeps = {
+  repository: crashRepository, runtime: null, now: () => new Date(crashNow),
+  createId: ids(), createSessionSecret: () => "CrashRecoveryABCDEFGHIJKLMNOPQRST",
+}
+const crashSession = await openAgentSessionV1("project:crash-recovery", principal, crashDeps)
+if (crashSession.kind !== "opened") throw new Error("crash_session_missing")
+const crashRequest = request({ sessionId: crashSession.session.sessionId,
+  turnId: "turn:crashed-before-sse01", idempotencyKey: "idem:crashed-before-sse",
+  revisionId: "revision:crash-base", message: "Vad är statusen?" })
+const crashReserved = await prepareAgentTurnV1(crashRequest, principal, crashDeps)
+check(crashReserved.kind === "created", "a crash fixture reserves a turn without consuming its stream")
+const afterCrashRequest = { ...crashRequest, turnId: "turn:new-after-crash001", idempotencyKey: "idem:new-after-crash" }
+crashNow = crashStart + 899_999
+check((await prepareAgentTurnV1(afterCrashRequest, principal, crashDeps)).kind === "active_turn_conflict",
+  "recovery does not expire a current turn before the conservative 15-minute cutoff")
+crashNow = crashStart + 900_000
+await crashRepository.recoverExpiredTurn(stranger, crashRequest.sessionId, new Date(crashNow).toISOString())
+const stillCrashed = await crashRepository.readEvents(principal, crashRequest.sessionId, 0)
+check(stillCrashed.kind === "found" && stillCrashed.events.length === 0,
+  "another account cannot recover or mutate the owner's abandoned turn")
+await Promise.all([
+  crashRepository.recoverExpiredTurn(principal, crashRequest.sessionId, new Date(crashNow).toISOString()),
+  crashRepository.recoverExpiredTurn(principal, crashRequest.sessionId, new Date(crashNow).toISOString()),
+])
+const recoveredCrash = await startAgentTurnV1(crashRequest, principal, crashDeps)
+check(recoveredCrash.kind === "existing" && recoveredCrash.events.map(event => event.type).join(",") === "turn.accepted,turn.failed" &&
+  recoveredCrash.events.some(event => event.type === "turn.failed" && event.payload.code === "turn_interrupted"),
+  "concurrent recovery appends one canonical failure; replay preserves the original idempotency key")
+if (recoveredCrash.kind !== "existing") throw new Error("crash_replay_missing")
+await assert.rejects(() => crashRepository.appendProgressEvents(principal, crashRequest.sessionId, crashRequest.turnId, [
+  { ...recoveredCrash.events[0]!, eventId: "event:latecrashcompletion01", sequence: 3 },
+]), /agent_turn_terminal/)
+check(true, "a late worker/request cannot resurrect a recovered terminal turn")
+check((await startAgentTurnV1(afterCrashRequest, principal, crashDeps)).kind === "created",
+  "a new turn can proceed after process-crash recovery")
+check((await crashRepository.getSession(principal, crashRequest.sessionId))?.session.activeBaseRevisionId === "revision:crash-base",
+  "crash recovery preserves the accepted project/session revision")
+const recoveredHistory = await crashRepository.readEvents(principal, crashRequest.sessionId, 0)
+check(recoveredHistory.kind === "found" && validateAgentSessionHistoryV1(recoveredHistory.events).success,
+  "recovery and the next turn preserve contiguous replayable history")
 
 console.log(`Agent session server: ${checks} checks passed.`)

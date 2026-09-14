@@ -62,7 +62,9 @@ export async function GET(
         },
       })
     }
-    const result = await new PostgresAgentSessionRepositoryV1(pool).readEvents(
+    const repository = new PostgresAgentSessionRepositoryV1(pool)
+    await repository.recoverExpiredTurn(principal, sessionId, new Date().toISOString())
+    const result = await repository.readEvents(
       principal,
       sessionId,
       afterSequence,

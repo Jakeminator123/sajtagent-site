@@ -4,12 +4,12 @@
 // Medvetet markant skild från kontrollytorna — ljust "browserfönster" med
 // chrome-list, adress-pill och spotlight på mörk prickad scen.
 
-import React from "react"
+import React, { useState } from "react"
 import { ExternalLink, Globe, Loader2, Monitor, TriangleAlert } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { previewAddressLabel, previewStatusChip } from "./card-states"
 import { useBuilder } from "./builder-store"
-import { NextPreviewPanel } from "./next-preview-panel"
+import { NextPreviewFrame } from "./next-preview-frame"
 
 function PreviewFrame({ className }: { className?: string }) {
   const { previewUrl } = useBuilder()
@@ -25,14 +25,26 @@ function PreviewFrame({ className }: { className?: string }) {
 }
 
 export function PreviewStage() {
-  const { previewStatus, previewUrl, projectId } = useBuilder()
-  const hasContent = Boolean(previewUrl)
+  const { previewStatus, previewUrl, previewKind, nextState, nextAvailability, nextError, refreshNextPreview, cancelNextBuild } = useBuilder()
+  const [refresh, setRefresh] = useState(0)
+  const [actionError, setActionError] = useState("")
+  const isNext = previewKind === "next"
+  const accepted = isNext ? nextState?.accepted : null
+  const hasContent = nextAvailability !== "loading" && Boolean(previewUrl || accepted)
   const chip = previewStatusChip(previewStatus, hasContent)
-  const address = previewAddressLabel(previewStatus, previewUrl)
+  const address = accepted ? "Privat · din verifierade React-sajt" : previewAddressLabel(previewStatus, previewUrl)
+
+  async function refreshPreview() {
+    try { await refreshNextPreview(); setRefresh(value => value + 1); setActionError("") }
+    catch (reason) { setActionError(reason instanceof Error ? reason.message : "Previewn kunde inte uppdateras.") }
+  }
+  async function cancel() {
+    try { await cancelNextBuild(); setActionError("") }
+    catch (reason) { setActionError(reason instanceof Error ? reason.message : "Avbrottet kunde inte bekräftas.") }
+  }
 
   return (
     <div className="absolute inset-0 bg-workflow-canvas transition-colors duration-200">
-      <NextPreviewPanel key={projectId} projectId={projectId} />
       {/* Prickmönster som i canvas-vyn */}
       <div
         aria-hidden="true"
@@ -62,8 +74,8 @@ export function PreviewStage() {
               <span className="w-2.5 h-2.5 rounded-full bg-amber-400" />
               <span className="w-2.5 h-2.5 rounded-full bg-emerald-400" />
             </div>
-            <span className="shrink-0 text-[11px] font-medium text-zinc-600" title="Chatten bygger en HTML-sida. Interaktiv React/Next-förhandsvisning har ett separat byggflöde.">
-              HTML-preview
+            <span className="shrink-0 text-[11px] font-medium text-zinc-600">
+              {nextAvailability === "loading" ? "Läser byggläge…" : nextAvailability === "error" && !hasContent ? "Byggläge saknas" : isNext ? "React · Next.js" : "HTML-preview"}
             </span>
             <div className="flex-1 flex items-center justify-center">
               <div className="flex items-center gap-2 bg-white dark:bg-zinc-50 border border-zinc-200 rounded-full px-3 py-1 max-w-[480px] w-full">
@@ -85,6 +97,9 @@ export function PreviewStage() {
               </div>
             </div>
             <div className="flex items-center gap-1.5">
+              {accepted && <button type="button" onClick={() => void refreshPreview()} className="rounded px-2 py-1 text-xs text-zinc-600" title="Förnya åtkomsten till din privata preview">Uppdatera</button>}
+              {!accepted && nextAvailability !== "loading" && <button type="button" onClick={() => void refreshPreview()} className="rounded px-2 py-1 text-xs text-zinc-600">Läs byggläge igen</button>}
+              {isNext && nextState?.current?.status === "building" && <button type="button" onClick={() => void cancel()} className="rounded px-2 py-1 text-xs text-zinc-600">Avbryt bygge</button>}
               {previewUrl && (
                 <a
                   href={previewUrl}
@@ -100,8 +115,15 @@ export function PreviewStage() {
             </div>
           </div>
           <p className="shrink-0 border-b border-zinc-200 bg-zinc-50 px-3 py-1 text-[11px] text-zinc-600">
-            Chatten bygger HTML. JavaScript körs inte i denna förhandsvisning.
+            {isNext
+              ? nextAvailability === "unavailable" ? "React-flödet är tillfälligt avstängt. Tidigare HTML-sidor kan öppnas i Versioner."
+                : "Bygg och ändra din React-sajt i Sajtagent-kortet. Förhandsvisningen är privat och interaktiv."
+              : nextAvailability === "loading" ? "Läser projektets byggläge. Ditt utkast ligger kvar tills du kan skicka."
+                : nextAvailability === "error" ? "Byggläget kunde inte bekräftas. Läs byggläget igen för att fortsätta. Ditt utkast ligger kvar."
+                : nextAvailability === "available" ? "Visar HTML-historik. Nya byggbeställningar i Sajtagent använder React."
+                  : "HTML-läge. React aktiveras när projektets byggmiljö är redo."}
           </p>
+          {(nextError || actionError) && <p role="alert" className="shrink-0 bg-amber-50 px-3 py-2 text-xs text-amber-900">{actionError || nextError}</p>}
 
           {/* Innehåll */}
           <div className="flex-1 min-h-0 bg-white">
@@ -133,7 +155,7 @@ export function PreviewStage() {
             )}
             {hasContent && (
               <div className="relative w-full h-full">
-                <PreviewFrame />
+                {accepted ? <NextPreviewFrame key={`${accepted.projectId}:${accepted.previewRef}`} accepted={accepted} refresh={refresh} /> : <PreviewFrame />}
                 {previewStatus === "building" && (
                   <div className="absolute inset-x-0 top-0 flex items-center justify-center gap-2 bg-white/80 py-2">
                     <Loader2 className="w-4 h-4 animate-spin text-zinc-400" />

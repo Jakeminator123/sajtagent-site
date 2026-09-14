@@ -1,4 +1,7 @@
+import { randomUUID } from "node:crypto"
+
 import {
+  AgentEventV1Schema,
   AgentSessionV1Schema,
   AgentTurnPolicyV1Schema,
   AgentTurnRequestV1Schema,
@@ -49,6 +52,7 @@ export type ReadAgentEventsV1 =
   | { kind: "invalid_cursor"; lastSequence: number }
 
 export interface AgentSessionRepositoryV1 {
+  recoverExpiredTurn(principal: BuildPrincipalV1, sessionId: string, now: string): Promise<void>
   ensureActiveSession(
     principal: BuildPrincipalV1,
     input: {
@@ -151,12 +155,31 @@ export function acceptedBuildRevisionV1(events: AgentEventV1[]): {
   }
   const preview = events.find((event) => event.type === "preview.ready")
   if (!preview || preview.type !== "preview.ready") {
+    // Next source revisions have their own accepted state; never fabricate a V1 revision.
+    if (events.some((event) => event.type === "next.preview.ready")) return null
     throw new Error("built_turn_missing_canonical_preview")
   }
   return {
     baseRevisionId: preview.payload.result.baseRevisionId,
     workspaceRevisionId: preview.payload.result.workspaceRevisionId,
   }
+}
+
+/** Beyond the route's 800-second ceiling, a missing terminal is abandoned. */
+export function expiredAgentTurnEvents(record: StoredAgentTurnV1, now: string): AgentEventV1[] | null {
+  if (record.status !== "running" || Date.parse(now) < Date.parse(record.createdAt) + 900_000) return null
+  let sequence = record.events.at(-1)?.sequence ?? record.baseSequence
+  const event = (type: "turn.accepted" | "turn.failed", occurredAt: string, payload: unknown) => AgentEventV1Schema.parse({
+    schemaVersion: 1, sessionId: record.request.sessionId, turnId: record.request.turnId,
+    eventId: `event:${randomUUID()}`, sequence: ++sequence, occurredAt, type, payload,
+  })
+  return [
+    ...(record.events.length ? [] : [event("turn.accepted", record.createdAt, { acceptedAt: record.createdAt })]),
+    event("turn.failed", now, {
+      code: "turn_interrupted", retryable: true,
+      message: "Sändningen avbröts innan slutstatus kunde bekräftas. Öppna previewn eller försök igen.",
+    }),
+  ]
 }
 
 /** Focused in-memory implementation used by the deterministic server verifier. */
@@ -168,6 +191,14 @@ export class MemoryAgentSessionRepositoryV1
   private readonly activeSessionByProject = new Map<string, string>()
   private readonly turns = new Map<string, MemoryTurn>()
   private readonly turnByIdempotency = new Map<string, string>()
+
+  async recoverExpiredTurn(principal: BuildPrincipalV1, sessionId: string, now: string): Promise<void> {
+    if (!await this.getSession(principal, sessionId)) return
+    const turn = [...this.turns.values()].find(value => value.request.sessionId === sessionId && value.status === "running")
+    if (!turn) return
+    const events = expiredAgentTurnEvents(turn, now)
+    if (events) await this.appendTerminalEvents(principal, sessionId, turn.request.turnId, events)
+  }
 
   addProject(
     principal: BuildPrincipalV1,

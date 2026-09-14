@@ -8,7 +8,7 @@ import {
 import { useBuilder } from "./builder-store"
 
 export function ResetStarterDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
-  const { resetStarter, isResettingProject } = useBuilder()
+  const { resetStarter, isResettingProject, isStreaming } = useBuilder()
   const [error, setError] = useState<string | null>(null)
   return (
     <AlertDialog open={open} onOpenChange={(next) => {
@@ -25,10 +25,12 @@ export function ResetStarterDialog({ open, onOpenChange }: { open: boolean; onOp
           </AlertDialogDescription>
         </AlertDialogHeader>
         {error ? <p role="alert" className="text-destructive">{error}</p> : null}
+        {isStreaming ? <p role="status" className="text-sm text-muted-foreground">Vänta tills Sajtagent har avslutat arbetet innan du återställer projektet.</p> : null}
         <AlertDialogFooter>
           <AlertDialogCancel disabled={isResettingProject}>Avbryt</AlertDialogCancel>
-          <AlertDialogAction disabled={isResettingProject} className="bg-destructive text-destructive-foreground" onClick={async (event) => {
+          <AlertDialogAction disabled={isResettingProject || isStreaming} className="bg-destructive text-destructive-foreground" onClick={async (event) => {
             event.preventDefault()
+            if (isStreaming) return
             const result = await resetStarter()
             if (!result.ok) setError(result.error)
             else onOpenChange(false)

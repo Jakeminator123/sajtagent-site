@@ -11,6 +11,7 @@ import {
 import type {
   AgentSessionV1,
   AgentTurnRequestV1,
+  AgentNextPreviewResultV2,
 } from "../../../contracts/agent-session-v1.ts"
 import { classifyAgentTurnModeV1 } from "../agent-turn-mode.ts"
 import type { StoredBuildJobV1 } from "./build-job-repository.ts"
@@ -32,10 +33,24 @@ import { PostgresBuildJobRepositoryV1 } from "./postgres-build-job-repository.ts
 import { createRuntimeArtifactReaderFromEnvV1 } from "./runtime-artifact-reader.ts"
 import { createRuntimeClientFromEnvV1 } from "./runtime-client.ts"
 import { PostgresSiteVersionRepositoryV1 } from "./version-repository.ts"
+import type { NextJob } from "./next-preview-model.ts"
+import { PostgresNextPreviewRepository } from "./next-preview-repository.ts"
+import { agentBuildProfile } from "./agent-build-profile.ts"
 
 export type AgentTurnBuildPlanV1 = {
   intentType: BuilderIntentV1["intentType"]
   request: CreateBuildJobRequestV1
+  profile?: "next"
+  nextBaseJobId?: string | null
+}
+
+export type AgentBuildStartedV1 = { job: Pick<StoredBuildJobV1["job"], "jobId" | "createdAt"> }
+export type AgentNextBuildResultV2 = {
+  kind: "next"
+  record: null
+  httpStatus: number
+  nextResult: AgentNextPreviewResultV2 | null
+  failure?: { code: string; retryable: boolean; failedAt: string }
 }
 
 export interface AgentTurnBuildCoordinatorV1 {
@@ -47,8 +62,10 @@ export interface AgentTurnBuildCoordinatorV1 {
   run(input: {
     principal: BuildPrincipalV1
     plan: AgentTurnBuildPlanV1
-    onStarted?: (record: StoredBuildJobV1) => Promise<void>
-  }): Promise<CreateBuildJobControllerResultV1>
+    onStarted?: (record: AgentBuildStartedV1) => Promise<void>
+    latestStartAt?: string
+    deadlineAt?: string
+  }): Promise<CreateBuildJobControllerResultV1 | AgentNextBuildResultV2>
 }
 
 function buildIdempotencyKey(request: AgentTurnRequestV1): string {
@@ -78,6 +95,8 @@ export class PostgresAgentTurnBuildCoordinatorV1
   implements AgentTurnBuildCoordinatorV1
 {
   private readonly versions: PostgresSiteVersionRepositoryV1
+  private readonly nextPreviews: PostgresNextPreviewRepository
+  private readonly env: NodeJS.ProcessEnv
   private readonly dependencies: ReturnType<
     typeof createBuildJobServerJoinV1
   >["dependencies"]
@@ -97,6 +116,8 @@ export class PostgresAgentTurnBuildCoordinatorV1
       successCommitter: versions,
     })
     this.versions = versions
+    this.nextPreviews = new PostgresNextPreviewRepository(pool)
+    this.env = env
     this.dependencies = join.dependencies
   }
 
@@ -119,11 +140,15 @@ export class PostgresAgentTurnBuildCoordinatorV1
     ) {
       throw new Error("agent_build_plan_stale_revision")
     }
+    const nextState = await this.nextPreviews.getState(input.principal, input.session.projectId)
+    if (!nextState) throw new Error("project_not_found")
+    const profile = agentBuildProfile(this.env, nextState)
     const intentType = BuilderIntentTypeV1Schema.parse(
-      project.activeVersion ? "site.change" : "site.create",
+      (profile === "next" ? nextState.accepted : project.activeVersion) ? "site.change" : "site.create",
     )
     return {
       intentType,
+      ...(profile === "next" ? { profile, nextBaseJobId: nextState.accepted?.jobId ?? null } : {}),
       request: CreateBuildJobRequestV1Schema.parse({
         schemaVersion: 1,
         projectId: input.session.projectId,
@@ -142,8 +167,51 @@ export class PostgresAgentTurnBuildCoordinatorV1
   async run(input: {
     principal: BuildPrincipalV1
     plan: AgentTurnBuildPlanV1
-    onStarted?: (record: StoredBuildJobV1) => Promise<void>
-  }): Promise<CreateBuildJobControllerResultV1> {
+    onStarted?: (record: AgentBuildStartedV1) => Promise<void>
+    latestStartAt?: string
+    deadlineAt?: string
+  }): Promise<CreateBuildJobControllerResultV1 | AgentNextBuildResultV2> {
+    if (input.plan.profile === "next") {
+      let started: NextJob | null = null
+      try {
+        const { generateNextPreview } = await import("./next-preview-service.ts")
+        const state = await generateNextPreview(
+          input.principal,
+          input.plan.request.projectId,
+          input.plan.request.intent.message,
+          undefined,
+          {
+            latestStartAt: input.latestStartAt,
+            deadlineAt: input.deadlineAt,
+            expectedAcceptedJobId: input.plan.nextBaseJobId,
+            onStarted: async (job, createdAt) => {
+              started = job
+              await input.onStarted?.({ job: { jobId: job.jobId, createdAt } })
+            },
+          },
+        )
+        const accepted = state?.accepted
+        const binding: NextJob | null = started
+        if (!binding || !accepted ||
+          (["tenantId", "projectId", "jobId", "sourceRevisionId", "previewRef"] as const)
+            .some(key => accepted[key] !== binding[key])) throw new Error("stale_job_result")
+        return {
+          kind: "next", record: null, httpStatus: 201,
+          nextResult: {
+            schemaVersion: 2, status: "succeeded", projectId: accepted.projectId,
+            jobId: accepted.jobId, sourceRevisionId: accepted.sourceRevisionId,
+            previewRef: accepted.previewRef, verifiedAt: accepted.acceptedAt,
+          },
+        }
+      } catch (error) {
+        const code = error instanceof Error && ["project_busy", "stale_source_generation", "stale_job_result", "turn_policy_expired"].includes(error.message)
+          ? error.message : "next_build_failed"
+        return {
+          kind: "next", record: null, httpStatus: code === "next_build_failed" ? 503 : 409,
+          nextResult: null, failure: { code, retryable: true, failedAt: new Date().toISOString() },
+        }
+      }
+    }
     return createBuildJobV1(
       input.plan.request,
       input.principal,

@@ -205,6 +205,7 @@ export function AgentFace() {
     draftMessage,
     setDraftMessage,
     sessionStatus,
+    buildProfileStatus,
   } = useBuilder()
   const userMessages = messages.filter((message) => message.role === "user")
   const assistantMessages = messages.filter((message) => message.role === "assistant")
@@ -406,7 +407,7 @@ export function AgentFace() {
           <StructuredQuestion
             key={agentProjection.pendingQuestion.questionId}
             question={agentProjection.pendingQuestion}
-            disabled={isStreaming}
+            disabled={isStreaming || Boolean(buildProfileStatus)}
             onAnswer={(questionId, selections) => {
               void answerQuestion(questionId, selections)
             }}
@@ -437,7 +438,7 @@ export function AgentFace() {
       <ConversationComposer
         canSendTurn={canSendTurn}
         isStreaming={isStreaming}
-        statusLine={statusLine}
+        statusLine={sessionStatus === "ready" && !isStreaming && buildProfileStatus ? buildProfileStatus : statusLine}
         placeholder={placeholder}
         cardState={cardState}
         input={draftMessage}

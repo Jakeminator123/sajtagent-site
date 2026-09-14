@@ -44,7 +44,7 @@
       "layer": 0,
       "owner": "sajtagent-site",
       "status": "implemented",
-      "summary": "Binder användare, projekt och AgentSession. Varje turn mintar conversation.respond. En tydlig bygginstruktion kan dessutom auktorisera en build.request; Runtime skiljer svar från bygge. BuildJobV1 skapas bara efter exakt handoff, aldrig av en vanlig fråga. Resultatet sekvenseras tillbaka som AgentEventV1.",
+      "summary": "Binder användare, projekt och AgentSession. Frågor förblir conversation.respond. Efter exakt auktoriserad build.request-handoff väljer Site HTML eller aktiverad Next-profil. HTML använder preview.ready; Next använder separat next.preview.ready utan fabricerad HTML-version eller sitemap.",
       "failure": {
         "code": "cards.controller-rejected",
         "symptom": "Inget kort får visa en lyckad version.",
@@ -57,8 +57,8 @@
       "kind": "projection",
       "layer": 0,
       "owner": "sajtagent-site",
-      "status": "prototype",
-      "summary": "Lokalt implementerad transaktion för verifierade revisions-, versions- och previewreferenser; ännu inte applicerad i molndatabasen.",
+      "status": "implemented",
+      "summary": "Verifierade HTML-versioner och senaste accepterade Next-källa/preview lagras separat. Next visas först efter matchande ägarbundet jobb, källrevision och previewreferens; misslyckade byggen behåller accepterat resultat. Live Next-E2E är en separat driftgrind.",
       "failure": {
         "code": "cards.version-unavailable",
         "symptom": "Versioner stannar i fel- eller väntläge och preview blir inte ready.",
@@ -141,7 +141,7 @@
         "current": "Sajtagent conversation: user input, response, question and verified runtime status",
         "target": "Sajtagent user input, response, question and verified runtime status",
         "produces": ["AgentTurnRequestV1", "AgentTurnRequestV1.replyToQuestionId", "AgentTurnRequestV1.answerSelections"],
-        "consumes": ["agent.status", "message.delta", "question.requested", "tool.started", "build.started", "tool.completed", "preview.ready", "turn.completed", "turn.failed"]
+        "consumes": ["agent.status", "message.delta", "question.requested", "tool.started", "build.started", "tool.completed", "preview.ready", "next.preview.ready", "turn.completed", "turn.failed"]
       },
       "failure": {
         "code": "card.agent-unavailable",
@@ -176,14 +176,14 @@
       "kind": "card",
       "layer": 2,
       "owner": "builder-ui",
-      "status": "prototype",
-      "summary": "Läs- och återställningsvy över verifierade produktversioner.",
+      "status": "implemented",
+      "summary": "Visar HTML-historik och senaste accepterade Next-revision med käll-ZIP. Äldre Next-revisioner får inte framställas som återställningsbara när bara senaste källan är lagrad.",
       "card": {
         "registryId": "versions",
-        "current": "prototype projection",
+        "current": "HTML history and latest accepted Next source",
         "target": "verified read model",
         "produces": [],
-        "consumes": ["preview.ready", "turn.failed"]
+        "consumes": ["preview.ready", "next.preview.ready", "turn.failed"]
       },
       "failure": {
         "code": "card.versions-gap",
@@ -198,13 +198,13 @@
       "layer": 2,
       "owner": "builder-ui",
       "status": "prototype",
-      "summary": "En enkel sitemap-trädvy över den senaste verifierade versionen.",
+      "summary": "Visar verifierad HTML-sitemap; Next saknar ännu motsvarande sitemap-projektion och får inte visa gammal HTML-karta som aktuell.",
       "card": {
         "registryId": "map",
         "current": "preview-pages prototype",
         "target": "verified sitemap read model",
         "produces": [],
-        "consumes": ["preview.ready"]
+        "consumes": ["preview.ready", "next.preview.ready"]
       },
       "failure": {
         "code": "card.map-missing",
@@ -233,10 +233,10 @@
     { "id": "intent.agent-to-adapter", "from": "card.agent", "to": "ui.intent-adapter", "channel": "intent", "contract": "AgentTurnRequestV1" },
     { "id": "intent.blocks-to-adapter", "from": "card.blocks", "to": "ui.intent-adapter", "channel": "intent", "contract": "AgentTurnRequestV1" },
     { "id": "intent.adapter-to-controller", "from": "ui.intent-adapter", "to": "product.controller", "channel": "intent", "contract": "AgentTurnRequestV1" },
-    { "id": "projection.controller-to-version", "from": "product.controller", "to": "product.version", "channel": "projection", "contract": "BuildResultV1" },
+    { "id": "projection.controller-to-version", "from": "product.controller", "to": "product.version", "channel": "projection", "contract": "BuildResultV1 or NextPreviewResultV2" },
     { "id": "projection.controller-to-sitemap", "from": "product.controller", "to": "product.sitemap", "channel": "projection", "contract": "BuildResultV1.sitemapRevision" },
     { "id": "projection.controller-to-reducer", "from": "product.controller", "to": "ui.event-reducer", "channel": "projection", "contract": "AgentEventV1 SSE + resume" },
-    { "id": "projection.version-to-reducer", "from": "product.version", "to": "ui.event-reducer", "channel": "projection", "contract": "canonical version refs" },
+    { "id": "projection.version-to-reducer", "from": "product.version", "to": "ui.event-reducer", "channel": "projection", "contract": "canonical HTML refs or owner-bound accepted Next binding" },
     { "id": "projection.sitemap-to-reducer", "from": "product.sitemap", "to": "ui.event-reducer", "channel": "projection", "contract": "canonical sitemap ref" },
     { "id": "projection.reducer-to-agent", "from": "ui.event-reducer", "to": "card.agent", "channel": "projection", "contract": "assistant response, progress and failure state" },
     { "id": "projection.reducer-to-versions", "from": "ui.event-reducer", "to": "card.versions", "channel": "projection", "contract": "terminal version state" },

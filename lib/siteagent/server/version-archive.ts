@@ -105,63 +105,90 @@ export function createSingleHtmlZipV1(
   htmlContent: string,
   verifiedAt: string,
 ): Uint8Array {
-  const fileName = new TextEncoder().encode("index.html")
-  const content = new TextEncoder().encode(htmlContent)
-  const checksum = crc32(content)
+  return createTextFilesZip([{ path: "index.html", content: htmlContent }], verifiedAt)
+}
+
+/** Stored UTF-8 entries: bounded, deterministic, and safe to extract on Windows or Unix. */
+export function createTextFilesZip(
+  files: readonly { path: string; content: string }[],
+  verifiedAt: string,
+): Uint8Array {
+  if (!files.length || files.length > 512) throw new Error("invalid_archive_size")
+  const names = new Set<string>()
+  let bytes = 0
+  for (const file of files) {
+    const parts = file.path.split("/")
+    if (file.path.length > 240 || /[\\\x00-\x20:*?"<>|]/.test(file.path) ||
+      parts.some(part => !part || part === "." || part === ".." || part.endsWith(".") ||
+        /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)/i.test(part))) throw new Error("invalid_archive_path")
+    const normalized = file.path.toLowerCase()
+    if (names.has(normalized)) throw new Error("invalid_archive_path")
+    names.add(normalized)
+    bytes += Buffer.byteLength(file.content)
+    if (bytes > 8_000_000) throw new Error("invalid_archive_size")
+  }
+  for (const name of names) {
+    const parts = name.split("/")
+    for (let i = 1; i < parts.length; i++) {
+      if (names.has(parts.slice(0, i).join("/"))) throw new Error("invalid_archive_path")
+    }
+  }
+  const localParts: Uint8Array[] = [], centralParts: Uint8Array[] = []
+  let centralOffset = 0, centralSize = 0
   const timestamp = dosTimestamp(verifiedAt)
+  for (const file of files) {
+    const fileName = new TextEncoder().encode(file.path)
+    const content = new TextEncoder().encode(file.content)
+    const checksum = crc32(content)
 
-  const localHeader = Buffer.alloc(30)
-  localHeader.writeUInt32LE(0x04034b50, 0)
-  localHeader.writeUInt16LE(20, 4)
-  localHeader.writeUInt16LE(ZIP_UTF8_FLAG, 6)
-  localHeader.writeUInt16LE(ZIP_STORE_METHOD, 8)
-  localHeader.writeUInt16LE(timestamp.time, 10)
-  localHeader.writeUInt16LE(timestamp.date, 12)
-  localHeader.writeUInt32LE(checksum, 14)
-  localHeader.writeUInt32LE(content.byteLength, 18)
-  localHeader.writeUInt32LE(content.byteLength, 22)
-  localHeader.writeUInt16LE(fileName.byteLength, 26)
-  localHeader.writeUInt16LE(0, 28)
+    const localHeader = Buffer.alloc(30)
+    localHeader.writeUInt32LE(0x04034b50, 0)
+    localHeader.writeUInt16LE(20, 4)
+    localHeader.writeUInt16LE(ZIP_UTF8_FLAG, 6)
+    localHeader.writeUInt16LE(ZIP_STORE_METHOD, 8)
+    localHeader.writeUInt16LE(timestamp.time, 10)
+    localHeader.writeUInt16LE(timestamp.date, 12)
+    localHeader.writeUInt32LE(checksum, 14)
+    localHeader.writeUInt32LE(content.byteLength, 18)
+    localHeader.writeUInt32LE(content.byteLength, 22)
+    localHeader.writeUInt16LE(fileName.byteLength, 26)
+    localHeader.writeUInt16LE(0, 28)
 
-  const centralHeader = Buffer.alloc(46)
-  centralHeader.writeUInt32LE(0x02014b50, 0)
-  centralHeader.writeUInt16LE(20, 4)
-  centralHeader.writeUInt16LE(20, 6)
-  centralHeader.writeUInt16LE(ZIP_UTF8_FLAG, 8)
-  centralHeader.writeUInt16LE(ZIP_STORE_METHOD, 10)
-  centralHeader.writeUInt16LE(timestamp.time, 12)
-  centralHeader.writeUInt16LE(timestamp.date, 14)
-  centralHeader.writeUInt32LE(checksum, 16)
-  centralHeader.writeUInt32LE(content.byteLength, 20)
-  centralHeader.writeUInt32LE(content.byteLength, 24)
-  centralHeader.writeUInt16LE(fileName.byteLength, 28)
-  centralHeader.writeUInt16LE(0, 30)
-  centralHeader.writeUInt16LE(0, 32)
-  centralHeader.writeUInt16LE(0, 34)
-  centralHeader.writeUInt16LE(0, 36)
-  centralHeader.writeUInt32LE(0, 38)
-  centralHeader.writeUInt32LE(0, 42)
+    const centralHeader = Buffer.alloc(46)
+    centralHeader.writeUInt32LE(0x02014b50, 0)
+    centralHeader.writeUInt16LE(20, 4)
+    centralHeader.writeUInt16LE(20, 6)
+    centralHeader.writeUInt16LE(ZIP_UTF8_FLAG, 8)
+    centralHeader.writeUInt16LE(ZIP_STORE_METHOD, 10)
+    centralHeader.writeUInt16LE(timestamp.time, 12)
+    centralHeader.writeUInt16LE(timestamp.date, 14)
+    centralHeader.writeUInt32LE(checksum, 16)
+    centralHeader.writeUInt32LE(content.byteLength, 20)
+    centralHeader.writeUInt32LE(content.byteLength, 24)
+    centralHeader.writeUInt16LE(fileName.byteLength, 28)
+    centralHeader.writeUInt16LE(0, 30)
+    centralHeader.writeUInt16LE(0, 32)
+    centralHeader.writeUInt16LE(0, 34)
+    centralHeader.writeUInt16LE(0, 36)
+    centralHeader.writeUInt32LE(0, 38)
+    centralHeader.writeUInt32LE(centralOffset, 42)
 
-  const centralOffset = localHeader.byteLength + fileName.byteLength + content.byteLength
-  const centralSize = centralHeader.byteLength + fileName.byteLength
+    localParts.push(localHeader, fileName, content)
+    centralParts.push(centralHeader, fileName)
+    centralOffset += localHeader.byteLength + fileName.byteLength + content.byteLength
+    centralSize += centralHeader.byteLength + fileName.byteLength
+  }
   const end = Buffer.alloc(22)
   end.writeUInt32LE(0x06054b50, 0)
   end.writeUInt16LE(0, 4)
   end.writeUInt16LE(0, 6)
-  end.writeUInt16LE(1, 8)
-  end.writeUInt16LE(1, 10)
+  end.writeUInt16LE(files.length, 8)
+  end.writeUInt16LE(files.length, 10)
   end.writeUInt32LE(centralSize, 12)
   end.writeUInt32LE(centralOffset, 16)
   end.writeUInt16LE(0, 20)
 
-  return Buffer.concat([
-    localHeader,
-    fileName,
-    content,
-    centralHeader,
-    fileName,
-    end,
-  ])
+  return Buffer.concat([...localParts, ...centralParts, end])
 }
 
 export function versionArchiveHeadersV1(

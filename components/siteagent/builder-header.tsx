@@ -33,6 +33,7 @@ import { ResetStarterDialog } from "./reset-starter-dialog"
 import { loginPath } from "@/lib/supabase/auth-paths"
 import { withLandingDraft } from "@/lib/siteagent/landing-draft"
 import { builderProjectHref } from "@/lib/siteagent/project-browser"
+import { NextPublicationControl } from "./next-publication-control"
 
 interface BuilderHeaderProps {
   showDrawer: boolean
@@ -40,7 +41,7 @@ interface BuilderHeaderProps {
 }
 
 export function BuilderHeader({ showDrawer, onToggleDrawer }: BuilderHeaderProps) {
-  const { newChat, newProject, isResettingProject, isStreaming, projectId, landingDraft } = useBuilder()
+  const { newChat, newProject, isResettingProject, isStreaming, projectId, landingDraft, nextState, nextAvailability, previewKind } = useBuilder()
   const [resetOpen, setResetOpen] = React.useState(false)
 
   return (
@@ -105,7 +106,7 @@ export function BuilderHeader({ showDrawer, onToggleDrawer }: BuilderHeaderProps
             {projectId?.startsWith("project:personal:") ? (
               <>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem disabled={isResettingProject} className="text-destructive" onSelect={() => setResetOpen(true)}>
+                <DropdownMenuItem disabled={isResettingProject || isStreaming} className="text-destructive" onSelect={() => setResetOpen(true)}>
                   Återställ personligt startprojekt…
                 </DropdownMenuItem>
               </>
@@ -135,7 +136,9 @@ export function BuilderHeader({ showDrawer, onToggleDrawer }: BuilderHeaderProps
           Versioner
         </button>
 
-        <button
+        {projectId && previewKind === "next" ? (
+          <NextPublicationControl key={projectId} projectId={projectId} accepted={nextAvailability === "available" ? nextState?.accepted ?? null : null} />
+        ) : <button
           type="button"
           disabled
           title="Publicering är inte tillgänglig för HTML-byggen. Hämta HTML-versionen som ZIP i Versioner."
@@ -144,7 +147,7 @@ export function BuilderHeader({ showDrawer, onToggleDrawer }: BuilderHeaderProps
         >
           <Rocket className="w-4 h-4" />
           Publicera
-        </button>
+        </button>}
       </div>
     </header>
   )

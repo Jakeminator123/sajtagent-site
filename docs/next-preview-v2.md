@@ -12,12 +12,23 @@ configuration and secrets in customer execution are not supported.
 
 ## Which Builder surface uses Next?
 
-Enabling the flag displays a **separate Next panel** with its own instruction,
-accepted source, preview and publication controls. The ordinary Sajtagent chat
-card continues to use V1 and produces a single HTML page. Its Versioner list,
-HTML-ZIP download and sandboxed preview remain V1 as well. Enabling the flag does
-not migrate those controls or make an existing HTML version a React project.
-Unified chat/version integration needs a separate verified rollout.
+The ordinary **Sajtagent chat** is the instruction surface for both profiles.
+Site selects Next only when the complete server configuration is enabled. It
+still classifies turn permissions and requires the model's exact authorized
+`build.request` handoff; ordinary conversation does not start a build.
+
+Next success is a distinct `next.preview.ready` event with the accepted project,
+job, source revision and preview reference. It never fabricates a V1 version or
+sitemap, and does not replace the HTML session's base revision. The shared preview
+reconciles this binding against the owner-authorized Next read model. Publication
+uses the accepted Next revision; the versions card retains HTML history and shows
+the **latest accepted Next revision**. Historical Next version restore is not
+implemented. Existing HTML projects are not automatically converted into React.
+
+Source ZIP download requires the exact accepted job and revision. It includes a
+standalone fixed Next scaffold plus the exact accepted source snapshot and its
+manifest. The local scaffold removes the private gateway base path. It has no
+generated lockfile, so it is not a promise of a byte-identical rebuild.
 
 ## End-to-end responsibility
 
@@ -64,6 +75,10 @@ two gateway routes, including `_next`, images and extensions.
 - The Builder form POSTs that grant into the iframe. Gateway exchanges it for a
   15-minute `__Host-` HttpOnly Secure SameSite=None Partitioned cookie. Browser
   support for partitioned cookies must be exercised in live browser smoke.
+- The shared Builder binds grant issuance and exchange to the displayed job,
+  source revision and preview reference. If acceptance changes before exchange,
+  the old grant is denied; it cannot open different output under the old label.
+  Bodyless access remains supported for existing operator smoke clients.
 - Every HTML/asset/file request checks the session hash, host, project, tenant,
   owner, preview reference and live `auth.sessions` user/expiry. Logout/session
   revocation denies further requests, and a copied direct URL grants no access.
@@ -98,16 +113,49 @@ not by sharing a protection bypass cookie with the user.
 
 ## Product integration and verification
 
-`NextPreviewPanel` is the opt-in Builder component; import it in PreviewStage
-with current owner-selected project ID after the B project selector merges.
-It polls state, sends a Next instruction or source bundle, reopens accepted
-source, cancels, and bootstraps interactive preview. Prompt mode is an explicit
-V2 panel action; the original V1 agent conversation remains backward-compatible.
+BuilderProvider restores and polls the current project's Next state. The shared
+PreviewStage hosts the protected Next frame; the existing chat, versions card
+and header use that same state. There is no separate customer-facing Next prompt.
+The direct Next build/source APIs remain available for operator smoke and source
+import. With Next disabled, existing HTML projects continue through V1. Projects
+with accepted Next output must not silently downgrade to HTML on configuration
+failure.
+
+The chat route has an 800-second runtime ceiling. When an authenticated owner
+reads or starts a turn, a still-running turn older than 15 minutes is completed
+as `turn.failed` under the session/turn locks. This recovers a crashed request
+without inventing success, changing accepted output, or accepting late events.
+The browser also respects the separate Next job expiry instead of treating an
+expired `building` row as a permanent navigation/composer lock.
 
 `npm run check:next-preview` runs focused local regression assertions and a real
 TypeScript check. The global next build TypeScript waiver is not used by it.
 Actual Vercel API/deployment, wildcard cookie/iframe behavior, two-account live
 access, actual process termination and Runtime restart remain mandatory E checks.
+
+### Operator handoff for ordinary-chat rollout
+
+1. Deploy the coordinated Site/Sprites `main` revisions. The matching chat
+   contract includes `next.preview.ready`; record exact deployment SHAs.
+2. Obtain a clean bounded worker smoke, a recorded Runtime restart and source
+   reopen, and cancellation/timeout process-death evidence. A healthy endpoint
+   or a stopped operator command is not a passing receipt.
+3. Verify wildcard HTTPS for `*.preview.sajtagent.se` and
+   `*.sites.sajtagent.se` routes to `sajtagent-site`, and that original artifact
+   URLs remain private. Keep control-plane Sprites credentials off Site/workers.
+4. Enable Next in a controlled test deployment with complete server settings.
+   Use two dedicated customer accounts. Submit a small interactive React brief
+   through the **ordinary chat** in a fresh project; verify a click changes
+   rendered state, iterate, reload, download source and publish. Also test
+   failed builds, cross-account/direct-link denial and expired-turn recovery.
+5. Record the actual accepted job/revision, deployment and test result before
+   enabling general customer traffic. Existing HTML versions stay HTML; a
+   successful code merge does not convert or rebuild them.
+
+The canonical operations record remains the
+[Platform handoff](https://github.com/Jakeminator123/sajtagent-platform/blob/main/docs/v2-rollout-handoff.md).
+Do not repeat already-applied migrations or broaden DB grants because older
+historical checklists still describe them as pending.
 
 References consulted 2026-09-13:
 - https://vercel.com/docs/rest-api/deployments/create-a-new-deployment

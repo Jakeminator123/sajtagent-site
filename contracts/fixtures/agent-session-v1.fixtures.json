@@ -462,6 +462,282 @@
           "payload": { "outcome": "answered" }
         }
       ]
+    },
+    {
+      "name": "Next preview preserves server project ownership",
+      "expectValid": true,
+      "session": {
+        "schemaVersion": 1,
+        "sessionId": "session:abcdefghijklmnopqrstuvwxyzABCDEF",
+        "projectId": "project:alpha",
+        "activeBaseRevisionId": "revision:base",
+        "status": "active",
+        "createdAt": "2026-09-01T11:59:00.000Z",
+        "updatedAt": "2026-09-01T12:00:00.000Z"
+      },
+      "policy": {
+        "schemaVersion": 1,
+        "sessionId": "session:abcdefghijklmnopqrstuvwxyzABCDEF",
+        "turnId": "turn:0000000000000003",
+        "projectId": "project:alpha",
+        "baseRevisionId": "revision:base",
+        "issuedAt": "2026-09-01T12:02:00.000Z",
+        "expiresAt": "2026-09-01T12:07:00Z",
+        "capabilities": [
+          "conversation.respond",
+          "build.request"
+        ],
+        "allowedMutationIntents": [
+          "site.change"
+        ],
+        "maxToolCalls": 1,
+        "maxModelTokens": 4000,
+        "maxCostMicros": 100000
+      },
+      "events": [
+        {
+          "schemaVersion": 1,
+          "sessionId": "session:abcdefghijklmnopqrstuvwxyzABCDEF",
+          "turnId": "turn:0000000000000003",
+          "eventId": "event:2000000000000001",
+          "sequence": 1,
+          "occurredAt": "2026-09-01T12:02:00.000Z",
+          "type": "turn.accepted",
+          "payload": {
+            "acceptedAt": "2026-09-01T12:02:00.000Z"
+          }
+        },
+        {
+          "schemaVersion": 1,
+          "sessionId": "session:abcdefghijklmnopqrstuvwxyzABCDEF",
+          "turnId": "turn:0000000000000003",
+          "eventId": "event:2000000000000002",
+          "sequence": 2,
+          "occurredAt": "2026-09-01T12:02:00.010Z",
+          "type": "tool.started",
+          "payload": {
+            "toolCallId": "tool:build-one",
+            "capability": "build.request",
+            "safeLabel": "Bygger sajten"
+          }
+        },
+        {
+          "schemaVersion": 1,
+          "sessionId": "session:abcdefghijklmnopqrstuvwxyzABCDEF",
+          "turnId": "turn:0000000000000003",
+          "eventId": "event:2000000000000003",
+          "sequence": 3,
+          "occurredAt": "2026-09-01T12:02:00.020Z",
+          "type": "build.started",
+          "payload": {
+            "jobId": "job:one",
+            "toolCallId": "tool:build-one",
+            "intentType": "site.change"
+          }
+        },
+        {
+          "schemaVersion": 1,
+          "sessionId": "session:abcdefghijklmnopqrstuvwxyzABCDEF",
+          "turnId": "turn:0000000000000003",
+          "eventId": "event:2000000000000004",
+          "sequence": 4,
+          "occurredAt": "2026-09-01T12:02:10.000Z",
+          "type": "tool.completed",
+          "payload": {
+            "toolCallId": "tool:build-one",
+            "status": "passed",
+            "receipts": [
+              {
+                "receiptId": "receipt:check-one",
+                "category": "check",
+                "safeLabel": "Project check",
+                "status": "passed",
+                "startedAt": "2026-09-01T12:02:05.000Z",
+                "finishedAt": "2026-09-01T12:02:09.000Z"
+              }
+            ],
+            "artifacts": [
+              {
+                "kind": "preview",
+                "ref": "artifact:preview0000000001",
+                "mediaType": "text/html",
+                "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+              }
+            ]
+          }
+        },
+        {
+          "schemaVersion": 1,
+          "sessionId": "session:abcdefghijklmnopqrstuvwxyzABCDEF",
+          "turnId": "turn:0000000000000003",
+          "eventId": "event:2000000000000005",
+          "sequence": 5,
+          "occurredAt": "2026-09-01T12:02:11.000Z",
+          "type": "next.preview.ready",
+          "payload": {
+            "jobId": "job:one",
+            "result": {
+              "schemaVersion": 2,
+              "status": "succeeded",
+              "projectId": "project:alpha",
+              "jobId": "job:one",
+              "sourceRevisionId": "revision:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "previewRef": "preview:canonical0000000001",
+              "verifiedAt": "2026-09-01T12:02:11.000Z"
+            }
+          }
+        },
+        {
+          "schemaVersion": 1,
+          "sessionId": "session:abcdefghijklmnopqrstuvwxyzABCDEF",
+          "turnId": "turn:0000000000000003",
+          "eventId": "event:2000000000000006",
+          "sequence": 6,
+          "occurredAt": "2026-09-01T12:02:11.010Z",
+          "type": "turn.completed",
+          "payload": {
+            "outcome": "built"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Next preview cannot claim another project",
+      "expectValid": false,
+      "session": {
+        "schemaVersion": 1,
+        "sessionId": "session:abcdefghijklmnopqrstuvwxyzABCDEF",
+        "projectId": "project:alpha",
+        "activeBaseRevisionId": "revision:base",
+        "status": "active",
+        "createdAt": "2026-09-01T11:59:00.000Z",
+        "updatedAt": "2026-09-01T12:00:00.000Z"
+      },
+      "policy": {
+        "schemaVersion": 1,
+        "sessionId": "session:abcdefghijklmnopqrstuvwxyzABCDEF",
+        "turnId": "turn:0000000000000003",
+        "projectId": "project:alpha",
+        "baseRevisionId": "revision:base",
+        "issuedAt": "2026-09-01T12:02:00.000Z",
+        "expiresAt": "2026-09-01T12:07:00Z",
+        "capabilities": [
+          "conversation.respond",
+          "build.request"
+        ],
+        "allowedMutationIntents": [
+          "site.change"
+        ],
+        "maxToolCalls": 1,
+        "maxModelTokens": 4000,
+        "maxCostMicros": 100000
+      },
+      "events": [
+        {
+          "schemaVersion": 1,
+          "sessionId": "session:abcdefghijklmnopqrstuvwxyzABCDEF",
+          "turnId": "turn:0000000000000003",
+          "eventId": "event:2000000000000001",
+          "sequence": 1,
+          "occurredAt": "2026-09-01T12:02:00.000Z",
+          "type": "turn.accepted",
+          "payload": {
+            "acceptedAt": "2026-09-01T12:02:00.000Z"
+          }
+        },
+        {
+          "schemaVersion": 1,
+          "sessionId": "session:abcdefghijklmnopqrstuvwxyzABCDEF",
+          "turnId": "turn:0000000000000003",
+          "eventId": "event:2000000000000002",
+          "sequence": 2,
+          "occurredAt": "2026-09-01T12:02:00.010Z",
+          "type": "tool.started",
+          "payload": {
+            "toolCallId": "tool:build-one",
+            "capability": "build.request",
+            "safeLabel": "Bygger sajten"
+          }
+        },
+        {
+          "schemaVersion": 1,
+          "sessionId": "session:abcdefghijklmnopqrstuvwxyzABCDEF",
+          "turnId": "turn:0000000000000003",
+          "eventId": "event:2000000000000003",
+          "sequence": 3,
+          "occurredAt": "2026-09-01T12:02:00.020Z",
+          "type": "build.started",
+          "payload": {
+            "jobId": "job:one",
+            "toolCallId": "tool:build-one",
+            "intentType": "site.change"
+          }
+        },
+        {
+          "schemaVersion": 1,
+          "sessionId": "session:abcdefghijklmnopqrstuvwxyzABCDEF",
+          "turnId": "turn:0000000000000003",
+          "eventId": "event:2000000000000004",
+          "sequence": 4,
+          "occurredAt": "2026-09-01T12:02:10.000Z",
+          "type": "tool.completed",
+          "payload": {
+            "toolCallId": "tool:build-one",
+            "status": "passed",
+            "receipts": [
+              {
+                "receiptId": "receipt:check-one",
+                "category": "check",
+                "safeLabel": "Project check",
+                "status": "passed",
+                "startedAt": "2026-09-01T12:02:05.000Z",
+                "finishedAt": "2026-09-01T12:02:09.000Z"
+              }
+            ],
+            "artifacts": [
+              {
+                "kind": "preview",
+                "ref": "artifact:preview0000000001",
+                "mediaType": "text/html",
+                "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+              }
+            ]
+          }
+        },
+        {
+          "schemaVersion": 1,
+          "sessionId": "session:abcdefghijklmnopqrstuvwxyzABCDEF",
+          "turnId": "turn:0000000000000003",
+          "eventId": "event:2000000000000005",
+          "sequence": 5,
+          "occurredAt": "2026-09-01T12:02:11.000Z",
+          "type": "next.preview.ready",
+          "payload": {
+            "jobId": "job:one",
+            "result": {
+              "schemaVersion": 2,
+              "status": "succeeded",
+              "projectId": "project:other",
+              "jobId": "job:one",
+              "sourceRevisionId": "revision:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "previewRef": "preview:canonical0000000001",
+              "verifiedAt": "2026-09-01T12:02:11.000Z"
+            }
+          }
+        },
+        {
+          "schemaVersion": 1,
+          "sessionId": "session:abcdefghijklmnopqrstuvwxyzABCDEF",
+          "turnId": "turn:0000000000000003",
+          "eventId": "event:2000000000000006",
+          "sequence": 6,
+          "occurredAt": "2026-09-01T12:02:11.010Z",
+          "type": "turn.completed",
+          "payload": {
+            "outcome": "built"
+          }
+        }
+      ]
     }
   ],
   "streamCases": [
@@ -1184,6 +1460,579 @@
           "occurredAt": "2026-09-01T12:09:00.030Z",
           "type": "turn.completed",
           "payload": { "outcome": "answered" }
+        }
+      ]
+    },
+    {
+      "name": "authorized Next build produces its own accepted preview",
+      "expectValid": true,
+      "events": [
+        {
+          "schemaVersion": 1,
+          "sessionId": "session:abcdefghijklmnopqrstuvwxyzABCDEF",
+          "turnId": "turn:0000000000000003",
+          "eventId": "event:2000000000000001",
+          "sequence": 1,
+          "occurredAt": "2026-09-01T12:02:00.000Z",
+          "type": "turn.accepted",
+          "payload": {
+            "acceptedAt": "2026-09-01T12:02:00.000Z"
+          }
+        },
+        {
+          "schemaVersion": 1,
+          "sessionId": "session:abcdefghijklmnopqrstuvwxyzABCDEF",
+          "turnId": "turn:0000000000000003",
+          "eventId": "event:2000000000000002",
+          "sequence": 2,
+          "occurredAt": "2026-09-01T12:02:00.010Z",
+          "type": "tool.started",
+          "payload": {
+            "toolCallId": "tool:build-one",
+            "capability": "build.request",
+            "safeLabel": "Bygger sajten"
+          }
+        },
+        {
+          "schemaVersion": 1,
+          "sessionId": "session:abcdefghijklmnopqrstuvwxyzABCDEF",
+          "turnId": "turn:0000000000000003",
+          "eventId": "event:2000000000000003",
+          "sequence": 3,
+          "occurredAt": "2026-09-01T12:02:00.020Z",
+          "type": "build.started",
+          "payload": {
+            "jobId": "job:one",
+            "toolCallId": "tool:build-one",
+            "intentType": "site.change"
+          }
+        },
+        {
+          "schemaVersion": 1,
+          "sessionId": "session:abcdefghijklmnopqrstuvwxyzABCDEF",
+          "turnId": "turn:0000000000000003",
+          "eventId": "event:2000000000000004",
+          "sequence": 4,
+          "occurredAt": "2026-09-01T12:02:10.000Z",
+          "type": "tool.completed",
+          "payload": {
+            "toolCallId": "tool:build-one",
+            "status": "passed",
+            "receipts": [
+              {
+                "receiptId": "receipt:check-one",
+                "category": "check",
+                "safeLabel": "Project check",
+                "status": "passed",
+                "startedAt": "2026-09-01T12:02:05.000Z",
+                "finishedAt": "2026-09-01T12:02:09.000Z"
+              }
+            ],
+            "artifacts": [
+              {
+                "kind": "preview",
+                "ref": "artifact:preview0000000001",
+                "mediaType": "text/html",
+                "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+              }
+            ]
+          }
+        },
+        {
+          "schemaVersion": 1,
+          "sessionId": "session:abcdefghijklmnopqrstuvwxyzABCDEF",
+          "turnId": "turn:0000000000000003",
+          "eventId": "event:2000000000000005",
+          "sequence": 5,
+          "occurredAt": "2026-09-01T12:02:11.000Z",
+          "type": "next.preview.ready",
+          "payload": {
+            "jobId": "job:one",
+            "result": {
+              "schemaVersion": 2,
+              "status": "succeeded",
+              "projectId": "project:alpha",
+              "jobId": "job:one",
+              "sourceRevisionId": "revision:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "previewRef": "preview:canonical0000000001",
+              "verifiedAt": "2026-09-01T12:02:11.000Z"
+            }
+          }
+        },
+        {
+          "schemaVersion": 1,
+          "sessionId": "session:abcdefghijklmnopqrstuvwxyzABCDEF",
+          "turnId": "turn:0000000000000003",
+          "eventId": "event:2000000000000006",
+          "sequence": 6,
+          "occurredAt": "2026-09-01T12:02:11.010Z",
+          "type": "turn.completed",
+          "payload": {
+            "outcome": "built"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Next ready job must match started job",
+      "expectValid": false,
+      "events": [
+        {
+          "schemaVersion": 1,
+          "sessionId": "session:abcdefghijklmnopqrstuvwxyzABCDEF",
+          "turnId": "turn:0000000000000003",
+          "eventId": "event:2000000000000001",
+          "sequence": 1,
+          "occurredAt": "2026-09-01T12:02:00.000Z",
+          "type": "turn.accepted",
+          "payload": {
+            "acceptedAt": "2026-09-01T12:02:00.000Z"
+          }
+        },
+        {
+          "schemaVersion": 1,
+          "sessionId": "session:abcdefghijklmnopqrstuvwxyzABCDEF",
+          "turnId": "turn:0000000000000003",
+          "eventId": "event:2000000000000002",
+          "sequence": 2,
+          "occurredAt": "2026-09-01T12:02:00.010Z",
+          "type": "tool.started",
+          "payload": {
+            "toolCallId": "tool:build-one",
+            "capability": "build.request",
+            "safeLabel": "Bygger sajten"
+          }
+        },
+        {
+          "schemaVersion": 1,
+          "sessionId": "session:abcdefghijklmnopqrstuvwxyzABCDEF",
+          "turnId": "turn:0000000000000003",
+          "eventId": "event:2000000000000003",
+          "sequence": 3,
+          "occurredAt": "2026-09-01T12:02:00.020Z",
+          "type": "build.started",
+          "payload": {
+            "jobId": "job:one",
+            "toolCallId": "tool:build-one",
+            "intentType": "site.change"
+          }
+        },
+        {
+          "schemaVersion": 1,
+          "sessionId": "session:abcdefghijklmnopqrstuvwxyzABCDEF",
+          "turnId": "turn:0000000000000003",
+          "eventId": "event:2000000000000004",
+          "sequence": 4,
+          "occurredAt": "2026-09-01T12:02:10.000Z",
+          "type": "tool.completed",
+          "payload": {
+            "toolCallId": "tool:build-one",
+            "status": "passed",
+            "receipts": [
+              {
+                "receiptId": "receipt:check-one",
+                "category": "check",
+                "safeLabel": "Project check",
+                "status": "passed",
+                "startedAt": "2026-09-01T12:02:05.000Z",
+                "finishedAt": "2026-09-01T12:02:09.000Z"
+              }
+            ],
+            "artifacts": [
+              {
+                "kind": "preview",
+                "ref": "artifact:preview0000000001",
+                "mediaType": "text/html",
+                "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+              }
+            ]
+          }
+        },
+        {
+          "schemaVersion": 1,
+          "sessionId": "session:abcdefghijklmnopqrstuvwxyzABCDEF",
+          "turnId": "turn:0000000000000003",
+          "eventId": "event:2000000000000005",
+          "sequence": 5,
+          "occurredAt": "2026-09-01T12:02:11.000Z",
+          "type": "next.preview.ready",
+          "payload": {
+            "jobId": "job:different",
+            "result": {
+              "schemaVersion": 2,
+              "status": "succeeded",
+              "projectId": "project:alpha",
+              "jobId": "job:different",
+              "sourceRevisionId": "revision:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "previewRef": "preview:canonical0000000001",
+              "verifiedAt": "2026-09-01T12:02:11.000Z"
+            }
+          }
+        },
+        {
+          "schemaVersion": 1,
+          "sessionId": "session:abcdefghijklmnopqrstuvwxyzABCDEF",
+          "turnId": "turn:0000000000000003",
+          "eventId": "event:2000000000000006",
+          "sequence": 6,
+          "occurredAt": "2026-09-01T12:02:11.010Z",
+          "type": "turn.completed",
+          "payload": {
+            "outcome": "built"
+          }
+        }
+      ]
+    },
+    {
+      "name": "failed tool cannot publish a Next preview",
+      "expectValid": false,
+      "events": [
+        {
+          "schemaVersion": 1,
+          "sessionId": "session:abcdefghijklmnopqrstuvwxyzABCDEF",
+          "turnId": "turn:0000000000000003",
+          "eventId": "event:2000000000000001",
+          "sequence": 1,
+          "occurredAt": "2026-09-01T12:02:00.000Z",
+          "type": "turn.accepted",
+          "payload": {
+            "acceptedAt": "2026-09-01T12:02:00.000Z"
+          }
+        },
+        {
+          "schemaVersion": 1,
+          "sessionId": "session:abcdefghijklmnopqrstuvwxyzABCDEF",
+          "turnId": "turn:0000000000000003",
+          "eventId": "event:2000000000000002",
+          "sequence": 2,
+          "occurredAt": "2026-09-01T12:02:00.010Z",
+          "type": "tool.started",
+          "payload": {
+            "toolCallId": "tool:build-one",
+            "capability": "build.request",
+            "safeLabel": "Bygger sajten"
+          }
+        },
+        {
+          "schemaVersion": 1,
+          "sessionId": "session:abcdefghijklmnopqrstuvwxyzABCDEF",
+          "turnId": "turn:0000000000000003",
+          "eventId": "event:2000000000000003",
+          "sequence": 3,
+          "occurredAt": "2026-09-01T12:02:00.020Z",
+          "type": "build.started",
+          "payload": {
+            "jobId": "job:one",
+            "toolCallId": "tool:build-one",
+            "intentType": "site.change"
+          }
+        },
+        {
+          "schemaVersion": 1,
+          "sessionId": "session:abcdefghijklmnopqrstuvwxyzABCDEF",
+          "turnId": "turn:0000000000000003",
+          "eventId": "event:2000000000000004",
+          "sequence": 4,
+          "occurredAt": "2026-09-01T12:02:10.000Z",
+          "type": "tool.completed",
+          "payload": {
+            "toolCallId": "tool:build-one",
+            "status": "failed",
+            "receipts": [
+              {
+                "receiptId": "receipt:check-one",
+                "category": "check",
+                "safeLabel": "Project check",
+                "status": "passed",
+                "startedAt": "2026-09-01T12:02:05.000Z",
+                "finishedAt": "2026-09-01T12:02:09.000Z"
+              }
+            ],
+            "artifacts": [
+              {
+                "kind": "preview",
+                "ref": "artifact:preview0000000001",
+                "mediaType": "text/html",
+                "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+              }
+            ]
+          }
+        },
+        {
+          "schemaVersion": 1,
+          "sessionId": "session:abcdefghijklmnopqrstuvwxyzABCDEF",
+          "turnId": "turn:0000000000000003",
+          "eventId": "event:2000000000000005",
+          "sequence": 5,
+          "occurredAt": "2026-09-01T12:02:11.000Z",
+          "type": "next.preview.ready",
+          "payload": {
+            "jobId": "job:one",
+            "result": {
+              "schemaVersion": 2,
+              "status": "succeeded",
+              "projectId": "project:alpha",
+              "jobId": "job:one",
+              "sourceRevisionId": "revision:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "previewRef": "preview:canonical0000000001",
+              "verifiedAt": "2026-09-01T12:02:11.000Z"
+            }
+          }
+        },
+        {
+          "schemaVersion": 1,
+          "sessionId": "session:abcdefghijklmnopqrstuvwxyzABCDEF",
+          "turnId": "turn:0000000000000003",
+          "eventId": "event:2000000000000006",
+          "sequence": 6,
+          "occurredAt": "2026-09-01T12:02:11.010Z",
+          "type": "turn.completed",
+          "payload": {
+            "outcome": "built"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Next source revision must be content addressed",
+      "expectValid": false,
+      "events": [
+        {
+          "schemaVersion": 1,
+          "sessionId": "session:abcdefghijklmnopqrstuvwxyzABCDEF",
+          "turnId": "turn:0000000000000003",
+          "eventId": "event:2000000000000001",
+          "sequence": 1,
+          "occurredAt": "2026-09-01T12:02:00.000Z",
+          "type": "turn.accepted",
+          "payload": {
+            "acceptedAt": "2026-09-01T12:02:00.000Z"
+          }
+        },
+        {
+          "schemaVersion": 1,
+          "sessionId": "session:abcdefghijklmnopqrstuvwxyzABCDEF",
+          "turnId": "turn:0000000000000003",
+          "eventId": "event:2000000000000002",
+          "sequence": 2,
+          "occurredAt": "2026-09-01T12:02:00.010Z",
+          "type": "tool.started",
+          "payload": {
+            "toolCallId": "tool:build-one",
+            "capability": "build.request",
+            "safeLabel": "Bygger sajten"
+          }
+        },
+        {
+          "schemaVersion": 1,
+          "sessionId": "session:abcdefghijklmnopqrstuvwxyzABCDEF",
+          "turnId": "turn:0000000000000003",
+          "eventId": "event:2000000000000003",
+          "sequence": 3,
+          "occurredAt": "2026-09-01T12:02:00.020Z",
+          "type": "build.started",
+          "payload": {
+            "jobId": "job:one",
+            "toolCallId": "tool:build-one",
+            "intentType": "site.change"
+          }
+        },
+        {
+          "schemaVersion": 1,
+          "sessionId": "session:abcdefghijklmnopqrstuvwxyzABCDEF",
+          "turnId": "turn:0000000000000003",
+          "eventId": "event:2000000000000004",
+          "sequence": 4,
+          "occurredAt": "2026-09-01T12:02:10.000Z",
+          "type": "tool.completed",
+          "payload": {
+            "toolCallId": "tool:build-one",
+            "status": "passed",
+            "receipts": [
+              {
+                "receiptId": "receipt:check-one",
+                "category": "check",
+                "safeLabel": "Project check",
+                "status": "passed",
+                "startedAt": "2026-09-01T12:02:05.000Z",
+                "finishedAt": "2026-09-01T12:02:09.000Z"
+              }
+            ],
+            "artifacts": [
+              {
+                "kind": "preview",
+                "ref": "artifact:preview0000000001",
+                "mediaType": "text/html",
+                "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+              }
+            ]
+          }
+        },
+        {
+          "schemaVersion": 1,
+          "sessionId": "session:abcdefghijklmnopqrstuvwxyzABCDEF",
+          "turnId": "turn:0000000000000003",
+          "eventId": "event:2000000000000005",
+          "sequence": 5,
+          "occurredAt": "2026-09-01T12:02:11.000Z",
+          "type": "next.preview.ready",
+          "payload": {
+            "jobId": "job:one",
+            "result": {
+              "schemaVersion": 2,
+              "status": "succeeded",
+              "projectId": "project:alpha",
+              "jobId": "job:one",
+              "sourceRevisionId": "revision:invented",
+              "previewRef": "preview:canonical0000000001",
+              "verifiedAt": "2026-09-01T12:02:11.000Z"
+            }
+          }
+        },
+        {
+          "schemaVersion": 1,
+          "sessionId": "session:abcdefghijklmnopqrstuvwxyzABCDEF",
+          "turnId": "turn:0000000000000003",
+          "eventId": "event:2000000000000006",
+          "sequence": 6,
+          "occurredAt": "2026-09-01T12:02:11.010Z",
+          "type": "turn.completed",
+          "payload": {
+            "outcome": "built"
+          }
+        }
+      ]
+    },
+    {
+      "name": "HTML and Next cannot both succeed in one turn",
+      "expectValid": false,
+      "events": [
+        {
+          "schemaVersion": 1,
+          "sessionId": "session:abcdefghijklmnopqrstuvwxyzABCDEF",
+          "turnId": "turn:0000000000000003",
+          "eventId": "event:2000000000000001",
+          "sequence": 1,
+          "occurredAt": "2026-09-01T12:02:00.000Z",
+          "type": "turn.accepted",
+          "payload": {
+            "acceptedAt": "2026-09-01T12:02:00.000Z"
+          }
+        },
+        {
+          "schemaVersion": 1,
+          "sessionId": "session:abcdefghijklmnopqrstuvwxyzABCDEF",
+          "turnId": "turn:0000000000000003",
+          "eventId": "event:2000000000000002",
+          "sequence": 2,
+          "occurredAt": "2026-09-01T12:02:00.010Z",
+          "type": "tool.started",
+          "payload": {
+            "toolCallId": "tool:build-one",
+            "capability": "build.request",
+            "safeLabel": "Bygger sajten"
+          }
+        },
+        {
+          "schemaVersion": 1,
+          "sessionId": "session:abcdefghijklmnopqrstuvwxyzABCDEF",
+          "turnId": "turn:0000000000000003",
+          "eventId": "event:2000000000000003",
+          "sequence": 3,
+          "occurredAt": "2026-09-01T12:02:00.020Z",
+          "type": "build.started",
+          "payload": {
+            "jobId": "job:one",
+            "toolCallId": "tool:build-one",
+            "intentType": "site.change"
+          }
+        },
+        {
+          "schemaVersion": 1,
+          "sessionId": "session:abcdefghijklmnopqrstuvwxyzABCDEF",
+          "turnId": "turn:0000000000000003",
+          "eventId": "event:2000000000000004",
+          "sequence": 4,
+          "occurredAt": "2026-09-01T12:02:10.000Z",
+          "type": "tool.completed",
+          "payload": {
+            "toolCallId": "tool:build-one",
+            "status": "passed",
+            "receipts": [
+              {
+                "receiptId": "receipt:check-one",
+                "category": "check",
+                "safeLabel": "Project check",
+                "status": "passed",
+                "startedAt": "2026-09-01T12:02:05.000Z",
+                "finishedAt": "2026-09-01T12:02:09.000Z"
+              }
+            ],
+            "artifacts": [
+              {
+                "kind": "preview",
+                "ref": "artifact:preview0000000001",
+                "mediaType": "text/html",
+                "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+              }
+            ]
+          }
+        },
+        {
+          "schemaVersion": 1,
+          "sessionId": "session:abcdefghijklmnopqrstuvwxyzABCDEF",
+          "turnId": "turn:0000000000000003",
+          "eventId": "event:2000000000000005",
+          "sequence": 5,
+          "occurredAt": "2026-09-01T12:02:11.000Z",
+          "type": "next.preview.ready",
+          "payload": {
+            "jobId": "job:one",
+            "result": {
+              "schemaVersion": 2,
+              "status": "succeeded",
+              "projectId": "project:alpha",
+              "jobId": "job:one",
+              "sourceRevisionId": "revision:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "previewRef": "preview:canonical0000000001",
+              "verifiedAt": "2026-09-01T12:02:11.000Z"
+            }
+          }
+        },
+        {
+          "schemaVersion": 1,
+          "sessionId": "session:abcdefghijklmnopqrstuvwxyzABCDEF",
+          "turnId": "turn:0000000000000003",
+          "eventId": "event:duplicatepreview0001",
+          "sequence": 6,
+          "occurredAt": "2026-09-01T12:02:11.000Z",
+          "type": "preview.ready",
+          "payload": {
+            "jobId": "job:one",
+            "result": {
+              "schemaVersion": 1,
+              "status": "succeeded",
+              "jobId": "job:one",
+              "baseRevisionId": "revision:base",
+              "workspaceRevisionId": "revision:accepted",
+              "versionId": "version:one",
+              "previewRef": "preview:canonical0000000001",
+              "sitemapRevision": "sitemap:one",
+              "verifiedAt": "2026-09-01T12:02:11.000Z"
+            }
+          }
+        },
+        {
+          "schemaVersion": 1,
+          "sessionId": "session:abcdefghijklmnopqrstuvwxyzABCDEF",
+          "turnId": "turn:0000000000000003",
+          "eventId": "event:2000000000000006",
+          "sequence": 7,
+          "occurredAt": "2026-09-01T12:02:11.010Z",
+          "type": "turn.completed",
+          "payload": {
+            "outcome": "built"
+          }
         }
       ]
     }

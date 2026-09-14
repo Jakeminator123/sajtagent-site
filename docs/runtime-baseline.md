@@ -8,6 +8,14 @@ The opt-in Next path has its own [preview](next-preview-v2.md),
 [publication](next-publication-v2.md), [preflight](v2-rollout-preflight.md)
 and [E2E](v2-e2e-smoke.md) instructions. Their implementation does not prove live readiness.
 
+The ordinary chat now also dispatches Next builds through the same exact
+`build.request` handoff when Site has complete, enabled V2 configuration.
+It emits a distinct `next.preview.ready` result and uses the shared Preview
+and Versions surfaces. V1 base revisions and sitemaps are not fabricated for
+Next results. The V1 details below describe the HTML lane, not a second chat
+or a separate customer-facing Next editor. See [Next preview](next-preview-v2.md)
+for current read-model, source export, and rollout boundaries.
+
 The Builder now uses Sajtagent-owned product routes:
 
 - `POST /api/siteagent/projects/default` opens one deterministic, owner-bound

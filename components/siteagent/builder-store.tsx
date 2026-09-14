@@ -27,6 +27,7 @@ import { draftAfterDelivery, hasAcceptedDraftTurn, withLandingDraft, type Landin
 import { applyExpectedTurnStreamEventV1 } from "@/lib/siteagent/agent-event-stream-apply"
 import {
   createAgentEventProjectionV1,
+  hasRunningAgentTurnV1,
   isAgentTurnTerminalV1,
   rejectAgentEventStreamV1,
   type AgentEventProjectionV1,
@@ -44,6 +45,8 @@ import {
   type CanonicalProjectReadModelV1,
 } from "@/lib/siteagent/read-model"
 import type { ChatMessage, PreviewStatus, PublishState, SiteVersion } from "@/lib/siteagent/types"
+import { canSendWithNextProfile, isNextBuildActive, reconcileNextPreview, type NextAvailability, type NextProjectState } from "@/lib/siteagent/next-preview-client"
+import { useNextProject } from "./use-next-project"
 
 type SessionStatusV1 = "opening" | "ready" | "error"
 
@@ -71,6 +74,14 @@ interface BuilderStore {
   previewStatus: PreviewStatus
   previewUrl: string | null
   sitemapRevision: string | null
+  previewKind: "html" | "next"
+  nextState: NextProjectState | null
+  nextAvailability: NextAvailability
+  nextError: string
+  buildProfileStatus: string | null
+  showNextPreview: () => void
+  refreshNextPreview: () => Promise<void>
+  cancelNextBuild: () => Promise<void>
 
   versions: SiteVersion[]
   activeVersionId: string | null
@@ -128,6 +139,7 @@ function eventLogLine(event: AgentEventV1): string | null {
   if (event.type === "tool.completed") return `Verktygsstatus: ${event.payload.status}`
   if (event.type === "build.started") return "Ett avgränsat bygge startade."
   if (event.type === "preview.ready") return "Canonical preview accepterades av Site."
+  if (event.type === "next.preview.ready") return "React-preview accepterades av Site."
   if (event.type === "question.requested") return "Sajtagent bad om ett strukturerat svar."
   if (event.type === "turn.completed") return `Turn klar: ${event.payload.outcome}`
   if (event.type === "turn.failed") return `Turn stoppad: ${event.payload.message}`
@@ -164,6 +176,18 @@ export function BuilderProvider({ children, initialProjectId = null, initialDraf
   const [publishState, setPublishState] = useState<PublishState>("idle")
   const [isResettingProject, setIsResettingProject] = useState(false)
   const [logs, setLogs] = useState<string[]>([])
+  const nextProject = useNextProject(projectId)
+  const [previewSelection, setPreviewSelection] = useState<"auto" | "html" | "next">("auto")
+  const nextBuildActive = isNextBuildActive(nextProject.state?.current ?? null)
+  const nextCurrent = nextProject.state?.current ?? null
+  const buildProfileReady = canSendWithNextProfile(nextProject.availability, nextProject.hasNext)
+  const buildProfileStatus = buildProfileReady ? null : nextProject.availability === "loading"
+    ? "Läser byggläge. Ditt utkast ligger kvar."
+    : nextProject.availability === "unavailable" ? "React är avstängt. Läs byggläget igen när det är aktiverat."
+      : "Byggläget kunde inte läsas. Försök igen via previewn."
+  const previewKind = previewSelection === "html" ? "html" :
+    previewSelection === "next" || nextProject.hasNext ? "next" : "html"
+  const refreshNextState = nextProject.refresh
 
   const projectIdRef = useRef<string | null>(initialProjectId)
   const baseRevisionIdRef = useRef<string | null>(null)
@@ -216,12 +240,13 @@ export function BuilderProvider({ children, initialProjectId = null, initialDraf
     () => versions.find((version) => version.id === activeVersionId) ?? null,
     [activeVersionId, versions],
   )
-  const previewUrl = activeVersion?.previewUrl ?? null
-  const sitemapRevision = activeVersion?.sitemapRevision ?? null
+  const previewUrl = previewKind === "html" ? activeVersion?.previewUrl ?? null : null
+  const sitemapRevision = previewKind === "html" ? activeVersion?.sitemapRevision ?? null : null
   const activeTurn = agentProjection.activeTurnId
     ? agentProjection.turns[agentProjection.activeTurnId]
     : null
-  const buildActive = Boolean(activeTurn?.buildJobId && !activeTurn.terminal)
+  const agentTurnActive = hasRunningAgentTurnV1(agentProjection)
+  const buildActive = Boolean(activeTurn?.buildJobId && !activeTurn.terminal) || nextBuildActive
   const latestTurnId = agentProjection.turnOrder.at(-1) ?? null
   const latestTurn = latestTurnId ? agentProjection.turns[latestTurnId] ?? null : null
   const buildFailed = Boolean(
@@ -231,13 +256,14 @@ export function BuilderProvider({ children, initialProjectId = null, initialDraf
   // build error when a real BuildJob failed and no version exists yet.
   const previewStatus: PreviewStatus = buildActive
     ? "building"
-    : activeVersion
+    : (previewKind === "next" ? nextProject.state?.accepted : activeVersion)
       ? "ready"
       : buildFailed
         ? "error"
         : "idle"
   const canSendTurn =
-    !isStreaming && !isResettingProject &&
+    !isStreaming && !isResettingProject && !nextBuildActive && !agentTurnActive &&
+    buildProfileReady &&
     sessionStatus === "ready" &&
     !agentProjection.pendingQuestion &&
     agentProjection.status !== "invalid"
@@ -375,6 +401,55 @@ export function BuilderProvider({ children, initialProjectId = null, initialDraf
     }
   }, [applyProjection, startSession])
 
+  // A reload can land while source generation has an active agent turn but no
+  // Next worker row yet. Recover its durable events without enabling reset or
+  // starting a second turn. Serial reads also let Site expire abandoned turns.
+  useEffect(() => {
+    if (!agentTurnActive || isStreaming || !agentProjection.sessionId || agentProjection.status === "invalid") return
+    const sessionId = agentProjection.sessionId
+    const sessionGeneration = sessionGenerationRef.current
+    const requestGeneration = requestGenerationRef.current
+    const controller = new AbortController()
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const current = () => !controller.signal.aborted && sessionGeneration === sessionGenerationRef.current &&
+      requestGeneration === requestGenerationRef.current && projectionRef.current.sessionId === sessionId
+    async function recover() {
+      const readAbort = new AbortController()
+      const abortRead = () => readAbort.abort()
+      controller.signal.addEventListener("abort", abortRead, {once: true})
+      const deadline = setTimeout(abortRead, 10_000)
+      try {
+        const seed = projectionRef.current
+        if (!current() || seed.status === "invalid") return
+        const recovered = await catchUpAgentEventProjectionV1(seed, {signal: readAbort.signal})
+        if (!current() || projectionRef.current !== seed) return
+        const latest = recovered.activeTurnId ? recovered.turns[recovered.activeTurnId] : null
+        const expectedProject = projectIdRef.current
+        if (recovered.status !== "invalid" && latest?.terminal?.kind === "completed" && latest.terminal.outcome === "built" && expectedProject) {
+          if (latest.previewResult) {
+            const loaded = await loadCanonicalProjectV1(expectedProject, readAbort.signal)
+            if (!current() || projectionRef.current !== seed) return
+            if (loaded.ok && reconcileAgentPreviewV1(latest.previewResult, loaded.readModel)) {
+              applyReadModel(loaded.readModel)
+              setPreviewSelection("html")
+            }
+          } else if (latest.nextPreviewResult) {
+            const state = await refreshNextState(readAbort.signal)
+            if (!current() || projectionRef.current !== seed) return
+            if (state && reconcileNextPreview(latest.nextPreviewResult, state, expectedProject)) setPreviewSelection("next")
+          }
+        }
+        if (!current() || projectionRef.current !== seed) return
+        applyProjection(recovered)
+        if (recovered.status === "invalid" || !hasRunningAgentTurnV1(recovered)) return
+      } catch { /* Keep the pending turn locked; the next bounded read retries. */ }
+      finally { clearTimeout(deadline); controller.signal.removeEventListener("abort", abortRead) }
+      if (current()) timer = setTimeout(() => void recover(), 3000)
+    }
+    void recover()
+    return () => { controller.abort(); if (timer) clearTimeout(timer) }
+  }, [agentTurnActive, isStreaming, agentProjection.sessionId, agentProjection.status, applyProjection, applyReadModel, refreshNextState])
+
   const setChoice = useCallback((key: string, value: string) => {
     setChoices((previous) => ({ ...previous, [key]: value }))
   }, [])
@@ -394,7 +469,11 @@ export function BuilderProvider({ children, initialProjectId = null, initialDraf
       } = {},
     ) => {
       const trimmed = text.trim()
-      if (!trimmed || abortRef.current || resettingProjectRef.current) return
+      if (!trimmed || abortRef.current || resettingProjectRef.current || nextBuildActive) return
+      if (!buildProfileReady) {
+        pushLog("Meddelandet väntar tills projektets byggläge har bekräftats. Uppdatera previewn och försök igen.")
+        return
+      }
       if (projectionRef.current.status === "invalid") {
         pushLog("meddelandet stoppades: öppna en ny chatt efter integritetsfelet.")
         return
@@ -449,11 +528,21 @@ export function BuilderProvider({ children, initialProjectId = null, initialDraf
           if (
             latestTurn?.terminal?.kind !== "completed" ||
             latestTurn.terminal.outcome !== "built" ||
-            !latestTurn.previewResult ||
             !projectIdRef.current
           ) {
             return
           }
+          if (latestTurn.nextPreviewResult) {
+            const expectedProject = projectIdRef.current
+            const state = await refreshNextState(controller.signal)
+            if (!controller.signal.aborted && requestGeneration === requestGenerationRef.current &&
+              projectIdRef.current === expectedProject && state &&
+              reconcileNextPreview(latestTurn.nextPreviewResult, state, expectedProject)) {
+              setPreviewSelection("next")
+            }
+            return
+          }
+          if (!latestTurn.previewResult) return
           const loaded = await loadCanonicalProjectV1(
             projectIdRef.current,
             controller.signal,
@@ -618,6 +707,16 @@ export function BuilderProvider({ children, initialProjectId = null, initialDraf
 
         const currentTurn = projectionRef.current.turns[turnId] ?? null
         const previewCandidate = currentTurn?.previewResult ?? null
+        const nextCandidate = currentTurn?.nextPreviewResult ?? null
+        if (currentTurn?.terminal?.kind === "completed" && currentTurn.terminal.outcome === "built" && nextCandidate) {
+          const expectedProject = projectIdRef.current
+          const state = await refreshNextState(controller.signal)
+          if (controller.signal.aborted || requestGeneration !== requestGenerationRef.current) return
+          if (!expectedProject || projectIdRef.current !== expectedProject || !state || !reconcileNextPreview(nextCandidate, state, expectedProject)) {
+            throw new Error("React-resultatet kunde inte bekräftas mot projektets godkända version.")
+          }
+          setPreviewSelection("next")
+        }
         if (
           currentTurn?.terminal?.kind === "completed" &&
           currentTurn.terminal.outcome === "built" &&
@@ -643,6 +742,7 @@ export function BuilderProvider({ children, initialProjectId = null, initialDraf
             return
           }
           applyReadModel(loaded.readModel)
+          setPreviewSelection("html")
         }
       } catch (error) {
         if (!controller.signal.aborted && requestGeneration === requestGenerationRef.current) {
@@ -665,6 +765,9 @@ export function BuilderProvider({ children, initialProjectId = null, initialDraf
       choices,
       pushLog,
       startSession,
+      refreshNextState,
+      buildProfileReady,
+      nextBuildActive,
     ],
   )
 
@@ -719,6 +822,8 @@ export function BuilderProvider({ children, initialProjectId = null, initialDraf
 
   const restoreVersion = useCallback(
     (id: string) => {
+      if (!versions.some(version => version.id === id)) return
+      setPreviewSelection("html")
       setActiveVersionId((current) =>
         versions.some((version) => version.id === id) ? id : current,
       )
@@ -767,17 +872,17 @@ export function BuilderProvider({ children, initialProjectId = null, initialDraf
   )
 
   const newChat = useCallback(() => {
-    if (resettingProjectRef.current || abortRef.current) return
+    if (resettingProjectRef.current || abortRef.current || nextBuildActive || hasRunningAgentTurnV1(projectionRef.current)) return
     beginFreshSession(false)
-  }, [beginFreshSession])
+  }, [beginFreshSession, nextBuildActive])
 
   const selectProject = useCallback((selectedProjectId: string) => {
-    if (resettingProjectRef.current || abortRef.current) return
+    if (resettingProjectRef.current || abortRef.current || nextBuildActive || hasRunningAgentTurnV1(projectionRef.current)) return
     window.location.assign(withLandingDraft(builderProjectHref(selectedProjectId), landingDraftRef.current))
-  }, [])
+  }, [nextBuildActive])
 
   const newProject = useCallback(async (name?: string) => {
-    if (abortRef.current) {
+    if (abortRef.current || nextBuildActive || hasRunningAgentTurnV1(projectionRef.current)) {
       return { ok: false as const, error: "Vänta tills Sajtagent har svarat innan du byter projekt." }
     }
     if (resettingProjectRef.current) {
@@ -797,9 +902,12 @@ export function BuilderProvider({ children, initialProjectId = null, initialDraf
       resettingProjectRef.current = false
       setIsResettingProject(false)
     }
-  }, [])
+  }, [nextBuildActive])
 
   const resetStarter = useCallback(async () => {
+    if (abortRef.current || nextBuildActive || hasRunningAgentTurnV1(projectionRef.current)) {
+      return { ok: false as const, error: "Vänta tills Sajtagent har avslutat arbetet innan du återställer projektet." }
+    }
     if (resettingProjectRef.current || !projectIdRef.current?.startsWith("project:personal:")) {
       return { ok: false as const, error: "Öppna ditt personliga startprojekt före återställning." }
     }
@@ -808,7 +916,6 @@ export function BuilderProvider({ children, initialProjectId = null, initialDraf
     requestGenerationRef.current += 1
     sessionGenerationRef.current += 1
     bootstrapPromiseRef.current = null
-    abortRef.current?.abort()
     try {
       const reset = await adapter.resetPersonalStarterProject()
       if (!reset.ok) {
@@ -826,7 +933,7 @@ export function BuilderProvider({ children, initialProjectId = null, initialDraf
       abortRef.current = null
       setIsStreaming(false)
     }
-  }, [])
+  }, [nextBuildActive])
 
   const publish = useCallback(async () => {
     if (publishState === "publishing") return
@@ -834,6 +941,18 @@ export function BuilderProvider({ children, initialProjectId = null, initialDraf
     const result = await adapter.publish()
     setPublishState(result.ok ? "published" : "idle")
   }, [publishState])
+
+  const showNextPreview = useCallback(() => setPreviewSelection("next"), [])
+  const refreshNextPreview = useCallback(async () => { await refreshNextState() }, [refreshNextState])
+  const cancelNextBuild = useCallback(async () => {
+    const current = nextCurrent
+    if (!projectId || current?.status !== "building") return
+    const response = await fetch(`/api/siteagent/projects/${encodeURIComponent(projectId)}/next`, {
+      method: "DELETE", headers: {"content-type": "application/json"}, body: JSON.stringify({jobId: current.jobId}),
+    })
+    if (!response.ok) throw new Error("Avbrottet kunde inte bekräftas. Den godkända versionen behålls.")
+    await refreshNextState()
+  }, [projectId, nextCurrent, refreshNextState])
 
   const value = useMemo<BuilderStore>(
     () => ({
@@ -848,7 +967,7 @@ export function BuilderProvider({ children, initialProjectId = null, initialDraf
       setChoice,
       setPageCount,
       messages,
-      isStreaming,
+      isStreaming: isStreaming || nextBuildActive || agentTurnActive,
       canSendTurn,
       sessionStatus,
       agentProjection,
@@ -859,6 +978,14 @@ export function BuilderProvider({ children, initialProjectId = null, initialDraf
       previewStatus,
       previewUrl,
       sitemapRevision,
+      previewKind,
+      nextState: nextProject.state,
+      nextAvailability: nextProject.availability,
+      nextError: nextProject.error,
+      buildProfileStatus,
+      showNextPreview,
+      refreshNextPreview,
+      cancelNextBuild,
       versions,
       activeVersionId,
       restoreVersion,
@@ -892,6 +1019,16 @@ export function BuilderProvider({ children, initialProjectId = null, initialDraf
       previewStatus,
       previewUrl,
       sitemapRevision,
+      previewKind,
+      nextProject.state,
+      nextProject.availability,
+      nextProject.error,
+      buildProfileStatus,
+      nextBuildActive,
+      agentTurnActive,
+      showNextPreview,
+      refreshNextPreview,
+      cancelNextBuild,
       versions,
       activeVersionId,
       restoreVersion,

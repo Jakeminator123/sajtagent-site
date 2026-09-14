@@ -248,7 +248,7 @@ assert.match(versionListSource, /<a[\s\S]*?\sdownload[\s\S]*?>[\s\S]*?ZIP[\s\S]*
 assert.doesNotMatch(versionListSource, /onClick=\{\(\) => downloadZip\(version\.id\)\}/)
 assert.doesNotMatch(adapterSource, /URL\.createObjectURL|response\.blob\(\)|anchor\.click\(\)/)
 assert.doesNotMatch(versionListSource, /ZIP-export är inte ansluten ännu/)
-assert.match(previewSource, /const hasContent = Boolean\(previewUrl\)/)
+assert.match(previewSource, /const hasContent = nextAvailability !== "loading" && Boolean\(previewUrl \|\| accepted\)/)
 assert.match(previewSource, /Previewn stannar här så du kan fortsätta prompta/)
 
 assert.deepEqual([...NEW_DRAFT_INTENTS], ["new-chat", "new-project"])

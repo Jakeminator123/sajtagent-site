@@ -6,6 +6,7 @@ import {
 
 type QuestionEventV1 = Extract<AgentEventV1, { type: "question.requested" }>
 type PreviewEventV1 = Extract<AgentEventV1, { type: "preview.ready" }>
+type NextPreviewEventV1 = Extract<AgentEventV1, { type: "next.preview.ready" }>
 
 export type AgentProjectionStatusV1 =
   | "idle"
@@ -36,6 +37,7 @@ export type AgentQuestionProjectionV1 = QuestionEventV1["payload"] & {
 }
 
 export type AgentPreviewProjectionV1 = PreviewEventV1["payload"]["result"]
+export type AgentNextPreviewProjection = NextPreviewEventV1["payload"]["result"]
 
 export interface AgentTurnProjectionV1 {
   turnId: string
@@ -46,6 +48,7 @@ export interface AgentTurnProjectionV1 {
   buildJobId: string | null
   buildToolCallId: string | null
   previewResult: AgentPreviewProjectionV1 | null
+  nextPreviewResult: AgentNextPreviewProjection | null
   terminal:
     | { kind: "completed"; outcome: "answered" | "awaiting_user" | "built" | "no_change" }
     | { kind: "failed"; code: string; message: string; retryable: boolean }
@@ -164,7 +167,7 @@ function completedTurnError(
   const hasMessage = turn.messageIds.length > 0
   const hasQuestion = turn.questionId !== null
   const hasBuild = turn.buildJobId !== null
-  const hasPreview = turn.previewResult !== null
+  const hasPreview = turn.previewResult !== null || turn.nextPreviewResult !== null
   const hasBuildRequest = turn.toolCallIds.some(
     (toolCallId) => state.tools[toolCallId]?.capability === "build.request",
   )
@@ -248,6 +251,7 @@ export function reduceAgentEventV1(
       buildJobId: null,
       buildToolCallId: null,
       previewResult: null,
+      nextPreviewResult: null,
       terminal: null,
     }
     return {
@@ -399,7 +403,7 @@ export function reduceAgentEventV1(
       ? state.tools[turn.buildToolCallId]
       : null
     if (
-      turn.previewResult ||
+      turn.previewResult || turn.nextPreviewResult ||
       event.payload.jobId !== turn.buildJobId ||
       !buildTool ||
       buildTool.status !== "passed"
@@ -415,6 +419,19 @@ export function reduceAgentEventV1(
       status: "active",
       statusLabel: "Verifierad preview är redo.",
       canonicalPreviewCandidate: event.payload.result,
+    }
+  }
+
+  if (event.type === "next.preview.ready") {
+    const buildTool = turn.buildToolCallId ? state.tools[turn.buildToolCallId] : null
+    if (turn.previewResult || turn.nextPreviewResult ||
+      event.payload.jobId !== turn.buildJobId || !buildTool || buildTool.status !== "passed") {
+      return failClosed(next, "Next-preview saknade ett matchande verifierat bygge.")
+    }
+    return {
+      ...updateTurn(next, { ...turn, nextPreviewResult: event.payload.result }),
+      status: "active",
+      statusLabel: "Verifierad React-preview är redo.",
     }
   }
 
@@ -479,6 +496,11 @@ export function isActiveAgentTurnTerminalV1(
 ): boolean {
   if (!state.activeTurnId) return false
   return Boolean(state.turns[state.activeTurnId]?.terminal)
+}
+
+export function hasRunningAgentTurnV1(state: AgentEventProjectionV1): boolean {
+  const turn = state.activeTurnId ? state.turns[state.activeTurnId] : null
+  return Boolean(turn && !turn.terminal)
 }
 
 export function isAgentTurnTerminalV1(

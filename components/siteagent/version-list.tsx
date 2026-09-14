@@ -4,6 +4,7 @@ import { Clock, Download, Loader2, Pin, RotateCcw, ShieldCheck, TriangleAlert } 
 import { cn } from "@/lib/utils"
 import { CardEmpty } from "./card-states"
 import { useBuilder } from "./builder-store"
+import { isNextBuildActive, nextSourceDownloadHref } from "@/lib/siteagent/next-preview-client"
 
 export function VersionList() {
   const {
@@ -12,17 +13,34 @@ export function VersionList() {
     activeVersionId,
     restoreVersion,
     togglePin,
+    nextState,
+    previewKind,
+    showNextPreview,
   } = useBuilder()
+  const acceptedNext = nextState?.accepted ?? null
   const activeTurn = agentProjection.activeTurnId
     ? agentProjection.turns[agentProjection.activeTurnId]
     : null
-  const pending = Boolean(activeTurn?.buildJobId && !activeTurn.terminal)
+  const pending = Boolean(activeTurn?.buildJobId && !activeTurn.terminal) || isNextBuildActive(nextState?.current ?? null)
   const failed =
     Boolean(activeTurn?.buildJobId) &&
     (agentProjection.status === "failed" || agentProjection.status === "invalid")
 
   return (
     <div className="flex h-full flex-col gap-2">
+      {acceptedNext && <div className={cn("flex flex-col gap-1.5 rounded-lg border p-2.5", previewKind === "next" ? "border-workflow-text/40 bg-workflow-surface-hover" : "border-workflow-border-subtle")}>
+        <div className="flex items-center gap-2">
+          <span className="font-mono text-xs text-workflow-text">React · Next.js</span>
+          <span className="flex items-center gap-1 rounded bg-emerald-500/15 px-1.5 py-0.5 font-mono text-[10px] text-emerald-600"><ShieldCheck className="h-3 w-3" /> Verifierad</span>
+        </div>
+        <p className="text-[10px] text-workflow-text-muted">Senast godkända React-versionen</p>
+        <p className="truncate font-mono text-[9px] text-workflow-text-subtle" title={acceptedNext.sourceRevisionId}>Källrevision {acceptedNext.sourceRevisionId}</p>
+        <div className="flex items-center gap-1.5">
+          <button type="button" onClick={showNextPreview} className="flex items-center gap-1 rounded border border-workflow-border-subtle px-2 py-1 font-mono text-[10px] text-workflow-text-muted"><RotateCcw className="h-3 w-3" /> Visa React</button>
+          <a href={nextSourceDownloadHref(acceptedNext)} download title="Hämta den godkända React/Next-källan som ZIP" className="flex items-center gap-1 rounded border border-workflow-border-subtle px-2 py-1 font-mono text-[10px] text-workflow-text-muted"><Download className="h-3 w-3" /> Källkod ZIP</a>
+        </div>
+        <p className="text-[10px] leading-relaxed text-workflow-text-subtle">Här sparas den senaste godkända React-källan. Äldre React-revisioner kan ännu inte återställas i Buildern.</p>
+      </div>}
       {pending ? (
         <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-2.5">
           <Loader2 className="mt-0.5 h-3.5 w-3.5 shrink-0 animate-spin text-amber-600 dark:text-amber-400" />
@@ -47,11 +65,12 @@ export function VersionList() {
         </div>
       ) : null}
 
-      {versions.length === 0 && !pending && !failed ? (
+      {versions.length > 0 && <p className="px-1 font-mono text-[10px] text-workflow-text-subtle">HTML-historik</p>}
+      {versions.length === 0 && !acceptedNext && !pending && !failed ? (
         <CardEmpty icon={<Clock className="h-5 w-5 text-brand-teal" />} title="Inga versioner ännu">
           Skriv i Sajtagent-kortet. Sajtagent skapar den första när ett bygge verifieras.
         </CardEmpty>
-      ) : versions.length === 0 ? (
+      ) : versions.length === 0 && !acceptedNext ? (
         <p className="px-1 text-[10px] leading-relaxed text-workflow-text-subtle">
           Inga verifierade versioner ännu.
         </p>
@@ -61,7 +80,7 @@ export function VersionList() {
             key={version.id}
             className={cn(
               "flex flex-col gap-1.5 rounded-lg border p-2.5 transition-colors duration-150",
-              version.id === activeVersionId
+              previewKind === "html" && version.id === activeVersionId
                 ? "border-workflow-text/40 bg-workflow-surface-hover"
                 : "border-workflow-border-subtle",
             )}

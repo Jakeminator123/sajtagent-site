@@ -17,6 +17,7 @@ import {
 import type { BuildPrincipalV1 } from "./build-job-input.ts"
 import {
   acceptedBuildRevisionV1,
+  expiredAgentTurnEvents,
   type AgentSessionRepositoryV1,
   type ReserveAgentTurnV1,
   type ReadAgentEventsV1,
@@ -114,6 +115,28 @@ export class PostgresAgentSessionRepositoryV1
 
   constructor(pool: Pool) {
     this.pool = pool
+  }
+
+  async recoverExpiredTurn(principal: BuildPrincipalV1, sessionId: string, now: string): Promise<void> {
+    const result = await this.pool.query<{ id: string }>(
+      `select t.id from public.agent_turns t
+       join public.agent_sessions s on s.id=t.session_id and s.tenant_id=t.tenant_id and s.owner_user_id=t.owner_user_id
+       where t.session_id=$1 and t.tenant_id=$2 and t.owner_user_id=$3::uuid
+         and t.status='running' and t.created_at <= $4::timestamptz - interval '15 minutes'`,
+      [sessionId, principal.tenantId, principal.userId, now],
+    )
+    for (const row of result.rows) {
+      try {
+        await this.completeTurn(principal, sessionId, row.id, record => {
+          const events = expiredAgentTurnEvents(record, now)
+          if (!events) throw new Error("agent_turn_not_expired")
+          return events
+        })
+      } catch (error) {
+        // A concurrent recovery or the original request may have finished first.
+        if (!(error instanceof Error) || !["agent_turn_terminal", "agent_turn_not_expired"].includes(error.message)) throw error
+      }
+    }
   }
 
   async ensureActiveSession(
@@ -373,6 +396,15 @@ export class PostgresAgentSessionRepositoryV1
     turnId: string,
     values: AgentEventV1[],
   ): Promise<StoredAgentTurnV1> {
+    return this.completeTurn(principal, sessionId, turnId, values)
+  }
+
+  private async completeTurn(
+    principal: BuildPrincipalV1,
+    sessionId: string,
+    turnId: string,
+    values: AgentEventV1[] | ((record: StoredAgentTurnV1) => AgentEventV1[]),
+  ): Promise<StoredAgentTurnV1> {
     const client = await this.pool.connect()
     try {
       await client.query("begin")
@@ -405,7 +437,7 @@ export class PostgresAgentSessionRepositoryV1
       if (sessionRow.last_sequence !== previousSequence) {
         throw new Error("agent_turn_base_sequence_changed")
       }
-      const batch = validateAgentEventBatchV1(values, {
+      const batch = validateAgentEventBatchV1(typeof values === "function" ? values(record) : values, {
         afterSequence: previousSequence,
         expectedSessionId: sessionId,
       })

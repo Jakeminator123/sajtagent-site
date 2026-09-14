@@ -16,8 +16,8 @@ import type { EvidenceReceiptV1 } from "../../../contracts/builder-v1.ts"
 import type {
   AgentTurnBuildCoordinatorV1,
   AgentTurnBuildPlanV1,
+  AgentBuildStartedV1,
 } from "./agent-turn-build-join.ts"
-import type { StoredBuildJobV1 } from "./build-job-repository.ts"
 import type { BuildPrincipalV1 } from "./build-job-input.ts"
 import type {
   AgentSessionRepositoryV1,
@@ -246,6 +246,7 @@ function exactBuildHandoff(
       event.type === "tool.completed" ||
       event.type === "build.started" ||
       event.type === "preview.ready" ||
+      event.type === "next.preview.ready" ||
       event.type === "turn.completed" ||
       event.type === "turn.failed",
   )
@@ -267,6 +268,7 @@ async function* completeBuildHandoff(
   tool: Extract<AgentEventV1, { type: "tool.started" }>,
   plan: AgentTurnBuildPlanV1,
   dependencies: AgentSessionControllerDependenciesV1,
+  onProgress: (record: StoredAgentTurnV1) => void,
 ): AsyncGenerator<AgentEventV1> {
   const coordinator = dependencies.buildCoordinator
   if (
@@ -286,7 +288,9 @@ async function* completeBuildHandoff(
   const run = coordinator.run({
     principal,
     plan,
-    onStarted: async (buildRecord: StoredBuildJobV1) => {
+    latestStartAt: record.policy.expiresAt,
+    deadlineAt: new Date(Date.parse(record.createdAt) + 780_000).toISOString(),
+    onStarted: async (buildRecord: AgentBuildStartedV1) => {
       if (startedEvent) throw new Error("agent_build_started_twice")
       const event = AgentEventV1Schema.parse({
         schemaVersion: 1,
@@ -308,6 +312,7 @@ async function* completeBuildHandoff(
         record.request.turnId,
         [event],
       )
+      onProgress(currentRecord)
       startedEvent = event
       resolveStarted(event)
     },
@@ -320,6 +325,8 @@ async function* completeBuildHandoff(
   const result = first.kind === "result" ? first.result : await run
   const buildRecord = result.record
   const buildResult = buildRecord?.result ?? null
+  const nextResult = result.kind === "next" ? result.nextResult : null
+  const nextFailure = result.kind === "next" ? result.failure : null
   let sequence = currentRecord.events.at(-1)?.sequence ?? runtimeEvents.at(-1)!.sequence
   const events: AgentEventV1[] = []
   const append = (event: unknown) => {
@@ -347,7 +354,32 @@ async function* completeBuildHandoff(
     })
   }
 
-  if (buildResult?.status === "succeeded") {
+  if (nextResult) {
+    const startedBuild = currentRecord.events.find(event => event.type === "build.started")
+    if (plan.profile !== "next" || !startedBuild || startedBuild.type !== "build.started" ||
+      startedBuild.payload.jobId !== nextResult.jobId || nextResult.projectId !== plan.request.projectId) {
+      throw new Error("agent_next_build_binding_mismatch")
+    }
+    append({
+      schemaVersion: 1, sessionId: record.request.sessionId, turnId: record.request.turnId,
+      occurredAt: nextResult.verifiedAt, type: "tool.completed",
+      payload: { toolCallId: tool.payload.toolCallId, status: "passed", receipts: [], artifacts: [] },
+    })
+    append({
+      schemaVersion: 1, sessionId: record.request.sessionId, turnId: record.request.turnId,
+      occurredAt: nextResult.verifiedAt, type: "next.preview.ready",
+      payload: { jobId: nextResult.jobId, result: nextResult },
+    })
+    append({
+      schemaVersion: 1, sessionId: record.request.sessionId, turnId: record.request.turnId,
+      occurredAt: nextResult.verifiedAt, type: "message.delta",
+      payload: { messageId: createMessageId(dependencies), delta: "Klart — din React/Next-sida är byggd och verifierad. Previewn är redo." },
+    })
+    append({
+      schemaVersion: 1, sessionId: record.request.sessionId, turnId: record.request.turnId,
+      occurredAt: nextResult.verifiedAt, type: "turn.completed", payload: { outcome: "built" },
+    })
+  } else if (buildResult?.status === "succeeded") {
     append({
       schemaVersion: 1,
       sessionId: record.request.sessionId,
@@ -404,6 +436,7 @@ async function* completeBuildHandoff(
   } else {
     const failedAt =
       buildResult?.failedAt ??
+      nextFailure?.failedAt ??
       (dependencies.now ?? (() => new Date()))().toISOString()
     append({
       schemaVersion: 1,
@@ -425,9 +458,9 @@ async function* completeBuildHandoff(
       occurredAt: failedAt,
       type: "turn.failed",
       payload: {
-        code: buildResult?.code ?? "build_join_rejected",
+        code: buildResult?.code ?? nextFailure?.code ?? "build_join_rejected",
         message: "Bygget kunde inte slutföras. Ingen preview accepterades.",
-        retryable: buildResult?.retryable ?? result.httpStatus >= 500,
+        retryable: buildResult?.retryable ?? nextFailure?.retryable ?? result.httpStatus >= 500,
       },
     })
   }
@@ -448,6 +481,7 @@ async function* completeBuildHandoff(
         [event],
       )
     }
+    onProgress(currentRecord)
     yield event
   }
 }
@@ -573,6 +607,8 @@ async function* streamRuntimeEvents(
       }
       if (pendingTerminal) throw new Error("runtime_event_after_terminal")
       const event = sanitizeRuntimeEventV1(AgentEventV1Schema.parse(value))
+      // The conversational runtime cannot assert that Site accepted a deployment.
+      if (event.type === "next.preview.ready") throw new Error("runtime_cannot_accept_next_preview")
       if (
         event.sessionId !== record.request.sessionId ||
         event.turnId !== record.request.turnId
@@ -620,6 +656,7 @@ async function* streamRuntimeEvents(
         handoff,
         buildPlan,
         dependencies,
+        (updated) => { currentRecord = updated },
       )
       return
     }
@@ -670,6 +707,9 @@ export async function prepareAgentTurnV1(
     request.sessionId,
   )
   if (!storedSession) return { kind: "session_not_found" }
+  await dependencies.repository.recoverExpiredTurn(
+    principal, request.sessionId, (dependencies.now ?? (() => new Date()))().toISOString(),
+  )
   const sessionRecord = await dependencies.repository.ensureActiveSession(
     principal,
     {

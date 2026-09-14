@@ -2,6 +2,7 @@ import type { Pool, PoolClient } from "pg"
 import { createHash, randomBytes } from "node:crypto"
 import type { BuildPrincipalV1 } from "./build-job-input.ts"
 import { canFinishJob, type NextAccepted, type NextBinding, type NextJob, type NextState, type SourceFile } from "./next-preview-model.ts"
+import { matchesPreviewAccessBinding, previewGrantHash, type NextPreviewAccessBinding } from "./next-preview-access-binding.ts"
 
 const hash = (value: string) => createHash("sha256").update(value).digest("hex")
 type Row = { state: NextState; source_files: SourceFile[]; accepted_source_files: SourceFile[] }
@@ -66,26 +67,27 @@ export class PostgresNextPreviewRepository {
     return result.rowCount === 1
   }
 
-  async issueGrant(principal: BuildPrincipalV1, projectId: string, authSessionId: string, hostname: string): Promise<string> {
+  async issueGrant(principal: BuildPrincipalV1, projectId: string, authSessionId: string, hostname: string, expected?: NextPreviewAccessBinding): Promise<string> {
     const token = randomBytes(32).toString("base64url")
     const result = await this.pool.query(`insert into public.next_preview_access(token_sha256,kind,project_id,tenant_id,owner_user_id,auth_session_id,hostname,expires_at)
       select $1,'grant',n.project_id,n.tenant_id,n.owner_user_id,s.id,$5,now()+interval '60 seconds'
       from public.next_preview_states n join auth.sessions s on s.id=$4::uuid and s.user_id=n.owner_user_id
-      where n.project_id=$2 and n.tenant_id=$3 and n.owner_user_id=$6::uuid and n.state->'accepted' <> 'null'::jsonb and (s.not_after is null or s.not_after>now())`,
-      [hash(token),projectId,principal.tenantId,authSessionId,hostname,principal.userId])
+      where n.project_id=$2 and n.tenant_id=$3 and n.owner_user_id=$6::uuid and n.state->'accepted' <> 'null'::jsonb and (s.not_after is null or s.not_after>now())
+      and ($7::text is null or (n.state#>>'{accepted,jobId}'=$7 and n.state#>>'{accepted,sourceRevisionId}'=$8 and n.state#>>'{accepted,previewRef}'=$9))`,
+      [previewGrantHash(token,expected),projectId,principal.tenantId,authSessionId,hostname,principal.userId,expected?.jobId??null,expected?.sourceRevisionId??null,expected?.previewRef??null])
     if (result.rowCount !== 1) throw new Error("preview_access_denied")
     return token
   }
 
-  async exchangeGrant(grant: string, hostname: string): Promise<{ token: string; accepted: NextAccepted } | null> {
+  async exchangeGrant(grant: string, hostname: string, expected?: NextPreviewAccessBinding): Promise<{ token: string; accepted: NextAccepted } | null> {
     if (!/^[A-Za-z0-9_-]{43}$/.test(grant)) return null
     return this.transaction(async client => {
-      const deleted = await client.query<{project_id:string;tenant_id:string;owner_user_id:string;auth_session_id:string}>(`delete from public.next_preview_access a using auth.sessions s where a.token_sha256=$1 and a.hostname=$2 and a.kind='grant' and a.expires_at>now() and s.id=a.auth_session_id and s.user_id=a.owner_user_id and (s.not_after is null or s.not_after>now()) returning a.project_id,a.tenant_id,a.owner_user_id,a.auth_session_id`, [hash(grant),hostname])
+      const deleted = await client.query<{project_id:string;tenant_id:string;owner_user_id:string;auth_session_id:string}>(`delete from public.next_preview_access a using auth.sessions s where a.token_sha256=$1 and a.hostname=$2 and a.kind='grant' and a.expires_at>now() and s.id=a.auth_session_id and s.user_id=a.owner_user_id and (s.not_after is null or s.not_after>now()) returning a.project_id,a.tenant_id,a.owner_user_id,a.auth_session_id`, [previewGrantHash(grant,expected),hostname])
       const row = deleted.rows[0]
       if (!row) return null
       const state = await client.query<Row>(`select state from public.next_preview_states where project_id=$1 and tenant_id=$2 and owner_user_id=$3::uuid`, [row.project_id,row.tenant_id,row.owner_user_id])
       const accepted = state.rows[0]?.state.accepted
-      if (!accepted) return null
+      if (!accepted || !matchesPreviewAccessBinding(accepted,expected)) return null
       const token = randomBytes(32).toString("base64url")
       await client.query(`insert into public.next_preview_access(token_sha256,kind,project_id,tenant_id,owner_user_id,auth_session_id,hostname,expires_at) values($1,'session',$2,$3,$4::uuid,$5::uuid,$6,now()+interval '15 minutes')`, [hash(token),row.project_id,row.tenant_id,row.owner_user_id,row.auth_session_id,hostname])
       return { token, accepted }

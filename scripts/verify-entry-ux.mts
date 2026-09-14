@@ -46,7 +46,7 @@ assert.equal(withLandingDraft(destination, null), "/builder?project=project%3Aow
 const empty = createAgentEventProjectionV1("session:test")
 const turn: AgentTurnProjectionV1 = {
   turnId: "turn:accepted", acceptedSequence: 1, messageIds: [], toolCallIds: [],
-  questionId: null, buildJobId: null, buildToolCallId: null, previewResult: null, terminal: null,
+  questionId: null, buildJobId: null, buildToolCallId: null, previewResult: null, nextPreviewResult: null, terminal: null,
 }
 const history: AgentEventProjectionV1 = {
   ...empty, lastSequence: 1, turns: { [turn.turnId]: turn }, turnOrder: [turn.turnId], activeTurnId: turn.turnId,
@@ -75,5 +75,5 @@ assert.match(read("components/siteagent/faces/agent-face.tsx"), /input=\{draftMe
 assert.match(read("components/siteagent/builder-store.tsx"), /acknowledgeDelivery\(\)/)
 assert.match(read("app/builder/page.tsx"), /auth\.getUser\(\)/)
 assert.match(read("app/auth/callback/route.ts"), /loginPath\(next, true\)/)
-assert.match(read("components/siteagent/next-preview-panel.tsx"), /setState\(null\)/)
+assert.match(read("components/siteagent/use-next-project.ts"), /state: null, availability: "unavailable"/)
 console.log("Entry UX: PASS (local auth returns, draft preservation and acknowledgement, terminal build labels)")

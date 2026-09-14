@@ -8,13 +8,13 @@ import { CardEmpty } from "../card-states"
 import { useBuilder } from "../builder-store"
 
 export function SitemapFace() {
-  const { previewStatus, sitemapRevision } = useBuilder()
+  const { previewStatus, sitemapRevision, previewKind } = useBuilder()
 
   return (
     <div className="flex h-full flex-col overflow-y-auto p-4">
       {previewStatus !== "ready" || !sitemapRevision ? (
         <CardEmpty icon={<Map className="h-5 w-5 text-violet-500" />} title="Ingen karta ännu">
-          Sajtkartan visas först när ett bygge har verifierats.
+          {previewKind === "next" ? "React-sajten visas i previewn. Sidträdet för React är inte anslutet ännu." : "Sajtkartan visas först när ett HTML-bygge har verifierats."}
         </CardEmpty>
       ) : (
         <div className="flex flex-col items-center gap-0">

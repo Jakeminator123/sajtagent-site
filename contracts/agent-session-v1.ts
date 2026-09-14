@@ -1,6 +1,7 @@
 import { z } from "zod"
 
 import { BuilderIntentTypeV1Schema } from "./builder-v1.ts"
+import { PreviewRefV2Schema, SourceRevisionIdV2Schema } from "./deployment-v2.ts"
 
 const IdentifierV1Schema = z
   .string()
@@ -78,6 +79,19 @@ const AgentPreviewResultV1Schema = z
     verifiedAt: TimestampV1Schema,
   })
   .strict()
+
+/** Site emits this only after the exact Next deployment has been accepted. */
+export const AgentNextPreviewResultV2Schema = z.object({
+  schemaVersion: z.literal(2),
+  status: z.literal("succeeded"),
+  projectId: IdentifierV1Schema,
+  jobId: IdentifierV1Schema,
+  sourceRevisionId: SourceRevisionIdV2Schema,
+  previewRef: PreviewRefV2Schema,
+  verifiedAt: TimestampV1Schema,
+}).strict()
+
+export type AgentNextPreviewResultV2 = z.infer<typeof AgentNextPreviewResultV2Schema>
 
 const AgentBuildChoiceValueV1Schema = z.union([
   z.string().max(160),
@@ -360,6 +374,10 @@ export const AgentEventV1Schema = z
         .strict(),
     ),
     agentEvent(
+      "next.preview.ready",
+      z.object({ jobId: IdentifierV1Schema, result: AgentNextPreviewResultV2Schema }).strict(),
+    ),
+    agentEvent(
       "turn.completed",
       z
         .object({
@@ -390,7 +408,7 @@ export const AgentEventV1Schema = z
       })
     }
     if (
-      value.type === "preview.ready" &&
+      (value.type === "preview.ready" || value.type === "next.preview.ready") &&
       value.payload.result.jobId !== value.payload.jobId
     ) {
       context.addIssue({
@@ -565,7 +583,7 @@ export function validateAgentTurnEventStreamV1(
       buildJobId = event.payload.jobId
       buildToolCallId = event.payload.toolCallId
     }
-    if (event.type === "preview.ready") {
+    if (event.type === "preview.ready" || event.type === "next.preview.ready") {
       if (readyJobId) {
         return { success: false, error: "V1 permits at most one preview.ready per turn" }
       }
@@ -725,6 +743,12 @@ export function validateAgentTurnAgainstPolicyV1(
         success: false,
         error: "Canonical preview must preserve the policy base revision",
       }
+    }
+    if (
+      event.type === "next.preview.ready" &&
+      event.payload.result.projectId !== policy.data.projectId
+    ) {
+      return { success: false, error: "Next preview must preserve the policy project" }
     }
   }
 

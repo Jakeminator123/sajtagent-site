@@ -1,0 +1,21 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "incremental": false,
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "target": "ES2022",
+    "types": ["node"]
+  },
+  "include": [
+    "contracts/builder-v1.ts",
+    "contracts/deployment-v2.ts",
+    "contracts/project-v2.ts",
+    "lib/db/client.ts",
+    "lib/db/env.ts",
+    "lib/siteagent/server/**/*.ts",
+    "lib/supabase/**/*.ts",
+    "app/api/siteagent/projects/**/*.ts",
+    "scripts/verify-project-v2.mts"
+  ]
+}

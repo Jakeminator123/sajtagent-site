@@ -9,14 +9,13 @@ import { BuilderProvider } from "./builder-store"
 import { BuilderHeader } from "./builder-header"
 import { CubeStage } from "./cube-stage"
 import { useLayoutPrefs } from "./use-layout-prefs"
-import { LandingPromptHandoff } from "./landing-prompt-handoff"
+import type { LandingDraft } from "@/lib/siteagent/landing-draft"
 
-export function BuilderShell({ initialProjectId = null }: { initialProjectId?: string | null }) {
+export function BuilderShell({ initialProjectId = null, initialDraft = null }: { initialProjectId?: string | null; initialDraft?: LandingDraft | null }) {
   const layout = useLayoutPrefs()
 
   return (
-    <BuilderProvider key={initialProjectId ?? "default"} initialProjectId={initialProjectId}>
-      <LandingPromptHandoff />
+    <BuilderProvider key={initialProjectId ?? "default"} initialProjectId={initialProjectId} initialDraft={initialDraft}>
       <div className="h-screen flex flex-col bg-workflow-bg transition-colors duration-200">
         <BuilderHeader
           showDrawer={!layout.docked.has("versions")}

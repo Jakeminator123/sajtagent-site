@@ -44,7 +44,7 @@ export default function CallToAction() {
                         <Button
                             asChild
                             size="lg">
-                            <Link href="#top">
+                            <Link href="#skapa">
                                 <span>Skapa din sida</span>
                             </Link>
                         </Button>

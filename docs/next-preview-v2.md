@@ -10,6 +10,15 @@ enabled still return 503. The first profile is genuine Next `output: export`
 with interactive client JavaScript; SSR, customer API routes, arbitrary build
 configuration and secrets in customer execution are not supported.
 
+## Which Builder surface uses Next?
+
+Enabling the flag displays a **separate Next panel** with its own instruction,
+accepted source, preview and publication controls. The ordinary Sajtagent chat
+card continues to use V1 and produces a single HTML page. Its Versioner list,
+HTML-ZIP download and sandboxed preview remain V1 as well. Enabling the flag does
+not migrate those controls or make an existing HTML version a React project.
+Unified chat/version integration needs a separate verified rollout.
+
 ## End-to-end responsibility
 
 1. Site authenticates the owner and selects project, job, revision, preview ref.

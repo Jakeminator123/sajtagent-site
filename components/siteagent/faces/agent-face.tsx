@@ -18,6 +18,7 @@ import type {
 } from "@/lib/siteagent/agent-event-reducer"
 import { CardEmpty, toolStatusLabel } from "../card-states"
 import { ConversationComposer } from "../conversation-composer"
+import { LandingPromptHandoff } from "../landing-prompt-handoff"
 import {
   AGENT_LISTEN_BODY,
   AGENT_LISTEN_TITLE,
@@ -200,7 +201,9 @@ export function AgentFace() {
     canSendTurn,
     isStreaming,
     messages,
-    sendMessage,
+    sendDraftMessage,
+    draftMessage,
+    setDraftMessage,
     sessionStatus,
   } = useBuilder()
   const userMessages = messages.filter((message) => message.role === "user")
@@ -430,15 +433,16 @@ export function AgentFace() {
         ) : null}
       </div>
 
+      <LandingPromptHandoff />
       <ConversationComposer
         canSendTurn={canSendTurn}
         isStreaming={isStreaming}
         statusLine={statusLine}
         placeholder={placeholder}
         cardState={cardState}
-        onSend={(text) => {
-          void sendMessage(text)
-        }}
+        input={draftMessage}
+        onInputChange={setDraftMessage}
+        onSend={() => { void sendDraftMessage() }}
       />
     </div>
   )

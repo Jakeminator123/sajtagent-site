@@ -33,7 +33,7 @@ export function NextPublicationControl({ projectId, accepted }: { projectId: str
   }
 
   return <div className="flex flex-wrap items-center gap-2 text-sm">
-    <button type="button" disabled={!configured || !accepted || busy} onClick={() => void publish()} className="rounded border px-3 py-1 disabled:opacity-50" title={!configured ? "Publiceringsdomän är inte konfigurerad" : "Publicera exakt godkänd Next-revision"}>
+    <button type="button" disabled={!configured || !accepted || busy} onClick={() => void publish()} className="rounded border px-3 py-1 disabled:opacity-50" title={!configured ? "Publiceringsdomän är inte konfigurerad" : !accepted ? "Bygg och verifiera en Next-preview innan du publicerar." : "Publicera exakt godkänd Next-revision"}>
       {busy ? "Publicerar…" : "Publicera Next"}
     </button>
     {url && <a href={url} target="_blank" rel="noopener noreferrer" className="underline">Öppna publicerad sajt</a>}

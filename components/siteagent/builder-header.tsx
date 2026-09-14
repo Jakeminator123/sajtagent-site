@@ -30,6 +30,9 @@ import { useBuilder } from "./builder-store"
 import { NewDraftMenu } from "./new-draft-menu"
 import { ProjectSelector } from "./project-selector"
 import { ResetStarterDialog } from "./reset-starter-dialog"
+import { loginPath } from "@/lib/supabase/auth-paths"
+import { withLandingDraft } from "@/lib/siteagent/landing-draft"
+import { builderProjectHref } from "@/lib/siteagent/project-browser"
 
 interface BuilderHeaderProps {
   showDrawer: boolean
@@ -37,7 +40,7 @@ interface BuilderHeaderProps {
 }
 
 export function BuilderHeader({ showDrawer, onToggleDrawer }: BuilderHeaderProps) {
-  const { newChat, newProject, isResettingProject, projectId } = useBuilder()
+  const { newChat, newProject, isResettingProject, isStreaming, projectId, landingDraft } = useBuilder()
   const [resetOpen, setResetOpen] = React.useState(false)
 
   return (
@@ -57,11 +60,11 @@ export function BuilderHeader({ showDrawer, onToggleDrawer }: BuilderHeaderProps
 
       <div className="flex items-center gap-2">
         <Link
-          href="/login"
+          href={loginPath(withLandingDraft(projectId ? builderProjectHref(projectId) : "/builder", landingDraft))}
           className="flex items-center gap-1.5 px-3 py-2 rounded-lg font-mono text-sm bg-workflow-surface border border-workflow-border text-workflow-text-muted hover:text-workflow-text hover:bg-workflow-surface-hover transition-colors duration-200"
         >
           <LogIn className="w-4 h-4" />
-          Konto
+          Byt konto
         </Link>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -115,6 +118,7 @@ export function BuilderHeader({ showDrawer, onToggleDrawer }: BuilderHeaderProps
           newChat={newChat}
           newProject={newProject}
           isResettingProject={isResettingProject}
+          isStreaming={isStreaming}
         />
 
         <button
@@ -134,7 +138,8 @@ export function BuilderHeader({ showDrawer, onToggleDrawer }: BuilderHeaderProps
         <button
           type="button"
           disabled
-          title="Publicering kräver först en verifierad version"
+          title="Publicering är inte tillgänglig för HTML-byggen. Hämta HTML-versionen som ZIP i Versioner."
+          aria-label="Publicering är inte tillgänglig för HTML-byggen"
           className="flex items-center gap-2 px-4 py-2 rounded-lg font-mono text-sm bg-workflow-surface text-workflow-text-muted cursor-not-allowed"
         >
           <Rocket className="w-4 h-4" />

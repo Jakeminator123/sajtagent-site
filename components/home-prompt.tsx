@@ -68,12 +68,12 @@ export function HomePrompt() {
   }
 
   return (
-    <form onSubmit={submit} className="mt-10 w-full max-w-xl" aria-label="Skapa din webbplats">
+    <form onSubmit={submit} className="mt-10 w-full max-w-xl" aria-label="Beskriv din webbplats">
       <div className="overflow-hidden rounded-xl border border-workflow-border bg-workflow-node-bg shadow-2xl shadow-background/40">
         <div className="flex items-center gap-2 border-b border-workflow-border-subtle px-3 py-2">
           <Globe2 className="size-4 text-workflow-text-muted" aria-hidden="true" />
           <span className="font-mono text-xs font-medium uppercase tracking-wide text-workflow-text-muted">
-            Skapa din sida
+            Beskriv din sida
           </span>
           <span className="ml-auto font-mono text-[10px] text-workflow-text-subtle">SiteAgent Builder</span>
         </div>
@@ -155,7 +155,8 @@ export function HomePrompt() {
           <button
             type="submit"
             disabled={!prompt.trim()}
-            aria-label="Skapa webbplats"
+            aria-label="Fortsätt till Buildern"
+            title="Fortsätt till Buildern"
             className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-foreground text-background transition-opacity disabled:cursor-not-allowed disabled:opacity-30"
           >
             <ArrowUp className="size-4" aria-hidden="true" />
@@ -170,7 +171,7 @@ export function HomePrompt() {
         ) : isTranscribing ? (
           'Transkriberar inspelningen…'
         ) : (
-          'Enter för att börja · Shift + Enter för ny rad'
+          'Enter för att fortsätta · Din text följer med genom inloggningen. Skicka den i Buildern när du är redo.'
         )}
       </p>
     </form>

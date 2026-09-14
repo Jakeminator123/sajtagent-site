@@ -1,37 +1,16 @@
-'use client'
+"use client"
 
-import { Suspense, useEffect, useRef } from 'react'
-import { useSearchParams } from 'next/navigation'
-import { useBuilder } from './builder-store'
+import { useBuilder } from "./builder-store"
 
-/**
- * Bryggan mellan förstasidans promptdock och buildern.
- * URL-parametern konsumeras exakt en gång per sidladdning och skickas därefter
- * genom samma sendMessage-flöde som Sajtagent-kortet använder.
- *
- * useSearchParams() kräver en Suspense-gräns vid prerendering, därför ligger
- * själva läsningen i en inre komponent som wrappas nedan.
- */
-function LandingPromptHandoffInner() {
-  const params = useSearchParams()
-  const { sendMessage, isStreaming, messages } = useBuilder()
-  const consumed = useRef(false)
-  const prompt = params.get('prompt')?.trim() ?? ''
-  const mode = params.get('mode')?.trim() || undefined
-
-  useEffect(() => {
-    if (consumed.current || !prompt || isStreaming || messages.length > 0) return
-    consumed.current = true
-    void sendMessage(prompt, { mode })
-  }, [prompt, mode, isStreaming, messages.length, sendMessage])
-
-  return null
-}
-
+/** A brief stays editable and unsent even after restoring an existing chat. */
 export function LandingPromptHandoff() {
+  const { landingDraft, projectName, sessionStatus } = useBuilder()
+  if (!landingDraft) return null
   return (
-    <Suspense fallback={null}>
-      <LandingPromptHandoffInner />
-    </Suspense>
+    <p className="rounded-md border border-workflow-border-subtle bg-workflow-node-input px-2.5 py-2 text-[11px] leading-relaxed text-workflow-text-muted" role="status">
+      Din beskrivning är inte skickad. {sessionStatus === "ready" && projectName
+        ? <>Den skickas till <strong>{projectName}</strong>. Välj ett annat projekt eller Nytt projekt i menyn om det gäller en annan sajt.</>
+        : "Den finns kvar medan projektet öppnas."}
+    </p>
   )
 }

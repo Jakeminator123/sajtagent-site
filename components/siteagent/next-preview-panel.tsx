@@ -19,6 +19,7 @@ function ProjectNextPreviewPanel({projectId}:{projectId:string|null}) {
   const [building,setBuilding]=useState(false)
   const [refresh,setRefresh]=useState(0)
   const opened = useRef<string|null>(null)
+  const unavailable = useRef(false)
   const activeBuild = useRef<AbortController|null>(null)
   const form = useRef<HTMLFormElement>(null)
   const endpoint=projectId?`/api/siteagent/projects/${encodeURIComponent(projectId)}/next`:null
@@ -27,19 +28,26 @@ function ProjectNextPreviewPanel({projectId}:{projectId:string|null}) {
 
   useEffect(()=>{
     if(!endpoint)return
+    unavailable.current=false
     const abort=new AbortController()
     let timer:ReturnType<typeof setInterval>|undefined
     async function poll(){
+      if(unavailable.current)return
       try {
         const response=await fetch(endpoint!,{cache:"no-store",signal:abort.signal})
-        if(abort.signal.aborted)return
+        if(abort.signal.aborted || unavailable.current)return
         if(shouldIdleNextPreviewPoll(response.status)){
+          unavailable.current=true
           if(timer!==undefined){clearInterval(timer);timer=undefined}
+          activeBuild.current?.abort()
+          activeBuild.current=null
+          opened.current=null
+          setState(null);setError("");setBuilding(false)
           return
         }
         if(response.ok){
           const body=await response.json()
-          if(!abort.signal.aborted)setState(body.state)
+          if(!abort.signal.aborted && !unavailable.current)setState(body.state)
         }
       }
       catch { /* Missing feature configuration intentionally leaves V1 visible. */ }
@@ -58,7 +66,7 @@ function ProjectNextPreviewPanel({projectId}:{projectId:string|null}) {
         const response=await fetch(`${endpoint}/access`,{method:"POST",signal:abort.signal})
         if(!response.ok)throw new Error("Previewåtkomst kunde inte bekräftas.")
         const access=await response.json()
-        if(abort.signal.aborted || !form.current)return
+        if(abort.signal.aborted || unavailable.current || !form.current)return
         form.current.action=access.action
         const input=form.current.elements.namedItem("grant") as HTMLInputElement
         input.value=access.grant

@@ -4,7 +4,7 @@ import Link from "next/link"
 import { useState, type FormEvent } from "react"
 import { Loader2, Lock, Mail } from "lucide-react"
 
-import { LOGIN_SUCCESS_PATH, magicLinkRedirectTo } from "@/lib/supabase/auth-paths"
+import { authCallbackRedirectPath, magicLinkRedirectTo } from "@/lib/supabase/auth-paths"
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser"
 
 const inputClassName =
@@ -17,18 +17,20 @@ function passwordErrorMessage(message: string): string {
   return "Fel e-post eller lösenord."
 }
 
-export function LoginForm({ callbackFailed }: { callbackFailed: boolean }) {
+export function LoginForm({ callbackFailed, authUnavailable = false, returnTo }: { callbackFailed: boolean; authUnavailable?: boolean; returnTo: string }) {
+  const destination = authCallbackRedirectPath(returnTo)
+  const hasDraft = new URL(destination, "https://sajtagent.invalid").searchParams.has("prompt")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [submitting, setSubmitting] = useState<"password" | "otp" | null>(null)
   const [message, setMessage] = useState<string | null>(
-    callbackFailed ? "Inloggningen via länken misslyckades. Försök igen med e-post och lösenord." : null,
+    authUnavailable ? "Inloggningen kunde inte kontrolleras just nu. Försök igen om en stund; din beskrivning finns kvar." : callbackFailed ? "Inloggningen via länken misslyckades. Försök igen med e-post och lösenord eller en ny länk." : null,
   )
 
   function requireClient() {
     const supabase = getSupabaseBrowserClient()
     if (!supabase) {
-      setMessage("Supabase Auth är inte konfigurerad i den här miljön.")
+      setMessage("Inloggningen är inte tillgänglig just nu. Försök igen senare.")
       return null
     }
     return supabase
@@ -41,17 +43,18 @@ export function LoginForm({ callbackFailed }: { callbackFailed: boolean }) {
 
     setSubmitting("password")
     setMessage(null)
-    const { error } = await supabase.auth.signInWithPassword({
-      email: email.trim(),
-      password,
-    })
-    if (error) {
+    try {
+      const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password })
+      if (error) {
+        setMessage(passwordErrorMessage(error.message))
+        return
+      }
+      window.location.assign(destination)
+    } catch {
+      setMessage("Inloggningen kunde inte nås. Försök igen; din beskrivning finns kvar.")
+    } finally {
       setSubmitting(null)
-      setMessage(passwordErrorMessage(error.message))
-      return
     }
-
-    window.location.assign(LOGIN_SUCCESS_PATH)
   }
 
   async function submitOtp(event: FormEvent<HTMLFormElement>) {
@@ -61,12 +64,17 @@ export function LoginForm({ callbackFailed }: { callbackFailed: boolean }) {
 
     setSubmitting("otp")
     setMessage(null)
-    const { error } = await supabase.auth.signInWithOtp({
-      email: email.trim(),
-      options: { emailRedirectTo: magicLinkRedirectTo(window.location.origin) },
-    })
-    setSubmitting(null)
-    setMessage(error ? error.message : "Kontrollera din e-post och öppna inloggningslänken.")
+    try {
+      const { error } = await supabase.auth.signInWithOtp({
+        email: email.trim(),
+        options: { emailRedirectTo: magicLinkRedirectTo(window.location.origin, destination) },
+      })
+      setMessage(error ? "Länken kunde inte skickas. Kontrollera adressen och försök igen om en stund." : "Kontrollera din e-post och öppna länken i samma webbläsare för att fortsätta.")
+    } catch {
+      setMessage("Inloggningen kunde inte nås. Försök igen; din beskrivning finns kvar.")
+    } finally {
+      setSubmitting(null)
+    }
   }
 
   const busy = submitting !== null
@@ -78,7 +86,12 @@ export function LoginForm({ callbackFailed }: { callbackFailed: boolean }) {
         <p className="font-mono text-[10px] uppercase tracking-widest text-workflow-text-subtle">Sajtagent</p>
         <h1 className="mt-2 text-xl font-semibold">Logga in till Buildern</h1>
         <p className="mt-2 text-sm leading-relaxed text-workflow-text-muted">
-          Projekt, jobb och versioner binds till din verifierade Supabase-identitet.
+          Logga in för att spara och fortsätta med dina projekt.
+        </p>
+        {hasDraft ? <p className="mt-3 text-sm text-workflow-text-muted">Din beskrivning följer med. Du kan läsa och ändra den innan du skickar den i Buildern.</p> : null}
+        <p className="mt-3 text-xs leading-relaxed text-workflow-text-muted">
+          Ny här? Sajtagent är i beta. Prova en engångslänk till din e-postadress.
+          Om du inte får tillgång, kontakta den som bjöd in dig.
         </p>
 
         <form className="mt-6 space-y-3" onSubmit={submitPassword}>
@@ -141,8 +154,8 @@ export function LoginForm({ callbackFailed }: { callbackFailed: boolean }) {
             {message}
           </p>
         ) : null}
-        <Link className="mt-5 inline-block text-xs text-workflow-text-muted underline" href={LOGIN_SUCCESS_PATH}>
-          Tillbaka till Buildern
+        <Link className="mt-5 inline-block text-xs text-workflow-text-muted underline" href="/">
+          Tillbaka till startsidan
         </Link>
       </section>
     </main>

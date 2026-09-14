@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, type KeyboardEvent } from "react"
+import { type KeyboardEvent } from "react"
 import { Loader2, Mic, Send, Square } from "lucide-react"
 import { useAudioTranscription } from "@/lib/use-audio-transcription"
 import { cn } from "@/lib/utils"
@@ -12,27 +12,29 @@ export function ConversationComposer({
   placeholder,
   cardState,
   onSend,
+  input,
+  onInputChange,
 }: {
   canSendTurn: boolean
   isStreaming: boolean
   statusLine: string | null
   placeholder: string
   cardState: string
-  onSend: (text: string) => void
+  onSend: () => void
+  input: string
+  onInputChange: (text: string) => void
 }) {
-  const [input, setInput] = useState("")
   const inputDisabled = !canSendTurn
   const { status: recStatus, seconds: recSeconds, toggle: toggleRecording } =
     useAudioTranscription({
-      onTranscript: (text) => setInput((prev) => (prev.trim() ? `${prev.trim()} ${text}` : text)),
+      onTranscript: (text) => onInputChange(input.trim() ? `${input.trim()} ${text}` : text),
     })
   const isRecording = recStatus === "recording"
   const isTranscribing = recStatus === "transcribing"
 
   const submit = () => {
     if (!input.trim() || inputDisabled) return
-    onSend(input)
-    setInput("")
+    onSend()
   }
 
   const handleKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -95,7 +97,7 @@ export function ConversationComposer({
       <div className="flex items-end gap-2">
         <textarea
           value={input}
-          onChange={(event) => setInput(event.target.value)}
+          onChange={(event) => onInputChange(event.target.value)}
           onKeyDown={handleKeyDown}
           disabled={inputDisabled}
           aria-label="Meddelande till Sajtagent"

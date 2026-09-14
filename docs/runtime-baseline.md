@@ -110,10 +110,17 @@ but they remain empty until a canonical version has been accepted and stored.
 
 Password login (`signInWithPassword`) and magic-link login (`signInWithOtp`)
 use only `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`.
-After a successful password sign-in or OTP callback the browser continues to
-`/builder`. The login page never auto-logs anyone in and never embeds
-credentials. Users are created in the Supabase Auth dashboard, not by this
-repository.
+After password sign-in or the OTP callback, the browser continues to a validated
+`/builder` URL, preserving its selected project and unsent landing text/mode.
+The Builder checks the user before mounting protected project/session UI. A
+landing brief is shown as an editable draft even with restored chat history;
+only the user's Send action submits it. Confirmed turn acceptance clears that
+draft and its URL parameters. Pre-acceptance failures leave it available.
+Project switching and the new-chat/project menu stay disabled while a turn is
+in flight so an unacknowledged draft cannot be carried into another session.
+The login page never auto-logs anyone in and never embeds credentials. It has
+no separate sign-up form; magic-link eligibility follows the existing Supabase
+Auth policy, which must not be inferred from UI wording.
 
 No app-level role table exists yet. Until one is added, the operational
 "superadmin" is the verified Supabase Auth user `jakob.olof.eberg@gmail.com`.

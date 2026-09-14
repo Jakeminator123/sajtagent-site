@@ -27,7 +27,7 @@
     "check:version-read-model": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/verify-version-read-model.mts && tsc -p tsconfig.version-read-model.json",
     "check:builder-adapter": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/verify-builder-adapter.mts && tsc -p tsconfig.builder-adapter.json",
     "check:agent-session-ui": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/verify-agent-session-ui.mts && tsc -p tsconfig.agent-session-ui.json",
-    "check:site-ui": "node scripts/verify-site-ui.mjs && node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/verify-agent-session-ui.mts && tsc -p tsconfig.site-ui.json",
+    "check:site-ui": "node scripts/verify-site-ui.mjs && node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/verify-agent-session-ui.mts && node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/verify-entry-ux.mts && tsc -p tsconfig.site-ui.json",
     "check:v1-cleanup": "node scripts/verify-v1-cleanup.mjs && tsc -p tsconfig.v1-cleanup.json",
     "cards:docs": "node scripts/verify-card-flow.mjs --write",
     "cards:check": "node scripts/verify-card-flow.mjs",

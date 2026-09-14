@@ -282,7 +282,7 @@ assert.doesNotMatch(
   /lastAssistant|messages|isStreaming/,
   "ordinary assistant replies must not appear as build activity",
 )
-assert.match(engineBackSource, /activeTurn\?\.buildJobId/, "Build status must derive from a verified build event")
+assert.match(engineBackSource, /buildStatusLabel\(agentProjection\)/, "Build status must derive from verified event state, including terminal outcomes")
 assert.match(builderHeaderSource, /NewDraftMenu/, "the header must host the Ny… menu")
 assert.match(newDraftCopySource, /NEW_DRAFT_TRIGGER_LABEL = "Ny…"/, "the header control is Ny…, not a lone Ny chatt button")
 assert.match(newDraftMenuSource, /\{NEW_CHAT_LABEL\}/, "Ny chatt remains a named menu intent")
@@ -420,9 +420,11 @@ assert.match(
   /canSendTurn/,
   "Chat and Blocks must share one turn-send gate",
 )
-assert.match(heroSource, /lokal beta/, "the hero must label the current product state as beta")
+assert.match(heroSource, /beta/, "the hero must label the current product state as beta")
 assert.doesNotMatch(heroSource, /färdig webbplats|bygger sidan|tio sekunder/, "the hero must not claim unavailable build automation")
-assert.match(agendaSource, /Byggstarten förblir stängd/, "the agenda must describe the fail-closed build boundary")
+assert.match(agendaSource, /Frågor får svar utan bygge/, "the agenda must distinguish conversation from a build order")
+assert.match(agendaSource, /resultatet har verifierats/, "the agenda must retain the verified-result boundary")
+assert.doesNotMatch(agendaSource, /Byggstarten förblir stängd/, "the agenda must not claim that the working V1 build path is disabled")
 assert.match(
   authPathsSource,
   /export const LOGIN_SUCCESS_PATH = "\/builder"/,
@@ -432,7 +434,7 @@ assert.match(authCallbackSource, /authCallbackRedirectPath/, "OTP callback must 
 assert.match(loginFormSource, /signInWithPassword/, "login must offer email and password")
 assert.match(loginFormSource, /signInWithOtp/, "login must keep the existing magic-link path")
 assert.match(loginFormSource, /Logga in/, "the primary action must be password sign-in")
-assert.match(loginFormSource, /LOGIN_SUCCESS_PATH/, "password login must redirect like the OTP callback")
+assert.match(loginFormSource, /authCallbackRedirectPath/, "password login must validate its destination like the OTP callback")
 assert.match(loginFormSource, /<details/, "magic-link login must stay available but secondary")
 assert.doesNotMatch(
   loginFormSource,

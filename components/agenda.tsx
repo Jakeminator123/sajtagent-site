@@ -44,23 +44,23 @@ export default function Agenda() {
                         <div className="py-6">
                             <div className="font-medium space-x-2">
                                 <span className='text-muted-foreground font-mono '>02</span>
-                                <span>Granska planen</span>
+                                <span>Öppna ditt projekt</span>
                             </div>
-                            <p className="text-muted-foreground mt-4">I betan föreslår Sajtagent struktur och byggval utan att starta ett bygge.</p>
+                            <p className="text-muted-foreground mt-4">Logga in och välj projekt. Din beskrivning följer med som ett utkast du kan ändra innan du skickar.</p>
                         </div>
                         <div className="py-6">
                             <div className="font-medium space-x-2">
                                 <span className='text-muted-foreground font-mono '>03</span>
-                                <span>Förbered ett verifierat bygge</span>
+                                <span>Skicka din beställning</span>
                             </div>
-                            <p className="text-muted-foreground mt-4">Byggstarten förblir stängd tills du uttryckligen har godkänt den i samma chatt.</p>
+                            <p className="text-muted-foreground mt-4">Frågor får svar utan bygge. En tydlig sajtbeställning startar bygget; förhandsvisningen visas när resultatet har verifierats.</p>
                         </div>
                         <div className="py-6">
                             <div className="font-medium space-x-2">
                                 <span className='text-muted-foreground font-mono '>04</span>
                                 <span>Forma och godkänn</span>
                             </div>
-                            <p className="text-muted-foreground mt-4">Justera innehåll och layout. Publicering kommer efter en separat verifierad kontroll.</p>
+                            <p className="text-muted-foreground mt-4">Be om ändringar och jämför sparade versioner. HTML-versionen kan laddas ned som ZIP. Publicering ingår ännu inte i detta byggflöde.</p>
                         </div>
                     </AnimatedGroup>
                 </div>

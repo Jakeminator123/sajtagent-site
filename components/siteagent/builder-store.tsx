@@ -23,6 +23,7 @@ import type {
 } from "@/contracts/agent-session-v1"
 import * as adapter from "@/lib/siteagent/adapter"
 import { builderProjectHref, createProject, openProject } from "@/lib/siteagent/project-browser"
+import { draftAfterDelivery, hasAcceptedDraftTurn, withLandingDraft, type LandingDraft } from "@/lib/siteagent/landing-draft"
 import { applyExpectedTurnStreamEventV1 } from "@/lib/siteagent/agent-event-stream-apply"
 import {
   createAgentEventProjectionV1,
@@ -48,6 +49,11 @@ type SessionStatusV1 = "opening" | "ready" | "error"
 
 interface BuilderStore {
   projectId: string | null
+  projectName: string | null
+  draftMessage: string
+  landingDraft: LandingDraft | null
+  setDraftMessage: (text: string) => void
+  sendDraftMessage: () => Promise<void>
   choices: BuildChoices
   setChoice: (key: string, value: string) => void
   setPageCount: (n: number) => void
@@ -72,6 +78,7 @@ interface BuilderStore {
   togglePin: (id: string) => void
 
   newChat: () => void
+  selectProject: (projectId: string) => void
   newProject: (name?: string) => Promise<{ ok: true } | { ok: false; error: string }>
   resetStarter: () => Promise<{ ok: true } | { ok: false; error: string }>
   isResettingProject: boolean
@@ -138,8 +145,13 @@ function projectionAllowsRetry(projection: AgentEventProjectionV1): boolean {
   return projection.status !== "invalid"
 }
 
-export function BuilderProvider({ children, initialProjectId = null }: { children: ReactNode; initialProjectId?: string | null }) {
+export function BuilderProvider({ children, initialProjectId = null, initialDraft = null }: { children: ReactNode; initialProjectId?: string | null; initialDraft?: LandingDraft | null }) {
   const [projectId, setProjectId] = useState<string | null>(initialProjectId)
+  const [projectName, setProjectName] = useState<string | null>(null)
+  const [draftMessage, setDraftMessageState] = useState(initialDraft?.text ?? "")
+  const draftMessageRef = useRef(initialDraft?.text ?? "")
+  const [landingDraft, setLandingDraft] = useState<LandingDraft | null>(initialDraft)
+  const landingDraftRef = useRef<LandingDraft | null>(initialDraft)
   const [choices, setChoices] = useState<BuildChoices>(defaultBuildChoices)
   const [userMessages, setUserMessages] = useState<ChatMessage[]>([])
   const [isStreaming, setIsStreaming] = useState(false)
@@ -162,6 +174,17 @@ export function BuilderProvider({ children, initialProjectId = null }: { childre
   const abortRef = useRef<AbortController | null>(null)
   const requestGenerationRef = useRef(0)
   const resettingProjectRef = useRef(false)
+
+  const setDraftMessage = useCallback((text: string) => {
+    draftMessageRef.current = text
+    setDraftMessageState(text)
+    if (landingDraftRef.current) {
+      const next = text.trim() ? { ...landingDraftRef.current, text } : null
+      landingDraftRef.current = next
+      setLandingDraft(next)
+      window.history.replaceState(null, "", withLandingDraft(window.location.href, next))
+    }
+  }, [])
 
   const assistantMessages = useMemo<ChatMessage[]>(
     () =>
@@ -264,6 +287,7 @@ export function BuilderProvider({ children, initialProjectId = null }: { childre
         }
         projectIdRef.current = opened.project.projectId
         setProjectId(opened.project.projectId)
+        setProjectName("name" in opened.project ? opened.project.name : "Ditt personliga startprojekt")
         const url = new URL(window.location.href)
         url.searchParams.set("project", opened.project.projectId)
         window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`)
@@ -366,6 +390,7 @@ export function BuilderProvider({ children, initialProjectId = null }: { childre
         mode?: string
         replyToQuestionId?: string
         answerSelections?: string[]
+        onAccepted?: () => void
       } = {},
     ) => {
       const trimmed = text.trim()
@@ -387,6 +412,15 @@ export function BuilderProvider({ children, initialProjectId = null }: { childre
       try {
         const session = await startSession(controller.signal)
         if (requestGeneration !== requestGenerationRef.current) return
+        let deliveryTurnId: string | null = null
+        let acknowledged = false
+        const acknowledgeDelivery = () => {
+          if (acknowledged || !deliveryTurnId || controller.signal.aborted || requestGeneration !== requestGenerationRef.current) return
+          const projection = projectionRef.current
+          if (!hasAcceptedDraftTurn(projection, session.sessionId, deliveryTurnId)) return
+          acknowledged = true
+          opts.onAccepted?.()
+        }
 
         const syncSessionProjection = async () => {
           const current = projectionRef.current
@@ -403,6 +437,7 @@ export function BuilderProvider({ children, initialProjectId = null }: { childre
           })
           if (controller.signal.aborted || requestGeneration !== requestGenerationRef.current) return current
           applyProjection(caughtUp)
+          acknowledgeDelivery()
           return caughtUp
         }
 
@@ -454,6 +489,7 @@ export function BuilderProvider({ children, initialProjectId = null }: { childre
         const selectedBaseRevisionId =
           baseRevisionIdRef.current ?? session.activeBaseRevisionId
         const turnId = randomContractId("turn")
+        deliveryTurnId = turnId
         const request: AgentTurnRequestV1 = {
           schemaVersion: 1,
           sessionId: session.sessionId,
@@ -497,6 +533,7 @@ export function BuilderProvider({ children, initialProjectId = null }: { childre
             expectedTurnId: turnId,
           })
           applyProjection(result.projection)
+          acknowledgeDelivery()
           if (result.kind !== "ignored") {
             const logLine = eventLogLine(event)
             if (logLine) pushLog(logLine)
@@ -636,6 +673,18 @@ export function BuilderProvider({ children, initialProjectId = null }: { childre
     [runTurn],
   )
 
+  const sendDraftMessage = useCallback(async () => {
+    if (!canSendTurn) return
+    const sent = draftMessageRef.current
+    await runTurn(sent, {
+      mode: landingDraftRef.current?.mode,
+      onAccepted: () => {
+        const next = draftAfterDelivery(draftMessageRef.current, sent, true)
+        if (next !== draftMessageRef.current) setDraftMessage(next)
+      },
+    })
+  }, [canSendTurn, runTurn, setDraftMessage])
+
   const answerQuestion = useCallback(
     async (questionId: string, selections: string[]) => {
       const question = projectionRef.current.pendingQuestion
@@ -718,11 +767,19 @@ export function BuilderProvider({ children, initialProjectId = null }: { childre
   )
 
   const newChat = useCallback(() => {
-    if (resettingProjectRef.current) return
+    if (resettingProjectRef.current || abortRef.current) return
     beginFreshSession(false)
   }, [beginFreshSession])
 
+  const selectProject = useCallback((selectedProjectId: string) => {
+    if (resettingProjectRef.current || abortRef.current) return
+    window.location.assign(withLandingDraft(builderProjectHref(selectedProjectId), landingDraftRef.current))
+  }, [])
+
   const newProject = useCallback(async (name?: string) => {
+    if (abortRef.current) {
+      return { ok: false as const, error: "Vänta tills Sajtagent har svarat innan du byter projekt." }
+    }
     if (resettingProjectRef.current) {
       return { ok: false as const, error: "Ett nytt projekt startas redan." }
     }
@@ -732,7 +789,7 @@ export function BuilderProvider({ children, initialProjectId = null }: { childre
       const created = await createProject(name)
       // Full-document navigation deliberately discards every project-scoped
       // projection, in-flight callback and card state before opening another.
-      window.location.assign(builderProjectHref(created.projectId))
+      window.location.assign(withLandingDraft(builderProjectHref(created.projectId), landingDraftRef.current))
       return { ok: true as const }
     } catch (error) {
       return { ok: false as const, error: errorMessage(error, "Projektet kunde inte skapas.") }
@@ -781,6 +838,11 @@ export function BuilderProvider({ children, initialProjectId = null }: { childre
   const value = useMemo<BuilderStore>(
     () => ({
       projectId,
+      projectName,
+      draftMessage,
+      landingDraft,
+      setDraftMessage,
+      sendDraftMessage,
       resetStarter,
       choices,
       setChoice,
@@ -802,6 +864,7 @@ export function BuilderProvider({ children, initialProjectId = null }: { childre
       restoreVersion,
       togglePin,
       newChat,
+      selectProject,
       newProject,
       isResettingProject,
       publishState,
@@ -809,6 +872,11 @@ export function BuilderProvider({ children, initialProjectId = null }: { childre
     }),
     [
       projectId,
+      projectName,
+      draftMessage,
+      landingDraft,
+      setDraftMessage,
+      sendDraftMessage,
       resetStarter,
       choices,
       setChoice,
@@ -829,6 +897,7 @@ export function BuilderProvider({ children, initialProjectId = null }: { childre
       restoreVersion,
       togglePin,
       newChat,
+      selectProject,
       newProject,
       isResettingProject,
       publishState,

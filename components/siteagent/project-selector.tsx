@@ -2,11 +2,11 @@
 
 import { useEffect, useState } from "react"
 import type { ProjectV2 } from "@/contracts/project-v2"
-import { builderProjectHref, listProjects } from "@/lib/siteagent/project-browser"
+import { listProjects } from "@/lib/siteagent/project-browser"
 import { useBuilder } from "./builder-store"
 
 export function ProjectSelector() {
-  const { projectId, isResettingProject } = useBuilder()
+  const { projectId, isResettingProject, isStreaming, selectProject } = useBuilder()
   const [projects, setProjects] = useState<ProjectV2[]>([])
   const [error, setError] = useState<string | null>(null)
 
@@ -31,10 +31,11 @@ export function ProjectSelector() {
       <select
         id="builder-project"
         value={projectId ?? ""}
-        disabled={isResettingProject || projects.length === 0}
+        disabled={isResettingProject || isStreaming || projects.length === 0}
+        title={isStreaming ? "Vänta tills Sajtagent har svarat innan du byter projekt." : "Välj projekt"}
         onChange={(event) => {
           // Reload isolates card state, pending callbacks and chat projection.
-          window.location.assign(builderProjectHref(event.target.value))
+          selectProject(event.target.value)
         }}
         className="w-full rounded-lg border border-workflow-border bg-workflow-surface px-2 py-2 font-mono text-sm text-workflow-text"
       >

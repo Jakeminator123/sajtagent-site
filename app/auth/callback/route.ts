@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 
-import { authCallbackRedirectPath } from "../../../lib/supabase/auth-paths"
+import { authCallbackRedirectPath, loginPath } from "../../../lib/supabase/auth-paths"
 import { createSupabaseServerClient } from "../../../lib/supabase/server"
 
 export async function GET(request: Request): Promise<Response> {
@@ -11,12 +11,10 @@ export async function GET(request: Request): Promise<Response> {
   if (code) {
     const supabase = await createSupabaseServerClient()
     if (supabase) {
-      const { error } = await supabase.auth.exchangeCodeForSession(code)
-      if (!error) return NextResponse.redirect(new URL(next, requestUrl.origin))
+      const result = await supabase.auth.exchangeCodeForSession(code).catch(() => null)
+      if (result && !result.error) return NextResponse.redirect(new URL(next, requestUrl.origin))
     }
   }
 
-  const loginUrl = new URL("/login", requestUrl.origin)
-  loginUrl.searchParams.set("error", "auth_callback_failed")
-  return NextResponse.redirect(loginUrl)
+  return NextResponse.redirect(new URL(loginPath(next, true), requestUrl.origin))
 }

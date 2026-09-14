@@ -38,19 +38,23 @@ interface NewDraftMenuProps {
   newChat: () => void
   newProject: (name?: string) => Promise<{ ok: true } | { ok: false; error: string }>
   isResettingProject: boolean
+  isStreaming: boolean
 }
 
 export function NewDraftMenu({
   newChat,
   newProject,
   isResettingProject,
+  isStreaming,
 }: NewDraftMenuProps) {
+  const busy = isResettingProject || isStreaming
   const triggerRef = useRef<HTMLButtonElement>(null)
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [confirmError, setConfirmError] = useState<string | null>(null)
   const [name, setName] = useState("")
 
   const openConfirm = () => {
+    if (busy) return
     setConfirmError(null)
     setName("")
     setConfirmOpen(true)
@@ -58,6 +62,7 @@ export function NewDraftMenu({
 
   const handleConfirm = async (event: MouseEvent<HTMLButtonElement>) => {
     event.preventDefault()
+    if (busy) return
     const result = await newProject(name.trim() || undefined)
     if (!result.ok) {
       setConfirmError(result.error)
@@ -75,7 +80,8 @@ export function NewDraftMenu({
             type="button"
             aria-label={NEW_DRAFT_TRIGGER_ARIA_LABEL}
             aria-haspopup="menu"
-            disabled={isResettingProject}
+            disabled={busy}
+            title={isStreaming ? "Vänta tills Sajtagent har svarat innan du öppnar en ny chatt eller ett nytt projekt." : undefined}
             className={headerControlClassName}
           >
             <Plus className="w-4 h-4" />
@@ -89,7 +95,7 @@ export function NewDraftMenu({
           onEscapeKeyDown={() => triggerRef.current?.focus()}
         >
           <DropdownMenuItem
-            disabled={isResettingProject}
+            disabled={busy}
             onSelect={() => {
               newChat()
             }}
@@ -98,7 +104,7 @@ export function NewDraftMenu({
             {NEW_CHAT_LABEL}
           </DropdownMenuItem>
           <DropdownMenuItem
-            disabled={isResettingProject}
+            disabled={busy}
             onSelect={() => {
               openConfirm()
             }}
@@ -112,7 +118,7 @@ export function NewDraftMenu({
       <AlertDialog
         open={confirmOpen}
         onOpenChange={(open) => {
-          if (isResettingProject) return
+          if (busy) return
           setConfirmOpen(open)
           if (!open) setConfirmError(null)
         }}
@@ -124,7 +130,7 @@ export function NewDraftMenu({
             triggerRef.current?.focus()
           }}
           onEscapeKeyDown={(event) => {
-            if (isResettingProject) event.preventDefault()
+            if (busy) event.preventDefault()
           }}
         >
           <AlertDialogHeader>
@@ -139,7 +145,7 @@ export function NewDraftMenu({
               value={name}
               onChange={(event) => setName(event.target.value)}
               maxLength={160}
-              disabled={isResettingProject}
+              disabled={busy}
               placeholder="Ny sajt"
               className="rounded border border-workflow-border bg-workflow-surface px-3 py-2"
             />
@@ -150,11 +156,11 @@ export function NewDraftMenu({
             </p>
           ) : null}
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={isResettingProject}>
+            <AlertDialogCancel disabled={busy}>
               {NEW_PROJECT_CONFIRM_CANCEL}
             </AlertDialogCancel>
             <AlertDialogAction
-              disabled={isResettingProject}
+              disabled={busy}
               className={cn(
                 buttonVariants({ variant: "default" }),
                 "font-mono",

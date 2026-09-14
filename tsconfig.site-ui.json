@@ -14,11 +14,15 @@
     "lib/siteagent/build-choices.ts",
     "lib/siteagent/read-model.ts",
     "lib/siteagent/types.ts",
+    "lib/siteagent/landing-draft.ts",
+    "lib/siteagent/build-status-label.ts",
     "lib/supabase/**/*.ts",
     "app/builder/page.tsx",
     "app/login/page.tsx",
     "app/login/login-form.tsx",
     "app/auth/callback/route.ts",
+    "components/landing-header.tsx",
+    "components/home-prompt.tsx",
     "components/siteagent/builder-header.tsx",
     "components/siteagent/builder-store.tsx",
     "components/siteagent/new-draft-intents.ts",
@@ -33,6 +37,7 @@
     "components/siteagent/conversation-composer.tsx",
     "components/siteagent/conversation-handoff.ts",
     "components/siteagent/layout-prefs.ts",
-    "components/siteagent/use-layout-prefs.ts"
+    "components/siteagent/use-layout-prefs.ts",
+    "scripts/verify-entry-ux.mts"
   ]
 }

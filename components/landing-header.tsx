@@ -2,8 +2,9 @@
 
 import Link from 'next/link'
 import { Menu, X } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { SiteagentLogo } from '@/components/siteagent-logo'
+import { getSupabaseBrowserClient } from '@/lib/supabase/browser'
 
 const links = [
   { href: '#varfor-siteagent', label: 'Varför Siteagent' },
@@ -13,6 +14,31 @@ const links = [
 
 export function LandingHeader() {
   const [open, setOpen] = useState(false)
+  const [signedIn, setSignedIn] = useState(false)
+
+  useEffect(() => {
+    const supabase = getSupabaseBrowserClient()
+    if (!supabase) return
+    let active = true
+    let generation = 0
+    let refreshTimer: ReturnType<typeof setTimeout> | undefined
+    const refresh = async () => {
+      if (!active) return
+      const request = ++generation
+      const result = await supabase.auth.getUser().catch(() => null)
+      if (active && request === generation) setSignedIn(Boolean(result?.data.user && !result.error))
+    }
+    void refresh()
+    // Do not await another auth operation inside Supabase's event callback.
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
+      clearTimeout(refreshTimer)
+      refreshTimer = setTimeout(() => { void refresh() }, 0)
+    })
+    return () => { active = false; clearTimeout(refreshTimer); subscription.unsubscribe() }
+  }, [])
+
+  const accountHref = signedIn ? '/builder' : '/login'
+  const accountLabel = signedIn ? 'Mina projekt' : 'Logga in'
 
   return (
     <header className="fixed inset-x-0 top-0 z-50 px-4 pt-4 md:px-6">
@@ -28,7 +54,7 @@ export function LandingHeader() {
         </div>
 
         <div className="hidden items-center gap-2 md:flex">
-          <Link href="/builder" className="rounded-lg px-3 py-2 text-sm text-workflow-text-muted transition-colors hover:text-foreground">Öppna Buildern</Link>
+          <Link href={accountHref} className="rounded-lg px-3 py-2 text-sm text-workflow-text-muted transition-colors hover:text-foreground">{accountLabel}</Link>
           <Link href="#skapa" className="rounded-lg bg-foreground px-4 py-2 text-sm font-medium text-background transition-opacity hover:opacity-90">Skapa din sida</Link>
         </div>
 
@@ -42,7 +68,7 @@ export function LandingHeader() {
           {links.map((link) => (
             <Link key={link.href} href={link.href} onClick={() => setOpen(false)} className="rounded-xl px-4 py-3 text-sm text-workflow-text-muted hover:bg-workflow-surface hover:text-foreground">{link.label}</Link>
           ))}
-          <Link href="/builder" onClick={() => setOpen(false)} className="mt-1 rounded-xl bg-foreground px-4 py-3 text-center text-sm font-medium text-background">Öppna Buildern</Link>
+          <Link href={accountHref} onClick={() => setOpen(false)} className="mt-1 rounded-xl bg-foreground px-4 py-3 text-center text-sm font-medium text-background">{accountLabel}</Link>
         </div>
       )}
     </header>

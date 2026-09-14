@@ -100,11 +100,11 @@ export function VersionList() {
               <a
                 href={`/api/siteagent/versions/${encodeURIComponent(version.id)}/download`}
                 download
-                title={`Hämta ${version.label} som ZIP`}
-                aria-label={`Hämta ${version.label} som ZIP`}
+                title={`Hämta ${version.label} som ZIP med index.html`}
+                aria-label={`Hämta ${version.label} som HTML-ZIP`}
                 className="flex items-center gap-1 rounded border border-workflow-border-subtle px-2 py-1 font-mono text-[10px] text-workflow-text-muted transition-colors duration-150 hover:text-workflow-text"
               >
-                <Download className="h-3 w-3" /> ZIP
+                <Download className="h-3 w-3" /> HTML-ZIP
               </a>
             </div>
           </div>

@@ -10,6 +10,7 @@
 import { useEffect, useRef } from "react"
 import { toolStatusLabel } from "../card-states"
 import { useBuilder } from "../builder-store"
+import { buildStatusLabel } from "@/lib/siteagent/build-status-label"
 
 export function LogBack() {
   const { logs } = useBuilder()
@@ -45,7 +46,6 @@ export function EngineBack() {
     const tool = agentProjection.tools[toolCallId]
     return tool ? [tool] : []
   })
-  const buildStarted = Boolean(activeTurn?.buildJobId)
 
   return (
     <div className="h-full overflow-y-auto p-3 flex flex-col gap-3">
@@ -54,10 +54,8 @@ export function EngineBack() {
           Byggstatus
         </span>
         <div className="rounded-md bg-workflow-node-input p-2.5">
-          <p className="text-xs text-workflow-text-muted">
-            {buildStarted
-              ? "Ett bygge har startat."
-              : "Inget bygge har startats i den här chatten. Vanliga svar syns i Sajtagent-kortet."}
+          <p className="text-xs text-workflow-text-muted" role="status">
+            {buildStatusLabel(agentProjection)}
           </p>
         </div>
       </div>

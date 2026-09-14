@@ -17,7 +17,7 @@ function PreviewFrame({ className }: { className?: string }) {
   return (
     <iframe
       src={previewUrl}
-      title="Förhandsvisning av sajten"
+      title="HTML-förhandsvisning av sajten"
       sandbox=""
       className={cn("w-full h-full border-0 bg-white", className)}
     />
@@ -62,6 +62,9 @@ export function PreviewStage() {
               <span className="w-2.5 h-2.5 rounded-full bg-amber-400" />
               <span className="w-2.5 h-2.5 rounded-full bg-emerald-400" />
             </div>
+            <span className="shrink-0 text-[11px] font-medium text-zinc-600" title="Chatten bygger en HTML-sida. Interaktiv React/Next-förhandsvisning har ett separat byggflöde.">
+              HTML-preview
+            </span>
             <div className="flex-1 flex items-center justify-center">
               <div className="flex items-center gap-2 bg-white dark:bg-zinc-50 border border-zinc-200 rounded-full px-3 py-1 max-w-[480px] w-full">
                 <Globe className="w-3 h-3 shrink-0 text-zinc-400" />
@@ -96,6 +99,9 @@ export function PreviewStage() {
               )}
             </div>
           </div>
+          <p className="shrink-0 border-b border-zinc-200 bg-zinc-50 px-3 py-1 text-[11px] text-zinc-600">
+            Chatten bygger HTML. JavaScript körs inte i denna förhandsvisning.
+          </p>
 
           {/* Innehåll */}
           <div className="flex-1 min-h-0 bg-white">

@@ -22,5 +22,6 @@ This exception is not the desired end state and must not spread to new checks.
 
 Remove `typescript.ignoreBuildErrors`, add a blocking `npm run typecheck` CI
 step, and close this waiver when a clean direct typecheck passes on Node 24 with
-the pinned lockfile. Until then, CI is a lint/build gate, not a complete type
-gate.
+the pinned lockfile. Until then, CI runs lint/build, deterministic checks and
+focused TypeScript projects through `npm run check`, plus database tests.
+Those checks cover their declared scopes; they are not a repository-wide typecheck.

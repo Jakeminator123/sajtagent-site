@@ -1,7 +1,12 @@
-# Builder runtime baseline
+# Builder V1 runtime baseline
 
-Status: integrated AgentTurn-to-BuildJob join, fail-closed before canonical
-preview, 2026-09-02.
+Scope: the V1 AgentTurn-to-BuildJob path. The integration status below was
+recorded on 2026-09-02; it is not the current V2 rollout status.
+The default/reset routes remain the personal-starter path. Separate project
+creation and selection are documented in [Builder projects V2](projects-v2-builder.md).
+The opt-in Next path has its own [preview](next-preview-v2.md),
+[publication](next-publication-v2.md), [preflight](v2-rollout-preflight.md)
+and [E2E](v2-e2e-smoke.md) instructions. Their implementation does not prove live readiness.
 
 The Builder now uses Sajtagent-owned product routes:
 
@@ -90,14 +95,15 @@ a deterministic ZIP containing one self-contained `index.html`. The Versions
 card uses a direct same-origin download link so browser cookies reach the
 authenticated route without a client-side Blob handoff.
 
-## Still unavailable
+## Remaining V1 limits
 
 - production-durable revision backup/restore and a persistent Runtime replay
   journal beyond the current Sprite-local Git refs;
 - prompt assist, publish, import, and save actions.
 
-These controls are disabled or return failure. They do not report simulated
-success. The authenticated preview route and sandboxed Builder iframe exist,
+These V1 controls are disabled or return failure. This does not describe the
+separate V2 source/import/publication controls. Neither path may report simulated
+success. The authenticated V1 preview route and sandboxed Builder iframe exist,
 but they remain empty until a canonical version has been accepted and stored.
 
 ## Configuration boundary

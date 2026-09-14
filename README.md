@@ -21,6 +21,26 @@ Do not send new commits, environment variables, deployments, or runtime
 credentials there. Sajtmaskin remains a reference implementation, not a
 runtime dependency.
 
+## Hitta rätt
+
+| Mapp | Ansvar |
+| --- | --- |
+| `app/`, `components/`, `hooks/` | Produktsidor, Builder och dess API-rutter/UI. |
+| `lib/siteagent/` | Produktlogik; `server/` äger behörighet, jobb, preview och publicering. |
+| `contracts/` | Delade kontrakt och fixtures, samordnade med Sprites. |
+| `supabase/` | Granskade migrationer och databasprov. |
+| `scripts/`, `tests/` | Kontroller, driftpreflight och E2E-harness. |
+| `system-model/` | Kortmodellen som genererar `docs/card-flow.md`. |
+| `docs/`, `config/` | Instruktioner och konfigurationsmallar utan hemligheter. |
+
+Börja med [V1-runtime](docs/runtime-baseline.md) för det befintliga flödet,
+[flerprojekt](docs/projects-v2-builder.md) för Builderns projektval och
+[V2-preview](docs/next-preview-v2.md) / [publicering](docs/next-publication-v2.md)
+för den opt-in-profilen. För drift används
+[Platform-handoff](https://github.com/Jakeminator123/sajtagent-platform/blob/main/docs/v2-rollout-handoff.md),
+[Site-preflight](docs/v2-rollout-preflight.md) och [tvåkontos-E2E](docs/v2-e2e-smoke.md).
+De daterade leveransrapporterna är historik, inte en löpande driftstatus.
+
 ## Kom igång
 
 Krav: Node.js 24 och npm 11. [Volta](https://volta.sh/) rekommenderas och
@@ -40,6 +60,8 @@ Gamla länkar till `/siteagent` skickas vidare till `/builder`.
 ## Verifiering
 
 ```bash
+npm run check
+node scripts/verify-v2-e2e-harness.mjs
 npm run lint
 npm run build
 ```
@@ -48,10 +70,13 @@ npm run build
 befintliga TypeScript-fel. Se [quality baseline](docs/quality-baseline.md) innan
 du tolkar ett grönt buildsteg som full typverifiering.
 
-Buildern går nu via Sajtagents autentiserade projekt- och build-job-controller
-och misslyckas stängt utan verifierad runtime. Preview, publicering och export
-är fortfarande otillgängliga. Se [runtime baseline](docs/runtime-baseline.md)
-inan du ändrar Builder-flödet.
+Buildern använder Sajtagents autentiserade projekt- och build-job-controller.
+V1 har ägarbunden HTML-preview och ZIP-nedladdning av accepterade versioner.
+V2-koden för isolerade Next-byggen, privat preview och publicering är mergad;
+första profilen är statisk export med klient-JavaScript. V2 kräver serverns
+feature-flagga och full konfiguration, och är ännu inte verifierad genom hela
+liveflödet. Mergad kod, grön CI och V1-framgång är inte bevis på live-V2.
+Se [runtime baseline](docs/runtime-baseline.md) innan du ändrar Builder-flödet.
 Den avsiktligt enkla V1-kedjan finns i
 [one continuous agent, one verified truth](docs/simple-v1-loop.md). Det
 auktoritativa samtals-, policy- och eventkontraktet beskrivs i
@@ -75,9 +100,12 @@ tabeller måste ändå skyddas med RLS.
 Databasfunktioner använder i första hand `POSTGRES_URL` eller
 `POSTGRES_URL_NON_POOLING`, med `DATABASE_URL` som fallback. Interna API-anrop
 härleder origin från den inkommande requesten och kräver därför ingen
-`NEXT_PUBLIC_URL`. GitHub-noden kan använda `GITHUB_TOKEN`, men tokenen är
-endast ett valfritt lokalt prototyphjälpmedel och ska inte läggas i Vercel innan
-route-behörigheten har ersatts av en avgränsad SiteAgent GitHub App-integration.
+`NEXT_PUBLIC_URL`. V2:s serverinställningar finns i
+[driftmallen](config/v2-rollout.env.example); använd aldrig riktiga nycklar i Git.
+
+GitHub lagrar Sajtagents egen kod. Kundernas aktuella accepterade V2-källkod
+sparas ägarbundet i Site-databasen; kunden behöver inget GitHub-repo för att
+bygga eller publicera. GitHub-export är en separat framtida integration.
 
 Projektets regler för Supabase, MCP, GitHub, Vercel och Sajtmaskin-separation
 finns i [integration baseline](docs/integration-baseline.md). Den repoägda

@@ -1,6 +1,10 @@
 # V2 B — Builder multi-project UI
 
-Depends on the reviewed project API/migration in PR #28 (`331a323`).
+The project API/migration [PR #28](https://github.com/Jakeminator123/sajtagent-site/pull/28)
+and Builder UI [PR #29](https://github.com/Jakeminator123/sajtagent-site/pull/29)
+are merged. Migration and Site deployment evidence was recorded in the
+[2026-09-14 integration snapshot](v2-live-rollout-2026-09-14.md).
+This establishes code/deployment status, not the two-account browser result.
 
 - `Ny… → Nytt projekt` creates a separate named project with `POST /api/siteagent/projects`.
 - Header selector lists owner-bound projects. Opening one navigates to
@@ -33,6 +37,8 @@ Depends on the reviewed project API/migration in PR #28 (`331a323`).
   no product configuration was changed to bypass it. Build skips TypeScript
   under the existing waiver; the focused typechecks above are separate.
 - [ ] Browser visual/interactive check with two authenticated projects and reload.
-- [ ] Merge and production rollout (requires PR #28 and its migration first).
+- [x] API/UI merged and Site production deployment recorded on 2026-09-14.
+  This does not complete the authenticated browser check above.
 
-These are local tests, not proof of live database state, browser E2E or deployment.
+The automated checks above are local tests. Migration/deployment evidence is
+limited to the cited snapshot; the authenticated browser E2E remains unverified.

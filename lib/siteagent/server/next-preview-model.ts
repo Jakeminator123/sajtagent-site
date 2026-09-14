@@ -67,6 +67,14 @@ export function gatewayHost(tenantId: string, projectId: string, domain: string)
   return `${createHash("sha256").update(JSON.stringify([tenantId, projectId])).digest("hex").slice(0, 32)}.${domain}`
 }
 
+export function assertPreviewSiteOrigin(siteOrigin: string, previewDomain: string): void {
+  const origin = new URL(siteOrigin)
+  if (origin.protocol !== "https:" || origin.origin !== siteOrigin ||
+    origin.hostname === previewDomain || origin.hostname.endsWith(`.${previewDomain}`)) {
+    throw new Error("invalid_site_origin")
+  }
+}
+
 export function previewBasePath(previewRef: string): string {
   PreviewRefV2Schema.parse(previewRef)
   return `/api/siteagent/next-previews/${encodeURIComponent(previewRef)}/content`

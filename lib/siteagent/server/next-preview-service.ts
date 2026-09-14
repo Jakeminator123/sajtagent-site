@@ -4,14 +4,13 @@ import type { BuildPrincipalV1 } from "./build-job-input.ts"
 import { PostgresNextPreviewRepository } from "./next-preview-repository.ts"
 import { NextRuntimeClient } from "./next-preview-runtime.ts"
 import { StaticNextDeployer } from "./next-preview-deployer.ts"
-import { gatewayHost, sourceRevisionId, validateSourceFiles, type NextJob, type NextState, type SourceFile } from "./next-preview-model.ts"
+import { assertPreviewSiteOrigin, gatewayHost, sourceRevisionId, validateSourceFiles, type NextJob, type NextState, type SourceFile } from "./next-preview-model.ts"
 
 export function nextPreviewConfig(env = process.env) {
   const keys = ["SITEAGENT_NEXT_PREVIEW_DOMAIN","SITEAGENT_SITE_ORIGIN","SITEAGENT_RUNTIME_URL","SITEAGENT_RUNTIME_SIGNING_KEY","SITEAGENT_NEXT_VERCEL_TOKEN","SITEAGENT_NEXT_VERCEL_TEAM_ID","SITEAGENT_NEXT_VERCEL_PROJECT_ID","SITEAGENT_NEXT_VERCEL_BYPASS"] as const
   if (env.SITEAGENT_NEXT_ENABLED !== "true" || keys.some(key => !env[key])) throw new Error("next_preview_unavailable")
   const config = Object.fromEntries(keys.map(key => [key,env[key]!])) as Record<typeof keys[number],string>
-  const origin = new URL(config.SITEAGENT_SITE_ORIGIN)
-  if (origin.protocol !== "https:" || origin.origin !== config.SITEAGENT_SITE_ORIGIN || origin.hostname.endsWith(`.${config.SITEAGENT_NEXT_PREVIEW_DOMAIN}`)) throw new Error("invalid_site_origin")
+  assertPreviewSiteOrigin(config.SITEAGENT_SITE_ORIGIN,config.SITEAGENT_NEXT_PREVIEW_DOMAIN)
   gatewayHost("check","check",config.SITEAGENT_NEXT_PREVIEW_DOMAIN)
   return config
 }

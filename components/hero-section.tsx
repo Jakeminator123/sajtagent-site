@@ -50,7 +50,7 @@ export default function HeroSection() {
                                 delay={0.5}
                                 as="p"
                                 className="mt-8 max-w-2xl text-pretty text-lg leading-relaxed text-workflow-text-muted">
-                                Beskriv din idé och arbeta vidare med Sajtagent i vår beta. Frågor får svar; en tydlig sajtbeställning i Buildern startar ett bygge. Du får en verifierad HTML-förhandsvisning att forma vidare.
+                                Beskriv din idé och arbeta vidare med Sajtagent i vår beta. Frågor får svar; en tydlig sajtbeställning i Buildern startar ett bygge. Du får en verifierad förhandsvisning att forma vidare.
                             </TextEffect>
                             <HomePrompt />
                         </div>

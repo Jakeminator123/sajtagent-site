@@ -1,5 +1,6 @@
 import { fixtureFiles, inspectBuiltFixture, loadPlaywright, requireCancelled, requireDenied, requiredEnvironment,
-  requireThat, SmokeFailure, sourceDigest } from "./v2-e2e-support.mjs"
+  requireThat, SmokeFailure, sourceDigest, publicationSettings, expectedPublicationUrl, publishIntent,
+  requirePublishedBinding, requirePublicLocation } from "./v2-e2e-support.mjs"
 
 // Intentionally no traces, screenshots, response bodies, cookies, grants or raw exceptions.
 // Run against dedicated Sajtagent test accounts: this creates retained real projects.
@@ -39,6 +40,7 @@ async function runLive() {
   const gateway = process.env.V2_E2E_GATEWAY_DOMAIN
   requireThat(gateway && /^[a-z0-9.-]+$/i.test(gateway) && !gateway.startsWith("."),
     "missing_or_invalid_environment:V2_E2E_GATEWAY_DOMAIN")
+  const publishedDomain = publicationSettings(process.env.V2_E2E_PUBLISHED_DOMAIN, config.origin, gateway)
   const timeout = Number(process.env.V2_E2E_BUILD_WAIT_MS ?? 900_000)
   requireThat(Number.isSafeInteger(timeout) && timeout >= 10_000 && timeout <= 1_800_000,
     "invalid_build_wait_ceiling")
@@ -184,6 +186,59 @@ async function runLive() {
         await frame.getByTestId("counter").filter({ hasText: "Count: 1" }).waitFor()
       } finally { await builder.close() }
     })
+    const publishPath = `${path}/publish`
+    const publicUrl = expectedPublicationUrl(project, publishedDomain)
+    const readPublication = async () => {
+      const result = await json(await api(owner, publishPath))
+      requireThat(result.configured === true, "publication_not_configured")
+      return result.published
+    }
+    const publish = async state => {
+      const result = await json(await api(owner, publishPath, "POST", publishIntent(state)))
+      requireThat(result.schemaVersion === 2 && result.published?.projectId === project.projectId,
+        "publication_response_project_mismatch")
+      requirePublishedBinding(result.published, state, publicUrl)
+      return result.published
+    }
+    const inspectPublicPage = async (state, marker) => {
+      const page = await anonymous.newPage()
+      try {
+        // The URL is derived independently from the server-owned project. Keep
+        // redirects/assets confined there before navigating without login.
+        const origin = new URL(publicUrl).origin
+        await page.route("**/*", route => new URL(route.request().url()).origin === origin ? route.continue() : route.abort())
+        const response = await page.goto(publicUrl, { waitUntil: "domcontentloaded" })
+        requireThat(response?.status() === 200, "public_page_not_anonymously_available")
+        requirePublicLocation(page.url(), publicUrl, state.accepted.previewRef)
+        await page.getByTestId("revision").filter({ hasText: `revision ${marker}` }).waitFor()
+        const counter = page.getByTestId("counter")
+        requireThat((await counter.textContent())?.trim() === "Count: 0", "public_counter_initial_state_wrong")
+        await counter.click()
+        await page.waitForFunction(() => document.querySelector('[data-testid="counter"]')?.textContent?.trim() === "Count: 1")
+        const scripts = await page.locator("script[src]").evaluateAll(nodes => nodes.map(node => node.src))
+        const asset = scripts.find(url => url.includes("/_next/") && url.endsWith(".js"))
+        requireThat(asset && new URL(asset).origin === origin, "public_next_asset_missing_or_wrong_origin")
+        requireThat((await anonymous.request.get(asset, { maxRedirects: 0 })).status() === 200, "public_next_asset_not_anonymous")
+      } finally { await page.close() }
+    }
+    const firstPublication = await stage("publish_exact_accepted_revision_and_deny_other_writers", async () => {
+      requireThat(await readPublication() === null, "new_project_already_published")
+      const published = await publish(first)
+      const identity = requirePublishedBinding(published, first, publicUrl)
+      requireThat(requirePublishedBinding(await readPublication(), first, publicUrl) === identity,
+        "publication_read_model_mismatch")
+      for (const context of [other, anonymous]) {
+        requireDenied((await api(context, publishPath, "POST", publishIntent(first))).status(), "cross_account_publish_not_denied")
+        requireDenied((await api(context, publishPath)).status(), "cross_account_publication_management_not_denied")
+      }
+      // Explicit identical replay must preserve the published snapshot timestamp.
+      requireThat(requirePublishedBinding(await publish(first), first, publicUrl) === identity, "publication_replay_changed_snapshot")
+      return identity
+    })
+    await stage("anonymous_published_next_javascript", async () => inspectPublicPage(first, "ONE"))
+    const publicationUnchanged = async () => requireThat(
+      requirePublishedBinding(await readPublication(), first, publicUrl) === firstPublication,
+      "preview_work_moved_publication_without_publish")
     const latest = await stage("iterate_exact_source_and_keep_other_project", async () => {
       const files = await fixtureFiles("TWO")
       await json(await build(files), [200, 201])
@@ -198,6 +253,15 @@ async function runLive() {
       await previewPage.getByTestId("revision").filter({ hasText: "revision TWO" }).waitFor()
       return state
     })
+    await stage("successful_iteration_keeps_published_revision", async () => {
+      await publicationUnchanged()
+      await inspectPublicPage(first, "ONE")
+    })
+    await stage("stale_publication_request_rejected", async () => {
+      requireThat((await api(owner, publishPath, "POST", publishIntent(first))).status() === 409,
+        "stale_publication_request_not_rejected")
+      await publicationUnchanged()
+    })
     const unchanged = async () => requireThat(acceptedIdentity(await readState()) === acceptedIdentity(latest),
       "unsuccessful_job_replaced_accepted_revision")
     await stage("failed_next_compile_preserves_accepted", async () => {
@@ -206,6 +270,7 @@ async function runLive() {
       const state = await readState()
       requireThat(state.current?.status === "failed", "compile_failure_not_terminal")
       await unchanged()
+      await publicationUnchanged()
     })
     await stage("cancel_and_late_result_preserve_accepted", async () => {
       const slow = await fixtureFiles("TWO")
@@ -228,6 +293,16 @@ async function runLive() {
       requireThat(completed.response && completed.response.status() >= 400, "cancelled_build_response_not_observed")
       requireCancelled(cancellation, await readState(), running.jobId)
       await unchanged()
+      await publicationUnchanged()
+    })
+    await stage("failed_and_cancelled_builds_keep_public_bytes", async () => inspectPublicPage(first, "ONE"))
+    await stage("republish_latest_accepted_revision", async () => {
+      const published = await publish(latest)
+      const identity = requirePublishedBinding(published, latest, publicUrl)
+      requireThat(identity !== firstPublication, "republish_did_not_advance_revision")
+      requireThat(requirePublishedBinding(await readPublication(), latest, publicUrl) === identity,
+        "republished_read_model_mismatch")
+      await inspectPublicPage(latest, "TWO")
     })
     // Do not infer process death from HTTP timeout or restart proof from a repeated GET.
     record("hard_timeout_kills_worker_process", "blocked", "requires_runtime_process_exit_evidence_and_configured_short_test_ceiling")

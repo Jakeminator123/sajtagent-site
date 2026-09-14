@@ -24,6 +24,48 @@ export function requireCancelled(result, state, jobId) {
     state.current.failureCode === "cancelled", "cancelled_job_not_exact_terminal_state")
 }
 
+export function publicationSettings(domain, siteOrigin, gatewayDomain) {
+  requireThat(typeof domain === "string" && /^[a-z0-9]+(?:[.-][a-z0-9]+)+$/.test(domain) &&
+    !domain.endsWith(".vercel.app"), "missing_or_invalid_environment:V2_E2E_PUBLISHED_DOMAIN")
+  requireThat(domain !== gatewayDomain && !domain.endsWith(`.${gatewayDomain}`) && !gatewayDomain.endsWith(`.${domain}`),
+    "publication_and_preview_domains_must_be_separate")
+  const siteHost = new URL(siteOrigin).hostname
+  requireThat(siteHost !== domain && !siteHost.endsWith(`.${domain}`), "publication_must_not_include_site_origin")
+  return domain
+}
+
+export function expectedPublicationUrl(project, domain) {
+  requireThat(typeof project?.owner?.tenantId === "string" && typeof project.projectId === "string",
+    "publication_project_binding_missing")
+  const hash = createHash("sha256").update(JSON.stringify([project.owner.tenantId, project.projectId])).digest("hex").slice(0, 32)
+  return `https://${hash}.${domain}/`
+}
+
+export function publishIntent(state) {
+  const accepted = state?.accepted
+  requireThat(typeof accepted?.sourceRevisionId === "string" && typeof accepted.jobId === "string",
+    "publication_accepted_binding_missing")
+  return { sourceRevisionId: accepted.sourceRevisionId, jobId: accepted.jobId }
+}
+
+export function requirePublishedBinding(published, state, expectedUrl) {
+  const intent = publishIntent(state)
+  requireThat(published && published.sourceRevisionId === intent.sourceRevisionId && published.jobId === intent.jobId,
+    "publication_does_not_match_accepted_revision")
+  requireThat(published.url === expectedUrl, "publication_url_out_of_scope")
+  requireThat(typeof published.publishedAt === "string" && Number.isFinite(Date.parse(published.publishedAt)),
+    "publication_timestamp_missing")
+  return JSON.stringify([published.sourceRevisionId, published.jobId, published.publishedAt, published.url])
+}
+
+export function requirePublicLocation(actualUrl, expectedUrl, previewRef) {
+  let url
+  try { url = new URL(actualUrl) } catch { throw new SmokeFailure("invalid_publication_location") }
+  const path = `/api/siteagent/next-previews/${encodeURIComponent(previewRef)}/content/`
+  requireThat(url.origin === new URL(expectedUrl).origin && url.pathname === path && !url.search && !url.hash,
+    "publication_redirect_changed_origin_or_revision")
+}
+
 export function safeOrigin(value) {
   let url
   try { url = new URL(value) } catch { throw new SmokeFailure("invalid_origin") }

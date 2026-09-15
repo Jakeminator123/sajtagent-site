@@ -118,6 +118,7 @@ check(() => assert.equal(shouldIdleNextPreviewPoll(200), false))
 
 const here = dirname(fileURLToPath(import.meta.url))
 const nextRoute = readFileSync(resolve(here, "../app/api/siteagent/projects/[projectId]/next/route.ts"), "utf8")
+const profileRoute = readFileSync(resolve(here, "../app/api/siteagent/projects/[projectId]/next/profile/route.ts"), "utf8")
 const accessRoute = readFileSync(resolve(here, "../app/api/siteagent/projects/[projectId]/next/access/route.ts"), "utf8")
 const sourceRoute = readFileSync(resolve(here, "../app/api/siteagent/projects/[projectId]/next/source/route.ts"), "utf8")
 const nextProject = readFileSync(resolve(here, "../components/siteagent/use-next-project.ts"), "utf8")
@@ -131,5 +132,10 @@ check(() => assert.match(sourceRoute, /error:"next_preview_unavailable"\},\{stat
 check(() => assert.match(sourceRoute, /error:"source_unavailable"\},\{status:503/))
 check(() => assert.match(nextProject, /response\.status === 404/))
 check(() => assert.match(nextProject, /if \(!projectId \|\| \(!state && disabledProject\.current === projectId\)\) return/))
+check(() => assert.match(nextRoute, /nextPreviewOwnerReadModel/))
+check(() => assert.match(profileRoute, /nextPreviewConfig\(\)/))
+check(() => assert.match(profileRoute, /setProfilePreference/))
+check(() => assert.match(nextProject, /setProfilePreference/))
+check(() => assert.match(nextProject, /\/next\/profile/))
 
 console.log(`Next preview server: ${checks} assertions passed (local, not live E2E).`)

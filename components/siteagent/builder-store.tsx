@@ -45,7 +45,7 @@ import {
   type CanonicalProjectReadModelV1,
 } from "@/lib/siteagent/read-model"
 import type { ChatMessage, PreviewStatus, PublishState, SiteVersion } from "@/lib/siteagent/types"
-import { canSendWithNextProfile, isNextBuildActive, reconcileNextPreview, type NextAvailability, type NextProjectState } from "@/lib/siteagent/next-preview-client"
+import { canSendWithNextProfile, isNextBuildActive, reconcileNextPreview, type NextAvailability, type NextBuildProfile, type NextProjectState } from "@/lib/siteagent/next-preview-client"
 import { useNextProject } from "./use-next-project"
 
 type SessionStatusV1 = "opening" | "ready" | "error"
@@ -78,7 +78,9 @@ interface BuilderStore {
   nextState: NextProjectState | null
   nextAvailability: NextAvailability
   nextError: string
+  buildProfile: NextBuildProfile | null
   buildProfileStatus: string | null
+  setBuildProfilePreference: (preference: "html" | "next") => Promise<void>
   showNextPreview: () => void
   refreshNextPreview: () => Promise<void>
   cancelNextBuild: () => Promise<void>
@@ -944,6 +946,13 @@ export function BuilderProvider({ children, initialProjectId = null, initialDraf
 
   const showNextPreview = useCallback(() => setPreviewSelection("next"), [])
   const refreshNextPreview = useCallback(async () => { await refreshNextState() }, [refreshNextState])
+  const setBuildProfilePreference = useCallback(async (preference: "html" | "next") => {
+    try {
+      await nextProject.setProfilePreference(preference)
+    } catch (error) {
+      pushLog(errorMessage(error, "Byggläget kunde inte sparas. Utkastet ligger kvar."))
+    }
+  }, [nextProject.setProfilePreference, pushLog])
   const cancelNextBuild = useCallback(async () => {
     const current = nextCurrent
     if (!projectId || current?.status !== "building") return
@@ -982,7 +991,9 @@ export function BuilderProvider({ children, initialProjectId = null, initialDraf
       nextState: nextProject.state,
       nextAvailability: nextProject.availability,
       nextError: nextProject.error,
+      buildProfile: nextProject.profile,
       buildProfileStatus,
+      setBuildProfilePreference,
       showNextPreview,
       refreshNextPreview,
       cancelNextBuild,
@@ -1023,7 +1034,9 @@ export function BuilderProvider({ children, initialProjectId = null, initialDraf
       nextProject.state,
       nextProject.availability,
       nextProject.error,
+      nextProject.profile,
       buildProfileStatus,
+      setBuildProfilePreference,
       nextBuildActive,
       agentTurnActive,
       showNextPreview,

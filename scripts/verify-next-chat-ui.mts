@@ -2,7 +2,10 @@ import assert from "node:assert/strict"
 import { AgentEventV1Schema, type AgentEventV1 } from "../contracts/agent-session-v1.ts"
 import { createAgentEventProjectionV1, hasRunningAgentTurnV1, reduceAgentEventV1, reduceAgentEventsV1 } from "../lib/siteagent/agent-event-reducer.ts"
 import { applyExpectedTurnStreamEventV1 } from "../lib/siteagent/agent-event-stream-apply.ts"
-import { canSendWithNextProfile, isNextBuildActive, nextSourceDownloadHref, parseNextProjectState, reconcileNextPreview } from "../lib/siteagent/next-preview-client.ts"
+import { readFileSync } from "node:fs"
+import { dirname, resolve } from "node:path"
+import { fileURLToPath } from "node:url"
+import { canSendWithNextProfile, isNextBuildActive, nextSourceDownloadHref, parseNextProjectRead, parseNextProjectState, reconcileNextPreview } from "../lib/siteagent/next-preview-client.ts"
 
 const sessionId = "session:abcdefghijklmnopqrstuvwxyzABCDEF"
 assert.equal(canSendWithNextProfile("loading", false), false, "a delayed profile must not expose an HTML send that the server routes to React")
@@ -48,8 +51,10 @@ const htmlResult = {schemaVersion: 1, status: "succeeded", jobId: result.jobId, 
 assert.equal(reduceAgentEventV1(withNext, event(6, "preview.ready", {jobId: result.jobId, result: htmlResult})).status, "invalid", "a build cannot mix React and HTML results")
 
 const accepted = {...result, acceptedAt: occurredAt}
-const body = {schemaVersion: 2, state: {current: {...result, status: "accepted", expiresAt}, accepted}}
+const body = {schemaVersion: 2, state: {current: {...result, status: "accepted", expiresAt}, accepted}, profile: {available: ["html", "next"] as const, preference: "html" as const, effective: "html" as const}}
 const state = parseNextProjectState(body, result.projectId)
+assert.deepEqual(parseNextProjectRead(body, result.projectId).profile, body.profile)
+assert.equal(parseNextProjectRead({schemaVersion: 2, state: {current: null, accepted: null}}, result.projectId).profile, null)
 assert.equal(reconcileNextPreview(result, state, result.projectId), true)
 assert.throws(() => parseNextProjectState(body, "project:other"), /annat projekt/)
 assert.throws(() => parseNextProjectState({...body, state: {...body.state, current: {...body.state.current, projectId: "project:other"}}}, result.projectId))
@@ -69,4 +74,22 @@ const download = new URL(nextSourceDownloadHref(state.accepted!), "https://sajta
 assert.equal(download.searchParams.get("sourceRevisionId"), result.sourceRevisionId)
 assert.equal(download.searchParams.get("jobId"), result.jobId)
 assert.equal(decodeURIComponent(download.pathname), `/api/siteagent/projects/${result.projectId}/next/download`)
+
+const here = dirname(fileURLToPath(import.meta.url))
+const store = readFileSync(resolve(here, "../components/siteagent/builder-store.tsx"), "utf8")
+const header = readFileSync(resolve(here, "../components/siteagent/builder-header.tsx"), "utf8")
+const profileSwitch = readFileSync(resolve(here, "../components/siteagent/build-profile-switch.tsx"), "utf8")
+const nextHook = readFileSync(resolve(here, "../components/siteagent/use-next-project.ts"), "utf8")
+assert.match(store, /canSendWithNextProfile\(nextProject\.availability, nextProject\.hasNext\)/)
+assert.match(store, /setBuildProfilePreference/)
+assert.match(header, /BuildProfileSwitch/)
+assert.match(header, /effectiveProfile === "next"/)
+assert.match(header, /HTML-skiss kan inte publiceras/)
+assert.match(profileSwitch, /Temporary sketch-mode switch/)
+assert.match(profileSwitch, /HTML-skiss/)
+assert.match(profileSwitch, /React \(Next\)/)
+assert.match(profileSwitch, /availability !== "available" \|\| !profile/)
+assert.match(nextHook, /setProfilePreference/)
+assert.match(nextHook, /availability: "available"/)
+assert.doesNotMatch(nextHook, /setSnapshot\([^\)]*availability: "loading"/)
 console.log("PASS shared Next chat projection: lifecycle, replay, exact owner/job/revision binding, retained accepted output, source export")

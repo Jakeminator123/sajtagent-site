@@ -14,6 +14,7 @@
     "lib/db/env.ts",
     "lib/siteagent/agent-turn-mode.ts",
     "lib/siteagent/server/agent-session-*.ts",
+    "lib/siteagent/server/agent-build-profile.ts",
     "lib/siteagent/server/agent-turn-build-join.ts",
     "lib/siteagent/server/build-job-input.ts",
     "lib/siteagent/server/postgres-agent-session-repository.ts",

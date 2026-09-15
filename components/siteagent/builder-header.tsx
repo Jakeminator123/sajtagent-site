@@ -26,6 +26,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { BuildProfileSwitch } from "./build-profile-switch"
 import { useBuilder } from "./builder-store"
 import { NewDraftMenu } from "./new-draft-menu"
 import { ProjectSelector } from "./project-selector"
@@ -41,8 +42,14 @@ interface BuilderHeaderProps {
 }
 
 export function BuilderHeader({ showDrawer, onToggleDrawer }: BuilderHeaderProps) {
-  const { newChat, newProject, isResettingProject, isStreaming, projectId, landingDraft, nextState, nextAvailability, previewKind } = useBuilder()
+  const {
+    newChat, newProject, isResettingProject, isStreaming, projectId, landingDraft,
+    nextState, nextAvailability, previewKind, buildProfile, setBuildProfilePreference,
+  } = useBuilder()
   const [resetOpen, setResetOpen] = React.useState(false)
+  const effectiveProfile = nextAvailability === "available"
+    ? buildProfile?.effective ?? "next"
+    : previewKind
 
   return (
     <header className="h-14 bg-workflow-bg border-b border-workflow-border flex items-center justify-between px-4 transition-colors duration-200">
@@ -122,6 +129,13 @@ export function BuilderHeader({ showDrawer, onToggleDrawer }: BuilderHeaderProps
           isStreaming={isStreaming}
         />
 
+        <BuildProfileSwitch
+          availability={nextAvailability}
+          profile={buildProfile}
+          disabled={isStreaming || isResettingProject}
+          onChange={setBuildProfilePreference}
+        />
+
         <button
           type="button"
           onClick={onToggleDrawer}
@@ -136,13 +150,13 @@ export function BuilderHeader({ showDrawer, onToggleDrawer }: BuilderHeaderProps
           Versioner
         </button>
 
-        {projectId && previewKind === "next" ? (
+        {projectId && effectiveProfile === "next" ? (
           <NextPublicationControl key={projectId} projectId={projectId} accepted={nextAvailability === "available" ? nextState?.accepted ?? null : null} />
         ) : <button
           type="button"
           disabled
-          title="Publicering är inte tillgänglig för HTML-byggen. Hämta HTML-versionen som ZIP i Versioner."
-          aria-label="Publicering är inte tillgänglig för HTML-byggen"
+          title="HTML-skiss kan inte publiceras. Befintlig React-publicering ändras inte. Hämta HTML-versionen som ZIP i Versioner."
+          aria-label="Publicering är inte tillgänglig för HTML-skiss"
           className="flex items-center gap-2 px-4 py-2 rounded-lg font-mono text-sm bg-workflow-surface text-workflow-text-muted cursor-not-allowed"
         >
           <Rocket className="w-4 h-4" />

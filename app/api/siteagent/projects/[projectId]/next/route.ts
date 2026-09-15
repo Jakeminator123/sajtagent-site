@@ -1,3 +1,4 @@
+import { nextPreviewOwnerReadModel } from "../../../../../../lib/siteagent/server/agent-build-profile.ts"
 import { resolveBuildPrincipalV1 } from "../../../../../../lib/siteagent/server/principal.ts"
 import { readBoundedJsonV1 } from "../../../../../../lib/siteagent/server/request-security.ts"
 import { NextSourceRequestSchema, isNextPreviewUnavailableError, nextPreviewFailureStatus, privateHeaders } from "../../../../../../lib/siteagent/server/next-preview-model.ts"
@@ -20,9 +21,7 @@ export async function GET(request:Request,{params}:Context) {
     const state = await (await nextPreviewRepository()).getState(principal,(await params).projectId)
     if (!state) return json(404,{error:"project_not_found"})
     // Do not send artifact bundles, original protected URLs or worker routing to clients.
-    const a=state.accepted
-    const accepted = a ? {tenantId:a.tenantId,projectId:a.projectId,jobId:a.jobId,sourceRevisionId:a.sourceRevisionId,previewRef:a.previewRef,deploymentId:a.deploymentId,acceptedAt:a.acceptedAt,outputSha256:a.outputSha256} : null
-    return json(200,{schemaVersion:2,state:{current:state.current,accepted}})
+    return json(200, nextPreviewOwnerReadModel(process.env, state))
   } catch (error) {
     return json(nextPreviewFailureStatus(error),{error:"next_preview_unavailable"})
   }

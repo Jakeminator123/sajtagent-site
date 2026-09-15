@@ -10,6 +10,7 @@ import {
   isRetryableNextFailure,
   nextAccessFailureResponse,
   nextBuildFailureResponse,
+  nextProfileFailureResponse,
   persistedNextFailureCode,
 } from "../lib/siteagent/server/next-preview-failure.ts"
 
@@ -103,10 +104,21 @@ for (const leak of leaks) assert.equal(serialized.includes(leak), false)
 assert.equal(isNextBuildFailureReason("next_build_failed"), false)
 assert.equal(isNextBuildFailureReason("vercel_api_failed"), false)
 
+assert.deepEqual(nextProfileFailureResponse(new Error("next_preview_unavailable")), { status: 404, body: { error: "next_preview_unavailable" } })
+assert.deepEqual(nextProfileFailureResponse(new Error("project_not_found")), { status: 404, body: { error: "project_not_found" } })
+assert.deepEqual(nextProfileFailureResponse(new ZodError([])), { status: 400, body: { error: "invalid_profile_preference" } })
+assert.deepEqual(nextProfileFailureResponse(new Error("payload_too_large")), { status: 413, body: { error: "payload_too_large" } })
+const profileLeak = nextProfileFailureResponse(new Error("Bearer tok_live https://secret.example"))
+assert.deepEqual(profileLeak, { status: 503, body: { error: "next_profile_failed" } })
+assert.equal(JSON.stringify(profileLeak).includes("Bearer"), false)
+
 const here = dirname(fileURLToPath(import.meta.url))
 const route = readFileSync(resolve(here, "../app/api/siteagent/projects/[projectId]/next/route.ts"), "utf8")
+const profileRoute = readFileSync(resolve(here, "../app/api/siteagent/projects/[projectId]/next/profile/route.ts"), "utf8")
 assert.match(route, /nextBuildFailureResponse\(error\)/)
 assert.doesNotMatch(route, /json\([^)]*error\.message/)
 assert.match(route, /isNextPreviewUnavailableError\(error\)\) return json\(404,\{error:"next_preview_unavailable"\}\)/)
+assert.match(profileRoute, /nextProfileFailureResponse\(error\)/)
+assert.doesNotMatch(profileRoute, /error\.message/)
 
 console.log("Next build failure mapping: classified reasons, HTTP statuses and no-leak fallback passed (local, not live E2E).")

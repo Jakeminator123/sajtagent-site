@@ -1,11 +1,20 @@
 "use client"
 
 import { useCallback, useEffect, useRef, useState } from "react"
-import { parseNextProjectState, type NextAvailability, type NextProjectState } from "@/lib/siteagent/next-preview-client"
+import { parseNextProjectRead, type NextAvailability, type NextBuildProfile, type NextProjectState } from "@/lib/siteagent/next-preview-client"
+
+type NextProjectSnapshot = {
+  projectId: string | null
+  state: NextProjectState | null
+  profile: NextBuildProfile | null
+  availability: NextAvailability
+  hasNext: boolean
+  error: string
+}
 
 /** One owner-bound read model shared by chat, preview, versions and publication. */
 export function useNextProject(projectId: string | null) {
-  const [snapshot, setSnapshot] = useState<{projectId: string | null; state: NextProjectState | null; availability: NextAvailability; hasNext: boolean; error: string}>({projectId: null, state: null, availability: "loading", hasNext: false, error: ""})
+  const [snapshot, setSnapshot] = useState<NextProjectSnapshot>({projectId: null, state: null, profile: null, availability: "loading", hasNext: false, error: ""})
   const generation = useRef(0)
   const latestRead = useRef(0)
   const disabledProject = useRef<string | null>(null)
@@ -19,16 +28,48 @@ export function useNextProject(projectId: string | null) {
     try {
       const response = await fetch(`/api/siteagent/projects/${encodeURIComponent(projectId)}/next`, {cache: "no-store", signal})
       if (response.status === 404) {
-        if (current()) { disabledProject.current = projectId; setSnapshot(previous => ({projectId, state: null, availability: "unavailable", hasNext: previous.projectId === projectId && previous.hasNext, error: ""})) }
+        if (current()) { disabledProject.current = projectId; setSnapshot(previous => ({projectId, state: null, availability: "unavailable", profile: null, hasNext: previous.projectId === projectId && previous.hasNext, error: ""})) }
         return null
       }
       if (!response.ok) throw new Error(response.status === 401 ? "Logga in igen för att öppna din React-preview." : "React-status kunde inte hämtas. Den senaste verifierade versionen behålls.")
-      const state = parseNextProjectState(await response.json(), projectId)
-      if (current()) { disabledProject.current = null; setSnapshot({projectId, state, availability: "available", hasNext: true, error: ""}) }
-      return state
+      const parsed = parseNextProjectRead(await response.json(), projectId)
+      if (current()) { disabledProject.current = null; setSnapshot({projectId, state: parsed.state, profile: parsed.profile, availability: "available", hasNext: true, error: ""}) }
+      return parsed.state
     } catch (reason) {
-      if (current()) setSnapshot(previous => ({projectId, state: previous.projectId === projectId ? previous.state : null, availability: "error", hasNext: previous.projectId === projectId && previous.hasNext, error: reason instanceof Error ? reason.message : "React-status kunde inte hämtas."}))
+      if (current()) setSnapshot(previous => ({
+        projectId,
+        state: previous.projectId === projectId ? previous.state : null,
+        profile: previous.projectId === projectId ? previous.profile : null,
+        availability: "error",
+        hasNext: previous.projectId === projectId && previous.hasNext,
+        error: reason instanceof Error ? reason.message : "React-status kunde inte hämtas.",
+      }))
       throw reason
+    }
+  }, [projectId])
+
+  const setProfilePreference = useCallback(async (preference: "html" | "next"): Promise<void> => {
+    if (!projectId) return
+    const startedGeneration = generation.current
+    const current = () => startedGeneration === generation.current
+    const response = await fetch(`/api/siteagent/projects/${encodeURIComponent(projectId)}/next/profile`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ preference }),
+    })
+    if (!response.ok) {
+      throw new Error(
+        response.status === 404
+          ? "React är avstängt. Valet sparades inte."
+          : response.status === 401
+            ? "Logga in igen för att byta byggläge."
+            : "Byggläget kunde inte sparas. Utkastet ligger kvar.",
+      )
+    }
+    const parsed = parseNextProjectRead(await response.json(), projectId)
+    if (current()) {
+      disabledProject.current = null
+      setSnapshot({ projectId, state: parsed.state, profile: parsed.profile, availability: "available", hasNext: true, error: "" })
     }
   }, [projectId])
 
@@ -48,6 +89,6 @@ export function useNextProject(projectId: string | null) {
   }, [refresh, projectId, pollingEnabled])
 
   return snapshot.projectId === projectId
-    ? {...snapshot, refresh}
-    : {state: null, availability: "loading" as const, hasNext: false, error: "", refresh}
+    ? {...snapshot, refresh, setProfilePreference}
+    : {state: null, profile: null, availability: "loading" as const, hasNext: false, error: "", refresh, setProfilePreference}
 }

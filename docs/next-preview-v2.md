@@ -15,9 +15,13 @@ configuration and secrets in customer execution are not supported.
 ## Which Builder surface uses Next?
 
 The ordinary **Sajtagent chat** is the instruction surface for both profiles.
-Site selects Next only when the complete server configuration is enabled. It
-still classifies turn permissions and requires the model's exact authorized
-`build.request` handoff; ordinary conversation does not start a build.
+Site selects Next only when the complete server configuration is enabled **and**
+the project preference is `next` or unset. An explicit `html` preference keeps
+the HTML sketch lane while Next remains a deployment capability. The preference
+cannot enable Next when `SITEAGENT_NEXT_ENABLED` is off or the env is incomplete.
+There is no HTML-to-React migration. It still classifies turn permissions and
+requires the model's exact authorized `build.request` handoff; ordinary
+conversation does not start a build.
 
 Next success is a distinct `next.preview.ready` event with the accepted project,
 job, source revision and preview reference. It never fabricates a V1 version or
@@ -138,9 +142,14 @@ not by sharing a protection bypass cookie with the user.
 
 ## Product integration and verification
 
-BuilderProvider restores and polls the current project's Next state. The shared
-PreviewStage hosts the protected Next frame; the existing chat, versions card
-and header use that same state. There is no separate customer-facing Next prompt.
+BuilderProvider restores and polls the current project's Next state, including
+the sibling `profile: {available, preference, effective}` block on
+`GET /api/siteagent/projects/:id/next`. The temporary header switch persists
+through `POST /api/siteagent/projects/:id/next/profile` and reuses that same
+read — no second poller. The shared PreviewStage hosts the protected Next
+frame; the existing chat, versions card and header use that same state. There
+is no separate customer-facing Next prompt. Switching profile does not convert
+artifacts, touch `next_publications_v2`, or change the published revision.
 The direct Next build/source APIs remain available for operator smoke and source
 import. With Next disabled, existing HTML projects continue through V1. Projects
 with accepted Next output must not silently downgrade to HTML on configuration

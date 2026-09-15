@@ -2014,6 +2014,11 @@ const nextConfigForChat = {
 }
 check(agentBuildProfile(nextConfigForChat, { current: null, accepted: null }) === "next",
   "fully configured Next is selected on the server for new chat builds")
+check(agentBuildProfile(nextConfigForChat, { current: null, accepted: null }, "html") === "html",
+  "an explicit HTML sketch preference wins while Next is available")
+check(agentBuildProfile(nextConfigForChat, { current: null, accepted: null }, "next") === "next" &&
+  agentBuildProfile(nextConfigForChat, { current: null, accepted: null }, null) === "next",
+  "next or unset preference keeps the current Next default")
 check(agentBuildProfile({ SITEAGENT_NEXT_ENABLED: "true" }, { current: null, accepted: null }) === "html" &&
   agentBuildProfile({ ...nextConfigForChat, SITEAGENT_NEXT_ENABLED: "false" }, { current: null, accepted: null }) === "html",
   "disabled or incomplete Next configuration preserves the existing HTML lane for new projects")
@@ -2025,6 +2030,8 @@ const previousNextAcceptance = {
 }
 check(agentBuildProfile({}, { current: null, accepted: previousNextAcceptance }) === "next",
   "flag rollback cannot silently downgrade a previously accepted Next project to HTML")
+check(agentBuildProfile({}, { current: null, accepted: previousNextAcceptance, profilePreference: "html" }, "html") === "next",
+  "accepted Next state stays next when the deployment gate is off, even if the owner prefers HTML")
 const nextRepository = new MemoryAgentSessionRepositoryV1()
 nextRepository.addProject(principal, "project:next-chat", "revision:html-base")
 const nextBuildRuntime: AgentSessionRuntimeClientV1 = {

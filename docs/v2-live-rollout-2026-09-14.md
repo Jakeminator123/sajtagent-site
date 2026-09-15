@@ -5,7 +5,8 @@ integrations- och migrationspunkterna i [leveranschecklistan](v2-delivery-checkl
 Senare deployer, operatörsåtkomst och liveprov måste stämmas av mot
 [Platform-handoff](https://github.com/Jakeminator123/sajtagent-platform/blob/main/docs/v2-rollout-handoff.md).
 Nedan bevaras passets bevis och då återstående steg; full live-V2 är inte
-godkänd av denna rapport.
+godkänd av denna rapport. Den öppna 503:an och live-E2E:n stängdes dagen efter,
+se [2026-09-15](v2-live-rollout-2026-09-15.md).
 
 ## Genomfört
 

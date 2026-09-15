@@ -38,6 +38,14 @@ local ignored environment configuration, never command-line password arguments:
 - `V2_E2E_OTHER_EMAIL`, `V2_E2E_OTHER_PASSWORD`: a different dedicated real account.
 - Optional `V2_E2E_BUILD_WAIT_MS`: driver HTTP ceiling, default 900000, max 1800000.
   This is **not** the runtime's hard process timeout.
+- Optional `V2_E2E_DEBUG=1`: prints the error class and a short message for
+  non-assertion exceptions (local diagnostics; still no bodies, cookies or grants).
+
+The driver launches the system Chrome channel, waits for login-form hydration
+before typing, and retries counter clicks until React has hydrated inside the
+preview iframe and on the public page. A single `redacted_execution_error` in
+an early stage right after a Production alias change has been observed to be
+transient; rerun before debugging.
 
 ```sh
 node scripts/run-v2-e2e.mjs
@@ -92,11 +100,13 @@ requests are needed by the fixture.
 
 ## Remaining evidence gate
 
-- [ ] Run the live driver on a deployment with B/C/D/F integrated and record its reviewed Git SHAs and timestamp.
-- [ ] Record successful `actual_builder_iframe_interactive` from the live run, not just the local fixture mode.
-- [ ] Record `anonymous_published_next_javascript`, `stale_publication_request_rejected`,
+- [x] Run the live driver on a deployment with B/C/D/F integrated and record its reviewed Git SHAs and timestamp.
+  Done 2026-09-15 against Production on #42 (`c257980`): 17/17 live stages passed, exit 2. See
+  [live rollout 2026-09-15](v2-live-rollout-2026-09-15.md).
+- [x] Record successful `actual_builder_iframe_interactive` from the live run, not just the local fixture mode.
+- [x] Record `anonymous_published_next_javascript`, `stale_publication_request_rejected`,
   `failed_and_cancelled_builds_keep_public_bytes` and `republish_latest_accepted_revision`
-  from the live run after public wildcard DNS/HTTPS is ready.
+  from the live run after public wildcard DNS/HTTPS is ready. All passed 2026-09-15.
 - [ ] Capture sanitized controller evidence of different project worker IDs,
   one mutating process per project, and customer code outside the controller.
 - [ ] Verify cross-worker source-file access is denied by the actual runtime.

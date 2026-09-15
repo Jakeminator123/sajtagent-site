@@ -7,8 +7,9 @@ Historiska `KVAR`/`EJ APPLICERADE` nedan ska inte användas som nya arbetsorder.
 
 **Uppdatering 2026-09-14:** Site #28/#29 och Sprites #29 är nu mergade.
 B/D/F-migrationerna är applicerade och behörighetskontrollerade i Sajtagents
-live-databas. Se [aktuell integrations- och driftstatus](v2-live-rollout-2026-09-14.md)
-för bevis och kvarvarande driftsteg. Tabellen nedan bevarar nattens historiska
+live-databas. Se [integrationsstatus 2026-09-14](v2-live-rollout-2026-09-14.md)
+och [live-E2E grön 2026-09-15](v2-live-rollout-2026-09-15.md) för bevis och
+kvarvarande driftsteg. Tabellen nedan bevarar nattens historiska
 status; dess öppna PR-/migrationspunkter är överspelade av uppdateringen.
 
 Statusbild: 2026-09-13, efter verifierad F-merge och slutlig grön B-integration.

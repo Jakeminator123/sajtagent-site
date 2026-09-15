@@ -3,7 +3,8 @@ import { spawnSync } from "node:child_process"
 import { fileURLToPath } from "node:url"
 import {
   TARGET, inspectConfiguration, databaseIsSajtagent, inspectArtifactProject,
-  inspectDatabaseResult, checkArtifactProtection, runPreflight,
+  inspectArtifactPreviewFeedback, inspectDatabaseResult, checkArtifactProtection,
+  checkArtifactPreviewFeedback, runPreflight,
 } from "./v2-rollout-preflight.mjs"
 
 const env = {
@@ -31,6 +32,7 @@ const clean = await runPreflight(env)
 assert.equal(clean.exitCode, 0)
 assert.equal(clean.liveE2eVerified, false)
 assert.equal(clean.checks.find(item => item.id === "application_database").status, "pending")
+assert.equal(clean.checks.find(item => item.id === "artifact_preview_feedback").status, "pending")
 assert.ok(clean.remaining.includes("Two-account browser preview isolation"))
 assert.equal(env.SITEAGENT_NEXT_ENABLED, "false")
 passed++
@@ -120,6 +122,59 @@ assert.equal(JSON.stringify(failedApi).includes(env.SITEAGENT_NEXT_VERCEL_TOKEN)
 const deniedApi = await checkArtifactProtection(env, async () => new Response(env.SITEAGENT_NEXT_VERCEL_TOKEN, { status: 403 }))
 assert.equal(JSON.stringify(deniedApi).includes(env.SITEAGENT_NEXT_VERCEL_TOKEN), false)
 passed += 5
+
+const toolbarPass = [{ key: "VERCEL_PREVIEW_FEEDBACK_ENABLED", value: "0", target: ["production", "preview", "development"] }]
+assert.equal(inspectArtifactPreviewFeedback(toolbarPass).status, "pass")
+assert.equal(inspectArtifactPreviewFeedback([]).status, "fail")
+assert.equal(inspectArtifactPreviewFeedback(undefined).status, "fail")
+assert.equal(inspectArtifactPreviewFeedback([{ ...toolbarPass[0], value: "1" }]).status, "fail")
+assert.equal(inspectArtifactPreviewFeedback([{ ...toolbarPass[0], value: "false" }]).status, "fail")
+assert.equal(inspectArtifactPreviewFeedback([{ ...toolbarPass[0], target: ["production", "preview"] }]).status, "fail")
+assert.equal(inspectArtifactPreviewFeedback([{ ...toolbarPass[0], gitBranch: "main" }]).status, "fail")
+assert.equal(inspectArtifactPreviewFeedback([
+  { key: "VERCEL_PREVIEW_FEEDBACK_ENABLED", value: "0", target: ["production"] },
+  { key: "VERCEL_PREVIEW_FEEDBACK_ENABLED", value: "0", target: ["preview", "development"] },
+]).status, "fail")
+const leakedToolbar = inspectArtifactPreviewFeedback([{ key: "VERCEL_PREVIEW_FEEDBACK_ENABLED", value: "enabled-secret-value", target: ["production"] }])
+assert.equal(JSON.stringify(leakedToolbar).includes("enabled-secret-value"), false)
+passed += 9
+
+let envCalls = 0
+const envFetch = async (url, init) => {
+  envCalls++
+  assert.equal(url, `https://api.vercel.com/v9/projects/${TARGET.artifact}/env?teamId=${TARGET.team}`)
+  assert.equal(init.method, "GET")
+  assert.equal(init.redirect, "error")
+  assert.equal(init.headers.Authorization, `Bearer ${env.SITEAGENT_NEXT_VERCEL_TOKEN}`)
+  return Response.json({ envs: toolbarPass })
+}
+assert.equal((await checkArtifactPreviewFeedback(env, envFetch)).status, "pass")
+assert.equal(envCalls, 1)
+await checkArtifactPreviewFeedback({ ...env, SITEAGENT_NEXT_VERCEL_PROJECT_ID: "another-project" }, envFetch)
+assert.equal(envCalls, 1, "wrong project must never receive credentials")
+const failedEnv = await checkArtifactPreviewFeedback(env, async () => { throw new Error(env.SITEAGENT_NEXT_VERCEL_TOKEN) })
+assert.equal(failedEnv.status, "blocked")
+assert.equal(JSON.stringify(failedEnv).includes(env.SITEAGENT_NEXT_VERCEL_TOKEN), false)
+const deniedEnv = await checkArtifactPreviewFeedback(env, async () => new Response("1", { status: 403 }))
+assert.equal(JSON.stringify(deniedEnv).includes("\"1\""), false)
+passed += 4
+
+const liveVercel = await runPreflight(env, {
+  liveVercel: true,
+  fetchImpl: async (url) => {
+    if (String(url).includes("/env")) return Response.json({ envs: toolbarPass })
+    return Response.json(project)
+  },
+})
+assert.equal(liveVercel.checks.find(item => item.id === "artifact_protection").status, "pass")
+assert.equal(liveVercel.checks.find(item => item.id === "artifact_preview_feedback").status, "pass")
+assert.equal(liveVercel.exitCode, 0)
+passed++
+
+const unsafeLive = await runPreflight({ ...env, SPRITES_TOKEN: "unsafe" }, { liveVercel: true, fetchImpl: envFetch })
+assert.equal(unsafeLive.checks.find(item => item.id === "artifact_preview_feedback").status, "pending")
+assert.equal(envCalls, 1, "unsafe configuration suppresses Toolbar inspection")
+passed++
 
 const dbGood = { schema_ready: true, app_dml: true, session_read: true, browser_closed: true }
 assert.equal(inspectDatabaseResult(dbGood).status, "pass")

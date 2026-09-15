@@ -5,8 +5,9 @@ V1 remains unchanged unless `SITEAGENT_NEXT_ENABLED=true` and every required
 server setting is present. If the flag is off or a required setting is missing,
 authenticated `GET /api/siteagent/projects/:id/next` returns **404**
 `{error:"next_preview_unavailable"}` so Vercel 5xx monitors do not treat the
-intentional fail-closed path as an outage. Unexpected failures after V2 is
-enabled still return 503. The first profile is genuine Next `output: export`
+intentional fail-closed path as an outage. Classified POST `/next` failures add
+an allowlisted `reason` and a deliberate status; unknown errors still return
+503 `{error:"next_build_failed"}`. The first profile is genuine Next `output: export`
 with interactive client JavaScript; SSR, customer API routes, arbitrary build
 configuration and secrets in customer execution are not supported.
 
@@ -103,8 +104,11 @@ Required Site/gateway server configuration (never NEXT_PUBLIC):
 - `SITEAGENT_NEXT_VERCEL_BYPASS` only for protected static-byte verification
 - On the **artifact project** itself: `VERCEL_PREVIEW_FEEDBACK_ENABLED=0` for all
   targets. Otherwise Vercel injects its Toolbar script into the exported
-  `turbopack-*.js`, the exact-byte verification fails with
-  `deployment_bytes_mismatch`, and Site reports 503 `next_build_failed`.
+  `turbopack-*.js` and exact-byte verification fails. `POST /next` then returns
+  422 `{error:"next_build_failed",reason:"deployment_bytes_mismatch"}` instead
+  of a blind 503. Other classified failures keep `error:"next_build_failed"`
+  and add an allowlisted `reason`; unknown errors stay 503 without a reason.
+  Mapping lives in `lib/siteagent/server/next-preview-failure.ts`.
 - Applied migration `20260913203600_next_preview_v2.sql`
 - Server DB role can read `auth.sessions(id,user_id,not_after)`. Do not grant this
   to browser/anonymous/authenticated Data API roles. Missing permission denies.

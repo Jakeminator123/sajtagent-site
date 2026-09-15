@@ -36,6 +36,7 @@ import { PostgresSiteVersionRepositoryV1 } from "./version-repository.ts"
 import type { NextJob } from "./next-preview-model.ts"
 import { PostgresNextPreviewRepository } from "./next-preview-repository.ts"
 import { agentBuildProfile } from "./agent-build-profile.ts"
+import { nextBuildFailureResponse } from "./next-preview-failure.ts"
 
 export type AgentTurnBuildPlanV1 = {
   intentType: BuilderIntentV1["intentType"]
@@ -204,11 +205,22 @@ export class PostgresAgentTurnBuildCoordinatorV1
           },
         }
       } catch (error) {
-        const code = error instanceof Error && ["project_busy", "stale_source_generation", "stale_job_result", "turn_policy_expired"].includes(error.message)
-          ? error.message : "next_build_failed"
+        const named = error instanceof Error && ["project_busy", "stale_source_generation", "stale_job_result", "turn_policy_expired"].includes(error.message)
+          ? error.message : null
+        if (named) {
+          return {
+            kind: "next", record: null, httpStatus: 409,
+            nextResult: null, failure: { code: named, retryable: true, failedAt: new Date().toISOString() },
+          }
+        }
+        const mapped = nextBuildFailureResponse(error)
         return {
-          kind: "next", record: null, httpStatus: code === "next_build_failed" ? 503 : 409,
-          nextResult: null, failure: { code, retryable: true, failedAt: new Date().toISOString() },
+          kind: "next", record: null, httpStatus: mapped.status,
+          nextResult: null, failure: {
+            code: mapped.body.reason ?? mapped.body.error,
+            retryable: mapped.status >= 500,
+            failedAt: new Date().toISOString(),
+          },
         }
       }
     }

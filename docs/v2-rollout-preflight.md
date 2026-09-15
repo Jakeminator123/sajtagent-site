@@ -27,8 +27,9 @@ For Vercel, keep runtime signing key, Vercel token/bypass and database URLs in
 server-only **Sensitive** variables in the intended Site environment. Project IDs,
 domains and the Supabase publishable key are public configuration. Sprite admin
 tokens belong exclusively on the controller. This script inspects an environment
-snapshot; it cannot infer Vercel variable types/targets or whether a running
-deployment has picked up the latest settings. Verify that metadata separately.
+snapshot; aside from the artifact Toolbar check it cannot infer Vercel variable
+types/targets or whether a running deployment has picked up the latest
+settings. Verify remaining metadata separately.
 
 ## Run without DNS
 
@@ -76,8 +77,12 @@ node --env-file=.env.rollout.local --disable-warning=MODULE_TYPELESS_PACKAGE_JSO
   read access to this team. Response identity must match before protection is
   examined. It shares the production deployer's predicate: SSO protection must
   use `all`, `preview` or `all_except_custom_domains`. Password-only protection
-  and unrecognized modes are blocked because the deployer rejects them. The
-  response and credentials are never printed. No environment values are fetched.
+  and unrecognized modes are blocked because the deployer rejects them. A
+  second GET lists artifact environment metadata and requires one
+  `VERCEL_PREVIEW_FEEDBACK_ENABLED=0` record covering production, preview and
+  development. Split records, any other value, or a missing/partial setting
+  fail the check. The response, credentials and environment values are never
+  printed.
 - `--live-db` imports the **actual `lib/db/client.ts` Pool** in a short-lived child
   process, preserving its connection selection and SSL settings. A narrow Node
   resolver handles its existing extensionless TypeScript import. Only the approved

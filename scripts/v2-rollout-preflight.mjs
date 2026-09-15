@@ -105,6 +105,30 @@ export function inspectArtifactProject(project) {
     : "Artifact protection covering all preview deployments is absent or unrecognized. Confirm the project settings before building.")
 }
 
+const ARTIFACT_TOOLBAR_KEY = "VERCEL_PREVIEW_FEEDBACK_ENABLED"
+const ARTIFACT_TOOLBAR_TARGETS = ["production", "preview", "development"]
+
+/** Values are inspected locally and never copied into the report. */
+export function inspectArtifactPreviewFeedback(envs) {
+  const records = (Array.isArray(envs) ? envs : []).filter(item => item && item.key === ARTIFACT_TOOLBAR_KEY)
+  if (records.length === 0) {
+    return check("artifact_preview_feedback", "fail", "Required artifact Toolbar setting is missing for all targets.")
+  }
+  if (records.length !== 1) {
+    return check("artifact_preview_feedback", "fail", "Required artifact Toolbar setting is split across several records.")
+  }
+  const record = records[0]
+  const targets = Array.isArray(record.target) ? record.target : []
+  const branchScoped = typeof record.gitBranch === "string" && record.gitBranch.trim().length > 0
+  if (branchScoped || !ARTIFACT_TOOLBAR_TARGETS.every(name => targets.includes(name))) {
+    return check("artifact_preview_feedback", "fail", "Required artifact Toolbar setting does not cover all targets.")
+  }
+  if (record.value !== "0") {
+    return check("artifact_preview_feedback", "fail", "Required artifact Toolbar setting is not disabled.")
+  }
+  return check("artifact_preview_feedback", "pass", "Artifact Toolbar injection is disabled for all targets. Live byte verification remains untested.")
+}
+
 export async function checkArtifactProtection(env, fetchImpl = fetch) {
   if (env.SITEAGENT_NEXT_VERCEL_TEAM_ID !== TARGET.team || env.SITEAGENT_NEXT_VERCEL_PROJECT_ID !== TARGET.artifact || !present(env.SITEAGENT_NEXT_VERCEL_TOKEN)) {
     return check("artifact_protection", "blocked", "Configure the exact artifact project/team and its server token before the read-only check.")
@@ -118,6 +142,24 @@ export async function checkArtifactProtection(env, fetchImpl = fetch) {
     return inspectArtifactProject(await response.json())
   } catch {
     return check("artifact_protection", "blocked", "Vercel project inspection failed or timed out. Error details omitted.")
+  }
+}
+
+export async function checkArtifactPreviewFeedback(env, fetchImpl = fetch) {
+  if (env.SITEAGENT_NEXT_VERCEL_TEAM_ID !== TARGET.team || env.SITEAGENT_NEXT_VERCEL_PROJECT_ID !== TARGET.artifact || !present(env.SITEAGENT_NEXT_VERCEL_TOKEN)) {
+    return check("artifact_preview_feedback", "blocked", "Configure the exact artifact project/team and its server token before the read-only check.")
+  }
+  try {
+    const response = await fetchImpl(`https://api.vercel.com/v9/projects/${TARGET.artifact}/env?teamId=${TARGET.team}`, {
+      method: "GET", headers: { Authorization: `Bearer ${env.SITEAGENT_NEXT_VERCEL_TOKEN}` },
+      redirect: "error", cache: "no-store", signal: AbortSignal.timeout(8000),
+    })
+    if (!response.ok) return check("artifact_preview_feedback", "blocked", "Vercel environment inspection failed; verify token permissions and team access. Response body omitted.")
+    const payload = await response.json()
+    const envs = Array.isArray(payload) ? payload : Array.isArray(payload?.envs) ? payload.envs : []
+    return inspectArtifactPreviewFeedback(envs)
+  } catch {
+    return check("artifact_preview_feedback", "blocked", "Vercel environment inspection failed or timed out. Error details omitted.")
   }
 }
 
@@ -148,6 +190,7 @@ export async function runPreflight(env, options = {}) {
   // Fail before forwarding any credential if known unsafe config is present.
   const safe = !checks.some(item => item.status === "fail")
   checks.push(options.liveVercel && safe ? await checkArtifactProtection(env, options.fetchImpl) : check("artifact_protection", "pending", "Read-only Vercel settings check not run; use --live-vercel with safe configuration."))
+  checks.push(options.liveVercel && safe ? await checkArtifactPreviewFeedback(env, options.fetchImpl) : check("artifact_preview_feedback", "pending", "Read-only Vercel Toolbar setting check not run; use --live-vercel with safe configuration."))
   checks.push(options.liveDb && safe ? await checkApplicationDatabase(env) : check("application_database", "pending", "Application Pool check not run; use --live-db with the actual deployment environment."))
   const failures = checks.some(item => item.status === "fail")
   const blocked = checks.some(item => item.status === "blocked")

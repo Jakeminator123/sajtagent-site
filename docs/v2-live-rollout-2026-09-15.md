@@ -113,5 +113,5 @@ testkontona) och kan användas som `<hash>`.
 - Automatisk wildcard-certförnyelse är obevisad (se plattformens checklista).
 - Testkontona är riktiga brevlådor, inte fixtures. Byt till dedikerade konton
   innan drivern körs regelbundet.
-- Preflight-skriptet kontrollerar inte `VERCEL_PREVIEW_FEEDBACK_ENABLED` på
-  artefaktprojektet; lägg till när preflight nästa gång ändras.
+- Preflight `--live-vercel` kräver nu `VERCEL_PREVIEW_FEEDBACK_ENABLED=0` på
+  artefaktprojektet för production, preview och development.

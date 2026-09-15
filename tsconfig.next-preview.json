@@ -16,6 +16,7 @@
     "app/api/siteagent/next-gateway/**/*.ts",
     "app/api/siteagent/next-previews/**/*.ts",
     "scripts/verify-next-preview-server.mts",
+    "scripts/verify-next-preview-failure.mts",
     "scripts/verify-next-preview-runtime.mts",
     "scripts/verify-next-preview-access.mts",
     "scripts/verify-next-source-export.mts"

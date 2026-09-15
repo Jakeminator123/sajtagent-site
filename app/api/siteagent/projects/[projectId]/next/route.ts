@@ -1,6 +1,7 @@
 import { resolveBuildPrincipalV1 } from "../../../../../../lib/siteagent/server/principal.ts"
 import { readBoundedJsonV1 } from "../../../../../../lib/siteagent/server/request-security.ts"
 import { NextSourceRequestSchema, isNextPreviewUnavailableError, nextPreviewFailureStatus, privateHeaders } from "../../../../../../lib/siteagent/server/next-preview-model.ts"
+import { nextBuildFailureResponse } from "../../../../../../lib/siteagent/server/next-preview-failure.ts"
 import { buildNextPreview, generateNextPreview, nextPreviewConfig, nextPreviewRepository } from "../../../../../../lib/siteagent/server/next-preview-service.ts"
 import { NextRuntimeClient } from "../../../../../../lib/siteagent/server/next-preview-runtime.ts"
 import { z } from "zod"
@@ -37,9 +38,8 @@ export async function POST(request:Request,{params}:Context) {
     else await buildNextPreview(principal,(await params).projectId,body.files,request.signal)
     return GET(request,{params})
   } catch(error) {
-    if (isNextPreviewUnavailableError(error)) return json(404,{error:"next_preview_unavailable"})
-    const code = error instanceof Error ? error.message : "failed"
-    return json(code==="project_not_found"?404:["project_busy","stale_source_generation"].includes(code)?409:error instanceof z.ZodError || code.startsWith("invalid_source") || code==="source_context_too_large"?400:503,{error:["project_busy","source_context_too_large","stale_source_generation"].includes(code)?code:"next_build_failed"})
+    const failure = nextBuildFailureResponse(error)
+    return json(failure.status, failure.body)
   }
 }
 

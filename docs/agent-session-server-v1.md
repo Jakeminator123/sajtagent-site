@@ -31,12 +31,13 @@ non-terminal suffix is validated against the persisted turn prefix before it
 is committed; the terminal suffix is validated against the complete turn
 before closure.
 
-Without a build coordinator, the Site-minted policy remains answer-only with
-`maxToolCalls: 0`. The product route injects the coordinator. A question or
-status turn still gets answer-only policy. A clear build instruction, or a
-structured reply to `question.requested`, may authorize exactly
-`conversation.respond`, one `build.request`, one singleton mutation intent and
-`maxToolCalls: 1`, bound to the current project and base revision. The
+Without a build coordinator, the Site-minted policy is conversation plus
+`project.read` with `maxToolCalls: 16`. The product route injects the
+coordinator. A question or status turn still gets that read policy and never
+prepares a BuildJob. A clear build instruction, or a structured reply to
+`question.requested`, may authorize exactly `conversation.respond`, one
+`build.request`, one singleton mutation intent and `maxToolCalls: 1`, bound
+to the current project and base revision. The
 coordinator returns no plan unless that path is authorized, so an ordinary
 question never prepares a BuildJob. The browser cannot add a tool, capability,
 intent type or job ID because its request schema is strict and the policy is
@@ -45,14 +46,18 @@ created only on the server.
 ## Runtime boundary
 
 The runtime client implements the ratified private `POST /v1/agent-turns`
-touchdown. It sends the strict JSON body `{ schemaVersion, session, turn,
-policy, baseSequence }` and signs the exact UTF-8 bytes with the shared
+touchdown. It sends the strict JSON body `{ schemaVersion, tenantId, session,
+turn, policy, baseSequence }` and signs the exact UTF-8 bytes with the shared
 `siteagent-runtime-v1` HMAC format. HTTP is accepted only on loopback; every
-non-loopback endpoint must use HTTPS.
+non-loopback endpoint must use HTTPS. `tenantId` is server-owned and never
+part of the browser request; Runtime needs it to hydrate the accepted source
+without falling back to the agent-profile workspace.
 
 Before dispatch, Site requires `/health` to advertise AgentSession contract 1,
-SSE transport, enabled streaming and either exactly `conversation.respond` or
-the ratified ordered pair `conversation.respond`, `build.request`.
+SSE transport, enabled streaming and a capability list that starts with
+`conversation.respond`. Ratified extras are `project.read` and
+`build.request` in that order. A conversation turn that mints `project.read`
+fails closed if health does not advertise it.
 `artifactReadEnabled` may be false or true because the conversation ingress
 validates its own capability independently from the subordinate build path.
 The turn response must be non-cacheable

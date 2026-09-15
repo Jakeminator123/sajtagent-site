@@ -57,9 +57,10 @@ runtime configuration, or current end-to-end path healthy.
 This build gate is subordinate to the mutating tool path. It does not define
 the ordinary Chat-to-Sajtagent conversation protocol, and conversation alone
 does not create a build job or version. Site classifies each turn before
-minting policy: a question stays `conversation.respond`; a clear build brief
-may add one `build.request`. The job is created only after the exact Runtime
-handoff. See [`product-agent-doctrine.md`](product-agent-doctrine.md).
+minting policy: a question stays `conversation.respond` plus `project.read`;
+a clear build brief may add one `build.request`. The job is created only
+after the exact Runtime handoff. See
+[`product-agent-doctrine.md`](product-agent-doctrine.md).
 
 The product wording is user-to-Sajtagent; OpenClaw is Sajtagent's runtime, not a
 second product persona. The network path remains browser -> SiteAgent

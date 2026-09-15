@@ -52,6 +52,15 @@ export const ReadyArtifactReadRuntimeHealthV1Schema = z
         z.literal("conversation.respond"),
         z.literal("build.request"),
       ]),
+      z.tuple([
+        z.literal("conversation.respond"),
+        z.literal("project.read"),
+      ]),
+      z.tuple([
+        z.literal("conversation.respond"),
+        z.literal("project.read"),
+        z.literal("build.request"),
+      ]),
     ]),
     artifactReadContractVersion: z.literal(
       ARTIFACT_READ_CONTRACT_VERSION_V1,

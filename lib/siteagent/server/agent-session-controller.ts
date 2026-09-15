@@ -199,9 +199,9 @@ export function mintDefaultAgentTurnPolicyV1(input: {
     expiresAt: new Date(Date.parse(input.issuedAt) + 5 * 60_000).toISOString(),
     capabilities: buildPlan
       ? ["conversation.respond", "build.request"]
-      : ["conversation.respond"],
+      : ["conversation.respond", "project.read"],
     allowedMutationIntents: buildPlan ? [buildPlan.intentType] : [],
-    maxToolCalls: buildPlan ? 1 : 0,
+    maxToolCalls: buildPlan ? 1 : 16,
     maxModelTokens: 32_000,
     maxCostMicros: 250_000,
   })
@@ -601,6 +601,7 @@ async function* streamRuntimeEvents(
     let bytes = 0
     let pendingTerminal: AgentEventV1 | null = null
     for await (const value of dependencies.runtime.streamTurn({
+      tenantId: principal.tenantId,
       session,
       request: record.request,
       policy: record.policy,

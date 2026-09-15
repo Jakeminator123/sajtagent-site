@@ -40,6 +40,11 @@ check(
   "an explicit page add is a generate/build turn, not a conversation-only read",
 )
 check(
+  classify("lägg till en sida /kontakt"),
+  "build.request",
+  "a spoken page add still mints a page-mutation turn",
+)
+check(
   classify("kan du lägga till /kontakt?"),
   "build.request",
   "a polite page-add question is still a page mutation",
@@ -48,6 +53,11 @@ check(
   classify("hur lägger jag till en sida?"),
   "conversation.respond",
   "a how-to question about pages stays conversation-only",
+)
+check(
+  classify("hur lägger jag till en undersida?"),
+  "conversation.respond",
+  "a how-to question about nested pages stays conversation-only",
 )
 check(
   classify("ta bort kontaktsidan"),

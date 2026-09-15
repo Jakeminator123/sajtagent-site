@@ -117,6 +117,15 @@ export function pendingPreviewRouteFromPrompt(message: string): string | null {
   return route && route !== "/" ? route : null
 }
 
+/** Address-bar path. Iframe and chrome may only open export-backed routes. */
+export function previewChromeRoute(
+  previewableRoutes: readonly string[],
+  previewRoute: string,
+): string {
+  if (previewableRoutes.includes(previewRoute)) return previewRoute
+  return previewableRoutes[0] ?? "/"
+}
+
 /** After add/remove/generate, keep the current page or open the new one. */
 export function nextPreviewRouteAfterChange(input: {
   previousRoutes: readonly string[]

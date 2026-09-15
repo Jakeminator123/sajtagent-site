@@ -571,6 +571,11 @@ assert.match(
   "Preview chrome only shows a page switcher when several export-backed routes exist",
 )
 assert.match(
+  previewStageSource,
+  /previewChromeRoute/,
+  "Preview chrome must show the current export route even when only one page exists",
+)
+assert.match(
   nextPreviewFrameSource,
   /acceptedPreviewableRoutes/,
   "Next preview must not navigate source-only routes that the export cannot serve",

@@ -18,6 +18,14 @@ const HOME_PAGE_PATHS = new Set(["app/page.tsx", "app/page.jsx", "app/page.js"])
 const ADD_VERB = /(?:lägg(?:a)?\s+till|skapa|add)\b/i
 const REMOVE_VERB = /(?:ta\s+bort|radera|släng|remove|delete)/i
 const RESERVED_ADD_SLUGS = new Set(["start", "hem", "home", "index", "startsida"])
+const PAGE_STRUCTURE_WORDS = new Set([
+  "sida",
+  "sidan",
+  "sidor",
+  "undersida",
+  "undersidan",
+  "undersidor",
+])
 export const SAJTAGENT_NAV_PATH = "app/sajtagent-nav.tsx"
 
 function lastMatchIndex(pattern: RegExp, text: string): number {
@@ -225,6 +233,7 @@ export function classifyExplicitPageAdds(prompt: string, baseFiles: readonly Sou
 
   for (const match of prompt.matchAll(new RegExp(`\\b(${PAGE_SEGMENT})-?sidan?\\b`, "gi"))) {
     if (match.index === undefined || !clauseHasAddVerb(prompt, match.index)) continue
+    if (PAGE_STRUCTURE_WORDS.has(match[0].toLowerCase())) continue
     const route = explicitAddRoute(match[1])
     if (route && !pages.has(route)) routes.add(route)
   }
@@ -252,6 +261,7 @@ export function classifyExplicitPageRemoves(prompt: string, baseFiles: readonly 
 
   for (const match of prompt.matchAll(new RegExp(`\\b(${PAGE_SEGMENT})-?sidan\\b`, "gi"))) {
     if (match.index === undefined || !clauseHasRemoveVerb(prompt, match.index)) continue
+    if (PAGE_STRUCTURE_WORDS.has(match[0].toLowerCase())) continue
     const bound = bindNamedPage(match[1], pages)
     if (bound) routes.add(bound)
   }
@@ -278,7 +288,7 @@ export function classifyExplicitPageRemoves(prompt: string, baseFiles: readonly 
 export type PageOnlyMutation = { op: NextPageOp; route: string }
 
 const PAGE_ONLY_FILLER =
-  /\b(kan|kunna|vill|skulle|ska|kunde|du|ni|jag|tack|tackar|please|snälla|bara|också|även|kanske|gärna|väl|could|you)\b/giu
+  /\b(kan|kunna|vill|skulle|ska|kunde|du|ni|jag|tack|tackar|please|snälla|bara|också|även|kanske|gärna|väl|could|you|sida|sidor|undersida|undersidan|undersidor|page|pages|subpage|ny|nya|nytt|nu)\b/giu
 
 export function isPageOnlyPrompt(prompt: string): boolean {
   const leftover = prompt

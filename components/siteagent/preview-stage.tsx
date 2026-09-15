@@ -11,6 +11,7 @@ import { previewAddressLabel, previewStatusChip } from "./card-states"
 import { useBuilder } from "./builder-store"
 import { NextPageRemoveButton, NextPagesAddForm } from "./next-pages-controls"
 import { NextPreviewFrame } from "./next-preview-frame"
+import { previewChromeRoute } from "@/lib/siteagent/preview-route-tree"
 
 function PreviewFrame({ className }: { className?: string }) {
   const { previewUrl } = useBuilder()
@@ -47,8 +48,9 @@ export function PreviewStage() {
   const accepted = isNext ? nextState?.accepted : null
   const hasContent = nextAvailability !== "loading" && Boolean(previewUrl || accepted)
   const chip = previewStatusChip(previewStatus, hasContent)
+  const chromeRoute = previewChromeRoute(previewableRoutes, previewRoute)
   const canSwitchRoutes = Boolean(accepted) && previewableRoutes.length > 1
-  const address = accepted ? "Privat · din verifierade React-sajt" : previewAddressLabel(previewStatus, previewUrl)
+  const address = accepted ? chromeRoute : previewAddressLabel(previewStatus, previewUrl)
 
   async function refreshPreview() {
     try { await refreshNextPreview(); setRefresh(value => value + 1); setActionError("") }
@@ -94,12 +96,15 @@ export function PreviewStage() {
               {nextAvailability === "loading" ? "Läser byggläge…" : nextAvailability === "error" && !hasContent ? "Byggläge saknas" : isNext ? "React · Next.js" : "HTML-preview"}
             </span>
             <div className="flex-1 flex items-center justify-center">
-              <div className="flex items-center gap-2 bg-white dark:bg-zinc-50 border border-zinc-200 rounded-full px-3 py-1 max-w-[480px] w-full">
+              <div
+                className="flex items-center gap-2 bg-white dark:bg-zinc-50 border border-zinc-200 rounded-full px-3 py-1 max-w-[480px] w-full"
+                title={accepted ? "Privat · din verifierade React-sajt" : undefined}
+              >
                 <Globe className="w-3 h-3 shrink-0 text-zinc-400" />
                 {canSwitchRoutes ? (
                   <select
                     aria-label="Sida"
-                    value={previewableRoutes.includes(previewRoute) ? previewRoute : (previewableRoutes[0] ?? "/")}
+                    value={chromeRoute}
                     onChange={(event) => setPreviewRoute(event.target.value)}
                     className="min-w-0 flex-1 truncate bg-transparent font-mono text-[11px] text-zinc-600 outline-none"
                   >

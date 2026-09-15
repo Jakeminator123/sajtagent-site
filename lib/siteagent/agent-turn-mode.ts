@@ -41,7 +41,7 @@ const QUESTION_START =
   /^(vad|hur|varför|vilken|vilket|vilka|när|var|vem|förklara|berätta|what|why|how|which|who|when|where)(?![\p{L}\p{N}_])/iu
 
 const PAGE_ROUTE = /\/[a-z0-9-]{1,40}(?:\/[a-z0-9-]{1,40})*/i
-const NAMED_PAGE = /\b(?!sidan?\b)[a-z0-9-]{1,40}-?sidan?\b/i
+const NAMED_PAGE = /\b(?!sidan?\b|undersidan?\b)[a-z0-9-]{1,40}-?sidan?\b/i
 const SIDAN_NAME = /\bsidan\s+\/?[a-z0-9-]{1,40}\b/i
 const PAGE_ADD_VERB = /lägg(?:a|er)?\s+till|skapa|add/i
 const PAGE_REMOVE_VERB = /ta(?:r)?\s+bort|radera|släng|remove|delete/i

@@ -580,6 +580,9 @@ check(() => {
   assert.equal(generateSourceFileMentionedInPrompt("gör kontaktsidan blå", "app/kontakt/page.tsx"), true)
   assert.equal(generateSourceFileMentionedInPrompt("gör kontaktsidan blå", "app/page.tsx"), false)
   assert.equal(generateSourceFileMentionedInPrompt("uppdatera sidan om", "app/om/page.tsx"), true)
+  assert.equal(generateSourceFileMentionedInPrompt("gör startsidan blå", "app/page.tsx"), true)
+  assert.equal(generateSourceFileMentionedInPrompt("gör hemsidan blå", "app/page.tsx"), true)
+  assert.equal(generateSourceFileMentionedInPrompt("gör startsidan blå", "app/kontakt/page.tsx"), false)
   const pages = [
     { path: "app/layout.tsx", content: "layout" },
     { path: "app/page.tsx", content: "home" },
@@ -595,6 +598,25 @@ check(() => {
   const packed = packGenerateBaseFiles("gör kontaktsidan blå", [
     { path: "app/kontakt/page.tsx", content: "x".repeat(20_000) },
     { path: "app/page.tsx", content: "home" },
+  ])
+  assert.equal(packed.tooLarge, true)
+  assert.deepEqual(packed.files, [])
+})
+check(() => {
+  const pages = [
+    { path: "app/layout.tsx", content: "layout" },
+    { path: "app/page.tsx", content: "home" },
+    { path: "app/extra/page.tsx", content: "x".repeat(20_000) },
+  ]
+  const packed = packGenerateBaseFiles("gör startsidan blå", pages)
+  assert.ok(packed.files.some(file => file.path === "app/page.tsx"))
+  assert.equal(packed.files.some(file => file.path === "app/extra/page.tsx"), false)
+  assert.equal(packed.tooLarge, false)
+})
+check(() => {
+  const packed = packGenerateBaseFiles("gör startsidan blå", [
+    { path: "app/page.tsx", content: "x".repeat(20_000) },
+    { path: "app/om/page.tsx", content: "om" },
   ])
   assert.equal(packed.tooLarge, true)
   assert.deepEqual(packed.files, [])

@@ -1,6 +1,7 @@
 export const GENERATE_CONTEXT_BUDGET_V1 = 18_000
 
 const PAGE_FILE = /^app\/(?:(.+)\/)?page\.(tsx|jsx|js)$/
+const HOME_PAGE_MENTION = /\b(?:start|hem|första|landnings)sidan?\b|\bhomepage\b|\blanding\s+page\b/i
 
 export function routeFromGenerateSourcePath(path: string): string | null {
   const match = PAGE_FILE.exec(path)
@@ -16,7 +17,8 @@ export function generateSourceFileMentionedInPrompt(prompt: string, path: string
   const hay = prompt.toLowerCase()
   if (hay.includes(path.toLowerCase())) return true
   const route = routeFromGenerateSourcePath(path)
-  if (!route || route === "/") return false
+  if (!route) return false
+  if (route === "/") return HOME_PAGE_MENTION.test(hay)
   if (hay.includes(route)) return true
   const slug = route.slice(route.lastIndexOf("/") + 1)
   if (!slug) return false

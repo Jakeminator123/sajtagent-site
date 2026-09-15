@@ -4,7 +4,8 @@ import { dirname, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 import { shouldIdleNextPreviewPoll } from "../lib/siteagent/next-preview-poll.ts"
 import { NEXT_SOURCE_FILE_CONTENT_MAX, NEXT_SOURCE_FILE_COUNT_MAX, NEXT_SOURCE_FILE_COUNT_MIN, NEXT_SOURCE_PATH_ALPHABET, NEXT_SOURCE_PATH_MAX, PREVIEW_ROUTE_LIMIT, assertPreviewSiteOrigin, canFinishJob, deriveAcceptedPreviewRoutes, gatewayHost, isNextPreviewUnavailableError, nextPreviewConfig, nextPreviewFailureStatus, outputDigest, previewBasePath, safeFilePath, sourceRevisionId, validateSourceFiles, validateStaticFiles, type NextAccepted, type NextJob, type NextState } from "../lib/siteagent/server/next-preview-model.ts"
-import { applySiteNavigation, classifyExplicitPageAdds, classifyExplicitPageRemoves, composeNextPageStub, composeSajtagentNav, executeNextPageMutation, isControllerOwnedSourcePath, mergeGeneratedSourceFiles, modelVisibleBaseFiles, pagePathForRoute, parseManualPageRoute, planNextPageMutation, SAJTAGENT_NAV_PATH } from "../lib/siteagent/server/next-preview-pages.ts"
+import { applySiteNavigation, classifyExplicitPageAdds, classifyExplicitPageRemoves, composeNextPageStub, composeSajtagentNav, executeNextPageMutation, isControllerOwnedSourcePath, listedPageRoutes, mergeGeneratedSourceFiles, modelVisibleBaseFiles, pagePathForRoute, parseManualPageRoute, planNextPageMutation, SAJTAGENT_NAV_PATH } from "../lib/siteagent/server/next-preview-pages.ts"
+import { ownerAcceptedPageRoutes } from "../lib/siteagent/server/agent-build-profile.ts"
 import { serveAcceptedStatic, gatewayHostnameAllowed } from "../lib/siteagent/server/next-preview-gateway.ts"
 
 let checks=0
@@ -333,6 +334,34 @@ check(() => assert.throws(() => planNextPageMutation({
   state: acceptedState,
   sourceFiles: basePages,
   op: "add",
+  route: "/start",
+  jobId: acceptedPages.jobId,
+  sourceRevisionId: acceptedPages.sourceRevisionId,
+}), /invalid_page_route/))
+check(() => assert.throws(() => planNextPageMutation({
+  state: acceptedState,
+  sourceFiles: basePages,
+  op: "add",
+  route: "/home",
+  jobId: acceptedPages.jobId,
+  sourceRevisionId: acceptedPages.sourceRevisionId,
+}), /invalid_page_route/))
+check(() => assert.deepEqual(listedPageRoutes(basePages), ["/", "/om"]))
+check(() => assert.deepEqual(
+  ownerAcceptedPageRoutes(
+    [{ path: "index.html" }, { path: "about/index.html" }],
+    [...basePages, { path: "app/om/team/page.tsx", content: "export default function Team(){return <h1>Team</h1>}" }],
+  ),
+  ["/", "/om", "/om/team"],
+))
+check(() => assert.deepEqual(
+  ownerAcceptedPageRoutes([{ path: "index.html" }, { path: "about/index.html" }], []),
+  ["/", "/about"],
+))
+check(() => assert.throws(() => planNextPageMutation({
+  state: acceptedState,
+  sourceFiles: basePages,
+  op: "add",
   route: "/kontakt",
   jobId: "job:stale",
   sourceRevisionId: acceptedPages.sourceRevisionId,
@@ -362,6 +391,7 @@ check(() => assert.match(pagesRoute, /origin_denied/))
 check(() => assert.match(pagesRoute, /resolveBuildPrincipalV1/))
 check(() => assert.match(pagesRoute, /mutateNextPreviewPages/))
 check(() => assert.match(pagesRoute, /nextPreviewOwnerReadModel/))
+check(() => assert.match(pagesRoute, /getAcceptedSource/))
 check(() => assert.doesNotMatch(pagesRoute, /body\.files/))
 check(() => assert.match(serviceSource, /mergeGeneratedSourceFiles/))
 check(() => assert.match(serviceSource, /mutateNextPreviewPages/))

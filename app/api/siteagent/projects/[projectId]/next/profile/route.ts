@@ -29,8 +29,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ pro
   try {
     nextPreviewConfig()
     const body = NextProfilePreferenceRequestSchema.parse(await readBoundedJsonV1(request, 1024))
-    const state = await (await nextPreviewRepository()).setProfilePreference(principal, (await params).projectId, body.preference)
-    return json(200, nextPreviewOwnerReadModel(process.env, state))
+    const repo = await nextPreviewRepository()
+    const projectId = (await params).projectId
+    const state = await repo.setProfilePreference(principal, projectId, body.preference)
+    const source = state.accepted ? await repo.getAcceptedSource(principal, projectId) : null
+    return json(200, nextPreviewOwnerReadModel(process.env, state, source))
   } catch (error) {
     const failure = nextProfileFailureResponse(error)
     return json(failure.status, failure.body)

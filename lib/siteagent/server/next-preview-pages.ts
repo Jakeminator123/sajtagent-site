@@ -2,6 +2,7 @@ import { z } from "zod"
 import { SourceRevisionIdV2Schema } from "../../../contracts/deployment-v2.ts"
 import {
   NEXT_SOURCE_PATH_MAX,
+  PREVIEW_ROUTE_LIMIT,
   validateSourceFiles,
   type NextState,
   type SourceFile,
@@ -101,8 +102,8 @@ function sortPageRoutes(routes: readonly string[]): string[] {
   })
 }
 
-function listedPageRoutes(files: readonly SourceFile[]): string[] {
-  return sortPageRoutes([...pagesByRoute(files).keys()])
+export function listedPageRoutes(files: readonly SourceFile[]): string[] {
+  return sortPageRoutes([...pagesByRoute(files).keys()]).slice(0, PREVIEW_ROUTE_LIMIT)
 }
 
 export function composeSajtagentNav(routes: readonly string[]): string {
@@ -336,6 +337,10 @@ export function planNextPageMutation(input: {
   }
   const route = parseManualPageRoute(input.route)
   if (input.op === "remove" && route === "/") throw new Error("home_page_reserved")
+  if (input.op === "add" && route !== "/") {
+    const slug = route.slice(1).split("/").at(-1) ?? ""
+    if (RESERVED_ADD_SLUGS.has(slug)) throw new Error("invalid_page_route")
+  }
   const files = validateSourceFiles(input.sourceFiles)
   const pages = pagesByRoute(files)
   const existing = pages.get(route) ?? []

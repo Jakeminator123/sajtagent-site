@@ -30,7 +30,7 @@ function SitemapBranch({
       {nodes.map((node) => (
         <li key={node.route}>
           <div className="flex items-center gap-1">
-            {canSelect ? (
+            {canSelect && !node.virtual ? (
               <button
                 type="button"
                 onClick={() => onSelect(node.route)}
@@ -48,13 +48,16 @@ function SitemapBranch({
               </button>
             ) : (
               <div
-                title={node.route}
-                className="min-w-0 flex-1 rounded-md border border-workflow-border-subtle bg-workflow-node-input px-2 py-1 font-mono text-[10px] text-workflow-text"
+                title={node.virtual ? `${node.route} (grupp)` : node.route}
+                className={cn(
+                  "min-w-0 flex-1 rounded-md border border-workflow-border-subtle bg-workflow-node-input px-2 py-1 font-mono text-[10px]",
+                  node.virtual ? "italic text-workflow-text-subtle" : "text-workflow-text",
+                )}
               >
                 {previewRouteLabel(node.route)}
               </div>
             )}
-            {node.route !== "/" ? (
+            {node.route !== "/" && !node.virtual ? (
               <NextPageRemoveButton route={node.route} disabled={pagesDisabled} onRemove={onRemove} />
             ) : null}
           </div>
@@ -111,7 +114,7 @@ export function SitemapFace() {
       return (
         <div className="flex h-full flex-col overflow-y-auto p-3">
           <CardEmpty icon={<Map className="h-5 w-5 text-violet-500" />} title="Ingen karta ännu">
-            Den accepterade exporten har inga HTML-sidor att visa.
+            Den accepterade källan har inga sidor att visa.
           </CardEmpty>
           <NextPagesAddForm
             disabled={pagesDisabled}
@@ -124,7 +127,7 @@ export function SitemapFace() {
     return (
       <div className="flex h-full flex-col overflow-y-auto p-3">
         <p className="mb-2 px-1 text-[10px] leading-relaxed text-workflow-text-subtle">
-          Sidor i den accepterade exporten.
+          Sidor i den accepterade React-källan.
         </p>
         <SitemapBranch
           nodes={buildPreviewRouteTree(previewRoutes)}

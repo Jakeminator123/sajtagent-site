@@ -216,6 +216,16 @@ assert.match(
 )
 assert.match(
   cubeStageSource,
+  /dragConstraints=\{stageRef\}/,
+  "open cards must stay inside the preview stage while traveling left and right",
+)
+assert.match(
+  cubeStageSource,
+  /dragging && "select-none touch-none"/,
+  "touch scrolling must yield only while a card is being dragged",
+)
+assert.match(
+  cubeStageSource,
   /layout=\{false\}/,
   "the draggable card node must not run layout projection during drag",
 )
@@ -426,12 +436,17 @@ assert.doesNotMatch(
 assert.doesNotMatch(
   sitemapFaceSource,
   /accepted_source_files|app\/page\.tsx/,
-  "Map must not guess routes from source paths",
+  "Map must render owner routes, not parse source paths in the browser",
 )
 assert.match(
   sitemapFaceSource,
-  /Sidor i den accepterade exporten/,
-  "Map must describe Next routes as accepted export pages",
+  /Sidor i den accepterade React-källan/,
+  "Map must describe Next routes as accepted source pages",
+)
+assert.match(
+  sitemapFaceSource,
+  /node\.virtual/,
+  "Map must mark invented parent folders as virtual group nodes",
 )
 assert.match(
   sitemapFaceSource,

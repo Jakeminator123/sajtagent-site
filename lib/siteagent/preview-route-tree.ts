@@ -1,6 +1,17 @@
 export type PreviewRouteNode = {
   route: string
   children: PreviewRouteNode[]
+  virtual?: boolean
+}
+
+function ancestorRoutes(route: string): string[] {
+  if (route === "/") return []
+  const parts = route.split("/").filter(Boolean)
+  const ancestors = ["/"]
+  for (let length = 1; length < parts.length; length += 1) {
+    ancestors.push(`/${parts.slice(0, length).join("/")}`)
+  }
+  return ancestors
 }
 
 function nearestExistingAncestor(route: string, routes: ReadonlySet<string>): string | null {
@@ -13,17 +24,26 @@ function nearestExistingAncestor(route: string, routes: ReadonlySet<string>): st
   return routes.has("/") ? "/" : null
 }
 
-/** Nest accepted preview routes. Missing parents are not invented. */
+/** Nest page routes. Missing parents become virtual group nodes. */
 export function buildPreviewRouteTree(routes: readonly string[]): PreviewRouteNode[] {
   const unique = [...new Set(routes)]
   const known = new Set(unique)
-  const nodes = new Map<string, PreviewRouteNode>()
+  const virtual = new Set<string>()
   for (const route of unique) {
-    nodes.set(route, { route, children: [] })
+    for (const ancestor of ancestorRoutes(route)) {
+      if (!known.has(ancestor)) {
+        known.add(ancestor)
+        virtual.add(ancestor)
+      }
+    }
+  }
+  const nodes = new Map<string, PreviewRouteNode>()
+  for (const route of known) {
+    nodes.set(route, virtual.has(route) ? { route, children: [], virtual: true } : { route, children: [] })
   }
 
   const roots: PreviewRouteNode[] = []
-  const ordered = [...unique].sort((left, right) => {
+  const ordered = [...known].sort((left, right) => {
     if (left === "/") return -1
     if (right === "/") return 1
     return left < right ? -1 : left > right ? 1 : 0

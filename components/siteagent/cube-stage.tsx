@@ -77,6 +77,7 @@ function FaceCard({
   column,
   flipped,
   locked,
+  stageRef,
   onFlip,
   onToggle,
   resizeFace,
@@ -90,6 +91,7 @@ function FaceCard({
   column: "left" | "right"
   flipped: boolean
   locked: boolean
+  stageRef: React.RefObject<HTMLDivElement | null>
   onFlip: (id: FaceId) => void
   onToggle: (id: FaceId) => void
   resizeFace: (id: FaceId, dw: number, dh: number) => void
@@ -101,6 +103,7 @@ function FaceCard({
   const dragRef = useRef<{ x: number; y: number } | null>(null)
   const dragNodeRef = useRef<HTMLDivElement | null>(null)
   const capturedPointerRef = useRef<number | null>(null)
+  const [dragging, setDragging] = useState(false)
   const dragControls = useDragControls()
   const x = useMotionValue(offset.x)
   const y = useMotionValue(offset.y)
@@ -156,6 +159,7 @@ function FaceCard({
     if (node && pointerId != null && node.hasPointerCapture?.(pointerId)) {
       node.releasePointerCapture(pointerId)
     }
+    setDragging(false)
     setStageDragging(false)
   }, [])
 
@@ -172,6 +176,7 @@ function FaceCard({
           capturedPointerRef.current = null
         }
       }
+      setDragging(true)
       setStageDragging(true)
       dragControls.start(e)
     },
@@ -272,6 +277,7 @@ function FaceCard({
       drag
       dragListener={false}
       dragControls={dragControls}
+      dragConstraints={stageRef}
       dragMomentum={false}
       dragElastic={0}
       onDragEnd={() => {
@@ -285,11 +291,11 @@ function FaceCard({
       aria-label={headerLabel}
       aria-busy={face.id === "agent" ? isStreaming : undefined}
       style={{ width: size.w, height: size.h, x, y, perspective: 1400 }}
-      className="relative pointer-events-auto shrink-0"
+      className={cn("relative pointer-events-auto shrink-0", dragging && "select-none touch-none")}
     >
       <motion.div
         animate={{ rotateY: flipped ? 180 : 0 }}
-        transition={spring}
+        transition={dragging ? { duration: 0 } : spring}
         style={{ transformStyle: "preserve-3d" }}
         className="relative w-full h-full"
       >
@@ -450,6 +456,7 @@ export function CubeStage({
               column="left"
               flipped={Boolean(flipped[face.id])}
               locked={face.id === "choices" && choicesLocked}
+              stageRef={stageRef}
               {...cardProps}
             />
           ))}
@@ -466,6 +473,7 @@ export function CubeStage({
               column="right"
               flipped={Boolean(flipped[face.id])}
               locked={false}
+              stageRef={stageRef}
               {...cardProps}
             />
           ))}

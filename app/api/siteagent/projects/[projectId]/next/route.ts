@@ -18,10 +18,13 @@ export async function GET(request:Request,{params}:Context) {
   if (!principal) return json(401,{error:"unauthenticated"})
   try {
     nextPreviewConfig()
-    const state = await (await nextPreviewRepository()).getState(principal,(await params).projectId)
+    const repo = await nextPreviewRepository()
+    const projectId = (await params).projectId
+    const state = await repo.getState(principal, projectId)
     if (!state) return json(404,{error:"project_not_found"})
+    const source = state.accepted ? await repo.getAcceptedSource(principal, projectId) : null
     // Do not send artifact bundles, original protected URLs or worker routing to clients.
-    return json(200, nextPreviewOwnerReadModel(process.env, state))
+    return json(200, nextPreviewOwnerReadModel(process.env, state, source))
   } catch (error) {
     return json(nextPreviewFailureStatus(error),{error:"next_preview_unavailable"})
   }

@@ -6,6 +6,7 @@ import { readFileSync } from "node:fs"
 import { dirname, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 import { canSendWithNextProfile, isNextBuildActive, nextSourceDownloadHref, parseNextProjectRead, parseNextProjectState, previewContentUrl, reconcileNextPreview } from "../lib/siteagent/next-preview-client.ts"
+import { publicToolStartedLabelV1 } from "../lib/siteagent/server/agent-session-controller.ts"
 import { buildPreviewRouteTree, nextPreviewRouteAfterChange, normalizeManualPageRouteInput, previewRouteLabel } from "../lib/siteagent/preview-route-tree.ts"
 
 const sessionId = "session:abcdefghijklmnopqrstuvwxyzABCDEF"
@@ -120,8 +121,14 @@ assert.deepEqual(buildPreviewRouteTree(["/", "/om", "/om/team", "/kontakt"]), [
   },
 ])
 assert.deepEqual(buildPreviewRouteTree(["/om/team", "/kontakt"]), [
-  { route: "/kontakt", children: [] },
-  { route: "/om/team", children: [] },
+  {
+    route: "/",
+    virtual: true,
+    children: [
+      { route: "/kontakt", children: [] },
+      { route: "/om", virtual: true, children: [{ route: "/om/team", children: [] }] },
+    ],
+  },
 ])
 assert.equal(previewRouteLabel("/"), "/")
 assert.equal(previewRouteLabel("/om/team"), "team")
@@ -157,5 +164,11 @@ assert.match(pagesControls, /normalizeManualPageRouteInput/)
 const sitemapFace = readFileSync(resolve(here, "../components/siteagent/faces/sitemap-face.tsx"), "utf8")
 assert.match(sitemapFace, /buildPreviewRouteTree/)
 assert.match(sitemapFace, /SitemapBranch/)
+assert.match(sitemapFace, /node\.virtual/)
 assert.doesNotMatch(sitemapFace, /paddingLeft/)
+assert.equal(publicToolStartedLabelV1({ capability: "project.read", safeLabel: "read" }), "Läser en fil…")
+assert.equal(publicToolStartedLabelV1({ capability: "project.read", safeLabel: "grep" }), "Söker i filer…")
+assert.equal(publicToolStartedLabelV1({ capability: "project.read", safeLabel: "Läser page.tsx…" }), "Läser page.tsx…")
+assert.equal(publicToolStartedLabelV1({ capability: "project.read", safeLabel: "/tmp/secret/app/page.tsx" }), "Sajtagent läser projektet…")
+assert.equal(publicToolStartedLabelV1({ capability: "build.request", safeLabel: "internal" }), "Sajtagent förbereder bygget…")
 console.log("PASS shared Next chat projection: lifecycle, replay, exact owner/job/revision binding, retained accepted output, source export")

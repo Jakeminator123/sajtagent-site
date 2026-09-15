@@ -57,6 +57,38 @@ const SAFE_TOOL_LABEL_V1 = {
   "build.request": "Sajtagent förbereder bygget…",
 } as const
 
+const PROJECT_READ_TOOL_LABEL_V1 = {
+  read: "Läser en fil…",
+  ls: "Listar filer…",
+  find: "Söker efter filer…",
+  grep: "Söker i filer…",
+} as const
+
+const PROJECT_READ_FILE_LABEL_V1 =
+  /^(Läser|Listar|Söker) [A-Za-z0-9._@()-]{1,80}…$/
+
+export function publicToolStartedLabelV1(input: {
+  capability: keyof typeof SAFE_TOOL_LABEL_V1
+  safeLabel: string
+}): string {
+  if (input.capability === "project.read") {
+    const incoming = input.safeLabel.trim()
+    const toolName = incoming.toLowerCase()
+    if (toolName in PROJECT_READ_TOOL_LABEL_V1) {
+      return PROJECT_READ_TOOL_LABEL_V1[toolName as keyof typeof PROJECT_READ_TOOL_LABEL_V1]
+    }
+    if (
+      Object.values(PROJECT_READ_TOOL_LABEL_V1).includes(
+        incoming as (typeof PROJECT_READ_TOOL_LABEL_V1)[keyof typeof PROJECT_READ_TOOL_LABEL_V1],
+      ) ||
+      PROJECT_READ_FILE_LABEL_V1.test(incoming)
+    ) {
+      return incoming
+    }
+  }
+  return SAFE_TOOL_LABEL_V1[input.capability]
+}
+
 export type AgentTurnPolicyIssuerV1 = (input: {
   session: AgentSessionV1
   request: AgentTurnRequestV1
@@ -152,7 +184,10 @@ function sanitizeRuntimeEventV1(event: AgentEventV1): AgentEventV1 {
       ...event,
       payload: {
         ...event.payload,
-        safeLabel: SAFE_TOOL_LABEL_V1[event.payload.capability],
+        safeLabel: publicToolStartedLabelV1({
+          capability: event.payload.capability,
+          safeLabel: event.payload.safeLabel,
+        }),
       },
     })
   }

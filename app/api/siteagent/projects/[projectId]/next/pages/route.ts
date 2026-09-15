@@ -2,7 +2,7 @@ import { nextPreviewOwnerReadModel } from "../../../../../../../lib/siteagent/se
 import { nextPagesFailureResponse } from "../../../../../../../lib/siteagent/server/next-preview-failure.ts"
 import { nextPreviewConfig, privateHeaders } from "../../../../../../../lib/siteagent/server/next-preview-model.ts"
 import { NextPageMutationRequestSchema } from "../../../../../../../lib/siteagent/server/next-preview-pages.ts"
-import { mutateNextPreviewPages } from "../../../../../../../lib/siteagent/server/next-preview-service.ts"
+import { mutateNextPreviewPages, nextPreviewRepository } from "../../../../../../../lib/siteagent/server/next-preview-service.ts"
 import { resolveBuildPrincipalV1 } from "../../../../../../../lib/siteagent/server/principal.ts"
 import { readBoundedJsonV1 } from "../../../../../../../lib/siteagent/server/request-security.ts"
 
@@ -23,9 +23,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ pro
   try {
     nextPreviewConfig()
     const body = NextPageMutationRequestSchema.parse(await readBoundedJsonV1(request, 1024))
-    const state = await mutateNextPreviewPages(principal, (await params).projectId, body, request.signal)
+    const projectId = (await params).projectId
+    const state = await mutateNextPreviewPages(principal, projectId, body, request.signal)
     if (!state) return json(404, { error: "project_not_found" })
-    return json(200, nextPreviewOwnerReadModel(process.env, state))
+    const source = state.accepted ? await (await nextPreviewRepository()).getAcceptedSource(principal, projectId) : null
+    return json(200, nextPreviewOwnerReadModel(process.env, state, source))
   } catch (error) {
     const failure = nextPagesFailureResponse(error)
     return json(failure.status, failure.body)

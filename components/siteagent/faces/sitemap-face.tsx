@@ -2,13 +2,13 @@
 
 // Tärningssida: Karta — litet sidträd över den visade sajten.
 
-import React from "react"
+import React, { useState } from "react"
 import { Map } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { CardEmpty } from "../card-states"
 import { useBuilder } from "../builder-store"
-import { NextPageRemoveButton, NextPagesAddForm } from "../next-pages-controls"
-import { buildPreviewRouteTree, previewRouteLabel, type PreviewRouteNode } from "@/lib/siteagent/preview-route-tree"
+import { NextPageAddUnderButton, NextPageRemoveButton, NextPagesAddForm } from "../next-pages-controls"
+import { buildPreviewRouteTree, draftRouteUnderParent, previewRouteLabel, type PreviewRouteNode } from "@/lib/siteagent/preview-route-tree"
 
 function sitemapRowNote(
   node: PreviewRouteNode,
@@ -27,6 +27,7 @@ function SitemapBranch({
   pagesDisabled,
   onSelect,
   onRemove,
+  onAddUnder,
 }: {
   nodes: PreviewRouteNode[]
   canSelect: boolean
@@ -35,6 +36,7 @@ function SitemapBranch({
   pagesDisabled: boolean
   onSelect: (route: string) => void
   onRemove: (route: string) => Promise<void>
+  onAddUnder: (parentRoute: string) => void
 }) {
   return (
     <ul className="flex flex-col gap-1">
@@ -74,6 +76,11 @@ function SitemapBranch({
                 {note ? <span className="ml-1 not-italic text-workflow-text-subtle">({note})</span> : null}
               </div>
             )}
+            <NextPageAddUnderButton
+              parentRoute={node.route}
+              disabled={pagesDisabled}
+              onAddUnder={onAddUnder}
+            />
             {node.route !== "/" && !node.virtual ? (
               <NextPageRemoveButton route={node.route} disabled={pagesDisabled} onRemove={onRemove} />
             ) : null}
@@ -88,6 +95,7 @@ function SitemapBranch({
                 pagesDisabled={pagesDisabled}
                 onSelect={onSelect}
                 onRemove={onRemove}
+                onAddUnder={onAddUnder}
               />
             </div>
           ) : null}
@@ -114,6 +122,7 @@ export function SitemapFace() {
   const canSelect = previewKind === "next"
   const building = previewStatus === "building"
   const pagesDisabled = !canMutateNextPages
+  const [routeDraft, setRouteDraft] = useState("")
   const pagesReason = building
     ? "Ett bygge kör. Vänta tills det är klart innan du ändrar sidor."
     : !nextState?.accepted
@@ -139,6 +148,8 @@ export function SitemapFace() {
           <NextPagesAddForm
             disabled={pagesDisabled}
             disabledReason={pagesReason}
+            routeDraft={routeDraft}
+            onRouteDraft={setRouteDraft}
             onAdd={route => mutateNextPages("add", route)}
           />
         </div>
@@ -147,7 +158,7 @@ export function SitemapFace() {
     return (
       <div className="flex h-full flex-col overflow-y-auto p-3">
         <p className="mb-2 px-1 text-[10px] leading-relaxed text-workflow-text-subtle">
-          Sidor i den accepterade React-källan.
+          Sidor i den accepterade React-källan. + lägger en undersida.
         </p>
         <SitemapBranch
           nodes={buildPreviewRouteTree(previewRoutes)}
@@ -157,10 +168,13 @@ export function SitemapFace() {
           pagesDisabled={pagesDisabled}
           onSelect={setPreviewRoute}
           onRemove={routeToRemove => mutateNextPages("remove", routeToRemove)}
+          onAddUnder={parent => setRouteDraft(draftRouteUnderParent(parent))}
         />
         <NextPagesAddForm
           disabled={pagesDisabled}
           disabledReason={pagesReason}
+          routeDraft={routeDraft}
+          onRouteDraft={setRouteDraft}
           onAdd={route => mutateNextPages("add", route)}
         />
         {previewRoutes.length === 200 ? (

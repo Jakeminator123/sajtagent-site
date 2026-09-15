@@ -495,6 +495,21 @@ assert.match(
 )
 assert.match(
   sitemapFaceSource,
+  /NextPageAddUnderButton/,
+  "Map must grow a nested page from a tree node",
+)
+assert.match(
+  sitemapFaceSource,
+  /draftRouteUnderParent/,
+  "Map + must prefill /parent/ including virtual groups",
+)
+assert.match(
+  nextPagesControlsSource,
+  /\/om\/team/,
+  "Manual add must describe nested App Router routes",
+)
+assert.match(
+  sitemapFaceSource,
   /NextPageRemoveButton/,
   "Map must expose remove on child pages",
 )

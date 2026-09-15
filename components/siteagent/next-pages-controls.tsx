@@ -8,14 +8,20 @@ export function NextPagesAddForm({
   disabled,
   disabledReason,
   compact,
+  routeDraft,
+  onRouteDraft,
   onAdd,
 }: {
   disabled: boolean
   disabledReason?: string
   compact?: boolean
+  routeDraft?: string
+  onRouteDraft?: (value: string) => void
   onAdd: (route: string) => Promise<void>
 }) {
-  const [route, setRoute] = useState("")
+  const [internalRoute, setInternalRoute] = useState("")
+  const route = routeDraft ?? internalRoute
+  const setRoute = onRouteDraft ?? setInternalRoute
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState("")
 
@@ -43,7 +49,7 @@ export function NextPagesAddForm({
           value={route}
           onChange={event => setRoute(event.target.value)}
           disabled={disabled || busy}
-          placeholder="/kontakt"
+          placeholder="/kontakt eller /om/team"
           aria-label="Ny sidadress"
           className={cn(
             "min-w-0 flex-1 rounded-md border border-workflow-border-subtle bg-workflow-node-input px-2 py-1 font-mono text-[10px] text-workflow-text outline-none",
@@ -62,11 +68,34 @@ export function NextPagesAddForm({
         <p className="text-[10px] leading-relaxed text-workflow-text-subtle">{disabledReason}</p>
       ) : (
         <p className="text-[10px] leading-relaxed text-workflow-text-subtle">
-          Adress som /kontakt. En länkrad i sajten uppdateras med sidan.
+          Adress som /kontakt eller /om/team. En länkrad i sajten uppdateras med sidan.
         </p>
       )}
       {error ? <p role="alert" className="text-[10px] text-amber-800">{error}</p> : null}
     </form>
+  )
+}
+
+export function NextPageAddUnderButton({
+  parentRoute,
+  disabled,
+  onAddUnder,
+}: {
+  parentRoute: string
+  disabled: boolean
+  onAddUnder: (parentRoute: string) => void
+}) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={() => onAddUnder(parentRoute)}
+      aria-label={`Lägg till sida under ${parentRoute}`}
+      title={`Lägg till under ${parentRoute}`}
+      className="rounded px-1.5 py-0.5 font-mono text-[10px] text-workflow-text-muted hover:text-workflow-text disabled:opacity-50"
+    >
+      +
+    </button>
   )
 }
 

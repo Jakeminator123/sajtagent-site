@@ -217,6 +217,7 @@ check(() => assert.deepEqual(classifyExplicitPageAdds("lägg till en sida", base
 check(() => assert.deepEqual(classifyExplicitPageAdds("uppdatera /kontakt", basePages), []))
 check(() => assert.deepEqual(classifyExplicitPageAdds("lägg till startsidan", basePages), []))
 check(() => assert.deepEqual(classifyPageOnlyMutations("lägg till /kontakt", basePages), [{ op: "add", route: "/kontakt" }]))
+check(() => assert.deepEqual(classifyPageOnlyMutations("lägg till /om/team", basePages), [{ op: "add", route: "/om/team" }]))
 check(() => assert.deepEqual(classifyPageOnlyMutations("kan du lägga till /kontakt", basePages), [{ op: "add", route: "/kontakt" }]))
 check(() => assert.deepEqual(classifyPageOnlyMutations("lägg till /kontakt tack", basePages), [{ op: "add", route: "/kontakt" }]))
 check(() => assert.deepEqual(classifyPageOnlyMutations("ta bort /om", basePages), [{ op: "remove", route: "/om" }]))

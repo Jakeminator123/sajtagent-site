@@ -68,6 +68,12 @@ export function previewRouteLabel(route: string): string {
   return route.slice(route.lastIndexOf("/") + 1)
 }
 
+/** Prefill the add field so a tree node can grow a child, including under `/`. */
+export function draftRouteUnderParent(parentRoute: string): string {
+  if (!parentRoute || parentRoute === "/") return "/"
+  return parentRoute.endsWith("/") ? parentRoute : `${parentRoute}/`
+}
+
 /** Browser add-form input → `/slug`. Lowercase, one leading slash, no trailing slash. */
 export function normalizeManualPageRouteInput(value: string): string {
   const trimmed = value.trim().toLowerCase()

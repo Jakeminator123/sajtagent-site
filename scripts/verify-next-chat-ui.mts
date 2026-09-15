@@ -7,7 +7,7 @@ import { dirname, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 import { acceptedPreviewableRoutes, canSendWithNextProfile, isNextBuildActive, nextSourceDownloadHref, parseNextProjectRead, parseNextProjectState, previewContentUrl, reconcileNextPreview } from "../lib/siteagent/next-preview-client.ts"
 import { publicToolStartedLabelV1 } from "../lib/siteagent/server/agent-session-controller.ts"
-import { buildPreviewRouteTree, nextPreviewRouteAfterChange, normalizeManualPageRouteInput, pendingPreviewRouteFromPrompt, previewRouteFromFrameMessage, previewRouteFromPathname, previewRouteLabel, SAJTAGENT_PREVIEW_ROUTE_MESSAGE_TYPE } from "../lib/siteagent/preview-route-tree.ts"
+import { buildPreviewRouteTree, draftRouteUnderParent, nextPreviewRouteAfterChange, normalizeManualPageRouteInput, pendingPreviewRouteFromPrompt, previewRouteFromFrameMessage, previewRouteFromPathname, previewRouteLabel, SAJTAGENT_PREVIEW_ROUTE_MESSAGE_TYPE } from "../lib/siteagent/preview-route-tree.ts"
 
 const sessionId = "session:abcdefghijklmnopqrstuvwxyzABCDEF"
 assert.equal(canSendWithNextProfile("loading", false), false, "a delayed profile must not expose an HTML send that the server routes to React")
@@ -175,16 +175,24 @@ assert.equal(pendingPreviewRouteFromPrompt("lägg till /kontakt"), "/kontakt")
 assert.equal(pendingPreviewRouteFromPrompt("kan du lägga till /om?"), "/om")
 assert.equal(pendingPreviewRouteFromPrompt("lägg till /kontakt och /team"), null)
 assert.equal(pendingPreviewRouteFromPrompt("hur lägger jag till en sida?"), null)
+assert.equal(draftRouteUnderParent("/"), "/")
+assert.equal(draftRouteUnderParent("/om"), "/om/")
+assert.equal(pendingPreviewRouteFromPrompt("lägg till /om/team"), "/om/team")
 assert.equal(normalizeManualPageRouteInput("Kontakt"), "/kontakt")
+assert.equal(normalizeManualPageRouteInput("/Om/Team/"), "/om/team")
 assert.equal(normalizeManualPageRouteInput("/Om/"), "/om")
 assert.equal(normalizeManualPageRouteInput("  /team  "), "/team")
 assert.equal(normalizeManualPageRouteInput(""), "")
 const pagesControls = readFileSync(resolve(here, "../components/siteagent/next-pages-controls.tsx"), "utf8")
 assert.match(pagesControls, /normalizeManualPageRouteInput/)
+assert.match(pagesControls, /NextPageAddUnderButton/)
+assert.match(pagesControls, /\/om\/team/)
 const sitemapFace = readFileSync(resolve(here, "../components/siteagent/faces/sitemap-face.tsx"), "utf8")
 assert.match(sitemapFace, /buildPreviewRouteTree/)
 assert.match(sitemapFace, /SitemapBranch/)
 assert.match(sitemapFace, /node\.virtual/)
+assert.match(sitemapFace, /onAddUnder/)
+assert.match(sitemapFace, /draftRouteUnderParent/)
 assert.doesNotMatch(sitemapFace, /paddingLeft/)
 assert.equal(publicToolStartedLabelV1({ capability: "project.read", safeLabel: "read" }), "Läser en fil…")
 assert.equal(publicToolStartedLabelV1({ capability: "project.read", safeLabel: "grep" }), "Söker i filer…")

@@ -50,6 +50,25 @@ try {
   }
   assert.deepEqual((await client.generate({tenantId:job.tenantId,projectId:job.projectId,prompt:"A real site",baseFiles:[]})).omittedBasePaths,["app/om/page.tsx"]);checks++
   await assert.rejects(()=>client.generate({tenantId:job.tenantId,projectId:job.projectId,prompt:"x".repeat(19000),baseFiles:[]}),/source_context_too_large/);checks++
+  await assert.rejects(()=>client.generate({tenantId:job.tenantId,projectId:job.projectId,prompt:"hero",baseFiles:[{path:"app/page.tsx",content:"x".repeat(20_000)}]}),/source_context_too_large/);checks++
+  globalThis.fetch=async (_input,init)=>{
+    const body=JSON.parse(String(init?.body))
+    assert.ok(Array.isArray(body.retainedBasePaths))
+    assert.ok(body.retainedBasePaths.includes("app/extra/page.tsx"))
+    assert.equal(body.baseFiles.some((file:{path:string})=>file.path==="app/extra/page.tsx"),false)
+    assert.ok(body.baseFiles.some((file:{path:string})=>file.path==="app/om/page.tsx"))
+    assert.ok(JSON.stringify([body.prompt,body.baseFiles,body.retainedBasePaths]).length<=18_000)
+    return Response.json({schemaVersion:2,tenantId:body.tenantId,projectId:body.projectId,jobId:body.jobId,sourceRevisionId:sourceRevisionId(body.tenantId,body.projectId,generatedFiles),files:generatedFiles})
+  }
+  assert.equal((await client.generate({
+    tenantId:job.tenantId,projectId:job.projectId,prompt:"gör /om blå",
+    baseFiles:[
+      {path:"app/layout.tsx",content:"layout"},
+      {path:"app/page.tsx",content:"home"},
+      {path:"app/om/page.tsx",content:"om"},
+      {path:"app/extra/page.tsx",content:"x".repeat(18_000)},
+    ],
+  })).files.length,2);checks++
   globalThis.fetch=async (_input,init)=>{const body=JSON.parse(String(init?.body));return Response.json({schemaVersion:2,tenantId:body.tenantId,projectId:"project:other",jobId:body.jobId,sourceRevisionId:job.sourceRevisionId,files})}
   await assert.rejects(()=>client.generate({tenantId:job.tenantId,projectId:job.projectId,prompt:"A real site",baseFiles:[]}),/source_binding_mismatch/);checks++
 } finally {globalThis.fetch=originalFetch}

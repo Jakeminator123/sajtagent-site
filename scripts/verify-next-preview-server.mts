@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url"
 import { shouldIdleNextPreviewPoll } from "../lib/siteagent/next-preview-poll.ts"
 import { NEXT_SOURCE_FILE_CONTENT_MAX, NEXT_SOURCE_FILE_COUNT_MAX, NEXT_SOURCE_FILE_COUNT_MIN, NEXT_SOURCE_PATH_ALPHABET, NEXT_SOURCE_PATH_MAX, PREVIEW_ROUTE_LIMIT, assertPreviewSiteOrigin, canFinishJob, deriveAcceptedPreviewRoutes, gatewayHost, isNextPreviewUnavailableError, nextPreviewConfig, nextPreviewFailureStatus, outputDigest, previewBasePath, safeFilePath, sourceRevisionId, validateSourceFiles, validateStaticFiles, type NextAccepted, type NextJob, type NextState } from "../lib/siteagent/server/next-preview-model.ts"
 import { applyPageOnlyMutations, applySiteNavigation, classifyExplicitPageAdds, classifyExplicitPageRemoves, classifyPageOnlyMutations, composeNextPageStub, composeSajtagentNav, executeNextPageMutation, isControllerOwnedSourcePath, isPageOnlyPrompt, listedPageRoutes, mergeGeneratedSourceFiles, modelVisibleBaseFiles, pagePathForRoute, parseManualPageRoute, planNextPageMutation, planPageOnlyMutations, SAJTAGENT_NAV_PATH } from "../lib/siteagent/server/next-preview-pages.ts"
+import { GENERATE_CONTEXT_BUDGET_V1, packGenerateBaseFiles } from "../lib/siteagent/server/next-preview-generate-context.ts"
 import { applyAcceptedPackageManifest, NEXT_OPTIONAL_PACKAGES } from "../lib/siteagent/server/next-preview-packages.ts"
 import { ownerAcceptedPageRoutes } from "../lib/siteagent/server/agent-build-profile.ts"
 import { serveAcceptedStatic, gatewayHostnameAllowed } from "../lib/siteagent/server/next-preview-gateway.ts"
@@ -500,7 +501,26 @@ check(() => assert.match(serviceSource, /planPageOnlyMutations/))
 check(() => assert.match(serviceSource, /buildNextPreview\(principal, projectId, files, abort, expectedAcceptedJobId/))
 check(() => assert.match(serviceSource, /const generated=await runtime.generate/))
 check(() => assert.match(serviceSource, /modelVisibleBaseFiles\(baseFiles\)/))
-check(() => assert.match(readFileSync(resolve(here, "../lib/siteagent/server/next-preview-runtime.ts"), "utf8"), /18_000/))
+check(() => assert.match(readFileSync(resolve(here, "../lib/siteagent/server/next-preview-runtime.ts"), "utf8"), /packGenerateBaseFiles/))
+check(() => assert.match(readFileSync(resolve(here, "../lib/siteagent/server/next-preview-runtime.ts"), "utf8"), /GENERATE_CONTEXT_BUDGET_V1/))
+check(() => {
+  const pages = [
+    { path: "app/layout.tsx", content: "layout" },
+    { path: "app/page.tsx", content: "home" },
+    { path: "app/om/page.tsx", content: "om" },
+    { path: "app/extra/page.tsx", content: "x".repeat(20_000) },
+  ]
+  const packed = packGenerateBaseFiles("gör /om blå", pages, GENERATE_CONTEXT_BUDGET_V1)
+  assert.deepEqual(packed.retainedBasePaths, ["app/extra/page.tsx", "app/layout.tsx", "app/om/page.tsx", "app/page.tsx"])
+  assert.equal(packed.tooLarge, false)
+  assert.ok(packed.files.some(file => file.path === "app/om/page.tsx"))
+  assert.equal(packed.files.some(file => file.path === "app/extra/page.tsx"), false)
+})
+check(() => {
+  const packed = packGenerateBaseFiles("x", [{ path: "app/page.tsx", content: "x".repeat(20_000) }])
+  assert.equal(packed.tooLarge, true)
+  assert.deepEqual(packed.files, [])
+})
 check(() => assert.match(nextProject, /\/next\/pages/))
 check(() => assert.match(nextProject, /mutatePages/))
 

@@ -11,7 +11,7 @@ import {
 } from "../lib/siteagent/server/next-preview-failure.ts"
 
 const INTERNAL_CASES = [
-  ["deployment_bytes_mismatch", 422, "deployment_bytes_mismatch"],
+  ["deployment_bytes_mismatch", 500, "deployment_bytes_mismatch"],
   ["vercel_api_failed", 502, "artifact_deploy_failed"],
   ["deployment_failed", 502, "artifact_deploy_failed"],
   ["deployment_timeout", 502, "artifact_deploy_failed"],
@@ -29,8 +29,8 @@ const INTERNAL_CASES = [
   ["invalid_next_output", 502, "worker_build_failed"],
   ["source_generation_failed", 502, "worker_build_failed"],
   ["source_binding_mismatch", 502, "worker_build_failed"],
-  ["preview_protection_required", 422, "configuration_missing"],
-  ["invalid_next_runtime_config", 422, "configuration_missing"],
+  ["preview_protection_required", 500, "configuration_missing"],
+  ["invalid_next_runtime_config", 500, "configuration_missing"],
 ] as const
 
 for (const [internal, status, reason] of INTERNAL_CASES) {

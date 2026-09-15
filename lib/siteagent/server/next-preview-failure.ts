@@ -3,11 +3,12 @@ import { isNextPreviewUnavailableError } from "./next-preview-model.ts"
 
 /**
  * Closed POST /next failure reasons. HTTP mapping:
- * 422 = deterministic verification or artifact configuration (retry will not help)
+ * 500 = permanent server fault (byte verification or artifact configuration)
  * 502 = artifact deploy/upload failed, or runtime/worker rejected the job
- * 503 = runtime 5xx/unavailability — unknown errors stay 503 without a reason
+ * 503 = runtime unavailable — unknown errors stay 503 without a reason
  *
- * `next_preview_unavailable` is not in this set; it remains 404.
+ * `next_preview_unavailable` is not in this set; it remains 404 (expected-off,
+ * not a genuine fault; that 404 exists to keep Vercel 5xx monitors quiet).
  */
 export const NEXT_BUILD_FAILURE_REASONS = [
   "deployment_bytes_mismatch",
@@ -22,14 +23,14 @@ export const NEXT_BUILD_FAILURE_REASONS = [
 export type NextBuildFailureReason = (typeof NEXT_BUILD_FAILURE_REASONS)[number]
 
 export const NEXT_BUILD_FAILURE_STATUS = {
-  deployment_bytes_mismatch: 422,
-  configuration_missing: 422,
+  deployment_bytes_mismatch: 500,
+  configuration_missing: 500,
   artifact_deploy_failed: 502,
   runtime_transport_4xx: 502,
   worker_build_failed: 502,
   runtime_transport_5xx: 503,
   runtime_transport_failed: 503,
-} as const satisfies Record<NextBuildFailureReason, 422 | 502 | 503>
+} as const satisfies Record<NextBuildFailureReason, 500 | 502 | 503>
 
 const INTERNAL_TO_REASON = {
   deployment_bytes_mismatch: "deployment_bytes_mismatch",

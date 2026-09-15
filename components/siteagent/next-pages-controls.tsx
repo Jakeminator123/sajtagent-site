@@ -2,12 +2,7 @@
 
 import React, { useState } from "react"
 import { cn } from "@/lib/utils"
-
-function normalizeRouteInput(value: string): string {
-  const trimmed = value.trim()
-  if (!trimmed) return ""
-  return trimmed.startsWith("/") ? trimmed : `/${trimmed}`
-}
+import { normalizeManualPageRouteInput } from "@/lib/siteagent/preview-route-tree"
 
 export function NextPagesAddForm({
   disabled,
@@ -26,7 +21,7 @@ export function NextPagesAddForm({
 
   async function submit(event: React.FormEvent) {
     event.preventDefault()
-    const next = normalizeRouteInput(route)
+    const next = normalizeManualPageRouteInput(route)
     if (!next || disabled || busy) return
     setBusy(true)
     setError("")
@@ -57,7 +52,7 @@ export function NextPagesAddForm({
         />
         <button
           type="submit"
-          disabled={disabled || busy || !normalizeRouteInput(route)}
+          disabled={disabled || busy || !normalizeManualPageRouteInput(route)}
           className="shrink-0 rounded-md border border-workflow-border-subtle px-2 py-1 font-mono text-[10px] text-workflow-text disabled:opacity-50"
         >
           {busy ? "Lägger till…" : "Lägg till"}

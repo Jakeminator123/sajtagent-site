@@ -466,6 +466,11 @@ assert.doesNotMatch(
 assert.match(nextPagesControlsSource, /Lägg till/)
 assert.match(nextPagesControlsSource, /Ta bort/)
 assert.match(
+  nextPagesControlsSource,
+  /normalizeManualPageRouteInput/,
+  "manual add must lowercase and strip trailing slashes before POST",
+)
+assert.match(
   previewStageSource,
   /w-\[min\(80vw,100%\)\]/,
   "Preview window must occupy about 80% of the viewport, not a 1100px cap",

@@ -48,6 +48,16 @@ export function previewRouteLabel(route: string): string {
   return route.slice(route.lastIndexOf("/") + 1)
 }
 
+/** Browser add-form input → `/slug`. Lowercase, one leading slash, no trailing slash. */
+export function normalizeManualPageRouteInput(value: string): string {
+  const trimmed = value.trim().toLowerCase()
+  if (!trimmed) return ""
+  const withSlash = trimmed.startsWith("/") ? trimmed : `/${trimmed}`
+  const collapsed = withSlash.replace(/\/+/g, "/")
+  if (collapsed !== "/" && collapsed.endsWith("/")) return collapsed.replace(/\/+$/g, "")
+  return collapsed
+}
+
 /** After add/remove/generate, keep the current page or open the new one. */
 export function nextPreviewRouteAfterChange(input: {
   previousRoutes: readonly string[]

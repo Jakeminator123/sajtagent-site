@@ -6,7 +6,7 @@ import { readFileSync } from "node:fs"
 import { dirname, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 import { canSendWithNextProfile, isNextBuildActive, nextSourceDownloadHref, parseNextProjectRead, parseNextProjectState, previewContentUrl, reconcileNextPreview } from "../lib/siteagent/next-preview-client.ts"
-import { buildPreviewRouteTree, nextPreviewRouteAfterChange, previewRouteLabel } from "../lib/siteagent/preview-route-tree.ts"
+import { buildPreviewRouteTree, nextPreviewRouteAfterChange, normalizeManualPageRouteInput, previewRouteLabel } from "../lib/siteagent/preview-route-tree.ts"
 
 const sessionId = "session:abcdefghijklmnopqrstuvwxyzABCDEF"
 assert.equal(canSendWithNextProfile("loading", false), false, "a delayed profile must not expose an HTML send that the server routes to React")
@@ -148,6 +148,12 @@ assert.equal(nextPreviewRouteAfterChange({
 }), "/")
 assert.match(store, /nextPreviewRouteAfterChange/)
 assert.match(store, /pendingPreviewRouteRef/)
+assert.equal(normalizeManualPageRouteInput("Kontakt"), "/kontakt")
+assert.equal(normalizeManualPageRouteInput("/Om/"), "/om")
+assert.equal(normalizeManualPageRouteInput("  /team  "), "/team")
+assert.equal(normalizeManualPageRouteInput(""), "")
+const pagesControls = readFileSync(resolve(here, "../components/siteagent/next-pages-controls.tsx"), "utf8")
+assert.match(pagesControls, /normalizeManualPageRouteInput/)
 const sitemapFace = readFileSync(resolve(here, "../components/siteagent/faces/sitemap-face.tsx"), "utf8")
 assert.match(sitemapFace, /buildPreviewRouteTree/)
 assert.match(sitemapFace, /SitemapBranch/)

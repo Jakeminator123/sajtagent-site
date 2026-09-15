@@ -11,6 +11,7 @@ export const NEXT_SOURCE_PATH_MAX = 240
 export const NEXT_SOURCE_FILE_COUNT_MIN = 2
 export const NEXT_SOURCE_FILE_COUNT_MAX = 250
 export const NEXT_SOURCE_BUNDLE_MAX = 2_000_000
+/** Mirrors the controller source-path alphabet. Source only — not export output or gateway paths. */
 export const NEXT_SOURCE_PATH_ALPHABET = /^[A-Za-z0-9_@.()[\] /-]+$/
 
 export const SourceFileSchema = z.object({
@@ -32,9 +33,9 @@ export function supportedArtifactProtection(mode: unknown): boolean {
   return typeof mode === "string" && ["all", "preview", "all_except_custom_domains"].includes(mode)
 }
 
+/** Path safety for stored/served bytes. Not the controller source alphabet. */
 export function safeFilePath(path: string): boolean {
-  return path.length <= NEXT_SOURCE_PATH_MAX && NEXT_SOURCE_PATH_ALPHABET.test(path) &&
-    !path.startsWith("/") && !/[\\\x00-\x20?#%]/.test(path) &&
+  return path.length <= 240 && !path.startsWith("/") && !/[\\\x00-\x20?#%]/.test(path) &&
     path.split("/").every((part) => part !== "" && part !== "." && part !== "..")
 }
 

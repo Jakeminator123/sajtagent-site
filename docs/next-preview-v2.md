@@ -40,8 +40,10 @@ generated lockfile, so it is not a promise of a byte-identical rebuild.
    Source limits mirror Sprites `NextBuildRequestV2Schema` and must change with it:
    path alphabet `^[A-Za-z0-9_@.()[\] /-]+$`, max 240 chars, per-file content
    512 KiB, Site file count 2–250 (stricter than the controller's 1–256), plus
-   Site-only leading-dot / duplicate / bundle-ceiling checks. Named 400 codes
-   (`invalid_source_path`, `invalid_source_file_size`, `invalid_source_count`,
+   Site-only leading-dot / duplicate / bundle-ceiling checks. The alphabet
+   applies only to inbound source, not to Next export output or already-accepted
+   gateway paths (`safeFilePath` is the stored/served safety check). Named 400
+   codes (`invalid_source_path`, `invalid_source_file_size`, `invalid_source_count`,
    `invalid_source_bundle`) never echo file contents.
    Prompt mode first calls signed `/v2/next-source`: the existing OpenClaw
    conversation provider has all tools denied and returns JSON source only.

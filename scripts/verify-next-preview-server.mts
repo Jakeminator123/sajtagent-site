@@ -521,6 +521,14 @@ check(() => {
   assert.equal(packed.tooLarge, true)
   assert.deepEqual(packed.files, [])
 })
+check(() => {
+  const packed = packGenerateBaseFiles("gör /om blå", [
+    { path: "app/om/page.tsx", content: "x".repeat(20_000) },
+    { path: "app/page.tsx", content: "home" },
+  ])
+  assert.equal(packed.tooLarge, true)
+  assert.deepEqual(packed.files, [])
+})
 check(() => assert.match(nextProject, /\/next\/pages/))
 check(() => assert.match(nextProject, /mutatePages/))
 

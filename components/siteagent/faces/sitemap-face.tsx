@@ -123,6 +123,7 @@ export function SitemapFace() {
   const building = previewStatus === "building"
   const pagesDisabled = !canMutateNextPages
   const [routeDraft, setRouteDraft] = useState("")
+  const [addFocusRequest, setAddFocusRequest] = useState(0)
   const pagesReason = building
     ? "Ett bygge kör. Vänta tills det är klart innan du ändrar sidor."
     : !nextState?.accepted
@@ -150,6 +151,7 @@ export function SitemapFace() {
             disabledReason={pagesReason}
             routeDraft={routeDraft}
             onRouteDraft={setRouteDraft}
+            focusRequest={addFocusRequest}
             onAdd={route => mutateNextPages("add", route)}
           />
         </div>
@@ -168,13 +170,17 @@ export function SitemapFace() {
           pagesDisabled={pagesDisabled}
           onSelect={setPreviewRoute}
           onRemove={routeToRemove => mutateNextPages("remove", routeToRemove)}
-          onAddUnder={parent => setRouteDraft(draftRouteUnderParent(parent))}
+          onAddUnder={parent => {
+            setRouteDraft(draftRouteUnderParent(parent))
+            setAddFocusRequest((value) => value + 1)
+          }}
         />
         <NextPagesAddForm
           disabled={pagesDisabled}
           disabledReason={pagesReason}
           routeDraft={routeDraft}
           onRouteDraft={setRouteDraft}
+          focusRequest={addFocusRequest}
           onAdd={route => mutateNextPages("add", route)}
         />
         {previewRoutes.length === 200 ? (

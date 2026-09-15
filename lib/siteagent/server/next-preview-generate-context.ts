@@ -36,9 +36,19 @@ function fileRank(prompt: string, path: string): number {
   return 4
 }
 
+function fitsBudget<T>(
+  prompt: string,
+  packed: readonly T[],
+  retainedBasePaths: readonly string[],
+  budget: number,
+): boolean {
+  return JSON.stringify([prompt, packed, retainedBasePaths]).length <= budget
+}
+
 /**
  * Keep every path, send only the file bodies that fit the Site generate budget.
- * Site merge restores omitted bodies. Do not raise GENERATE_CONTEXT_BUDGET_V1.
+ * Mentioned pages must fit or the turn fails closed. Site merge restores the rest.
+ * Do not raise GENERATE_CONTEXT_BUDGET_V1.
  */
 export function packGenerateBaseFiles<T extends { path: string; content: string }>(
   prompt: string,
@@ -46,15 +56,27 @@ export function packGenerateBaseFiles<T extends { path: string; content: string 
   budget = GENERATE_CONTEXT_BUDGET_V1,
 ): { files: T[]; retainedBasePaths: string[]; tooLarge: boolean } {
   const retainedBasePaths = [...new Set(files.map((file) => file.path))].sort()
-  const ordered = [...files].sort((left, right) => {
-    const rank = fileRank(prompt, left.path) - fileRank(prompt, right.path)
-    if (rank !== 0) return rank
-    return left.path < right.path ? -1 : left.path > right.path ? 1 : 0
-  })
+  const mentioned = files
+    .filter((file) => generateSourceFileMentionedInPrompt(prompt, file.path))
+    .sort((left, right) => (left.path < right.path ? -1 : left.path > right.path ? 1 : 0))
+  const rest = files
+    .filter((file) => !generateSourceFileMentionedInPrompt(prompt, file.path))
+    .sort((left, right) => {
+      const rank = fileRank(prompt, left.path) - fileRank(prompt, right.path)
+      if (rank !== 0) return rank
+      return left.path < right.path ? -1 : left.path > right.path ? 1 : 0
+    })
   const packed: T[] = []
-  for (const file of ordered) {
+  for (const file of mentioned) {
     const trial = [...packed, file]
-    if (JSON.stringify([prompt, trial, retainedBasePaths]).length > budget) continue
+    if (!fitsBudget(prompt, trial, retainedBasePaths, budget)) {
+      return { files: [], retainedBasePaths, tooLarge: true }
+    }
+    packed.push(file)
+  }
+  for (const file of rest) {
+    const trial = [...packed, file]
+    if (!fitsBudget(prompt, trial, retainedBasePaths, budget)) continue
     packed.push(file)
   }
   return {

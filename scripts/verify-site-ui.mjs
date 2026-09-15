@@ -504,6 +504,16 @@ assert.match(
   "Map + must prefill /parent/ including virtual groups",
 )
 assert.match(
+  sitemapFaceSource,
+  /focusRequest=\{addFocusRequest\}/,
+  "Map + must move keyboard focus to the add field",
+)
+assert.match(
+  nextPagesControlsSource,
+  /focusRequest/,
+  "Add form must accept a focus request from the tree",
+)
+assert.match(
   nextPagesControlsSource,
   /\/om\/team/,
   "Manual add must describe nested App Router routes",

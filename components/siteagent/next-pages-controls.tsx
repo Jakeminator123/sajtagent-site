@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState } from "react"
+import React, { useEffect, useRef, useState } from "react"
 import { cn } from "@/lib/utils"
 import { normalizeManualPageRouteInput } from "@/lib/siteagent/preview-route-tree"
 
@@ -10,6 +10,7 @@ export function NextPagesAddForm({
   compact,
   routeDraft,
   onRouteDraft,
+  focusRequest,
   onAdd,
 }: {
   disabled: boolean
@@ -17,6 +18,7 @@ export function NextPagesAddForm({
   compact?: boolean
   routeDraft?: string
   onRouteDraft?: (value: string) => void
+  focusRequest?: number
   onAdd: (route: string) => Promise<void>
 }) {
   const [internalRoute, setInternalRoute] = useState("")
@@ -24,6 +26,13 @@ export function NextPagesAddForm({
   const setRoute = onRouteDraft ?? setInternalRoute
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState("")
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (!focusRequest) return
+    inputRef.current?.focus()
+    inputRef.current?.scrollIntoView({ block: "nearest" })
+  }, [focusRequest])
 
   async function submit(event: React.FormEvent) {
     event.preventDefault()
@@ -45,6 +54,7 @@ export function NextPagesAddForm({
     <form onSubmit={event => void submit(event)} className={cn("flex flex-col gap-1", compact ? "" : "mt-2")}>
       <div className="flex items-center gap-1">
         <input
+          ref={inputRef}
           type="text"
           value={route}
           onChange={event => setRoute(event.target.value)}

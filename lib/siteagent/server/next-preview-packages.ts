@@ -18,8 +18,19 @@ export const NEXT_BASE_DEV_DEPENDENCIES = {
 
 export const NEXT_OPTIONAL_PACKAGES = {
   clsx: "2.1.1",
+  "date-fns": "4.1.0",
   "lucide-react": "1.45.0",
+  zod: "3.24.2",
 } as const
+
+export function nextOptionalPackageNamesSv(): string {
+  const names = Object.keys(NEXT_OPTIONAL_PACKAGES).sort((left, right) => left.localeCompare(right))
+  if (names.length <= 1) return names[0] ?? ""
+  return `${names.slice(0, -1).join(", ")} och ${names[names.length - 1]}`
+}
+
+export const UNSUPPORTED_PACKAGE_PUBLIC_MESSAGE_V1 =
+  `Det paketet är inte tillåtet. Sajtagent kan använda Next, React, TypeScript, ${nextOptionalPackageNamesSv()}.`
 
 const SOURCE_SCAN_EXTENSION = /\.(?:c|m)?[jt]sx?$|\.css$/i
 const NPM_NAME = /^(?:@[a-z0-9][a-z0-9._~-]*\/)?[a-z0-9][a-z0-9._~-]*$/

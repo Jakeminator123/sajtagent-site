@@ -73,7 +73,7 @@ check(
   publicTurnFailedMessageV1({
     code: "unsupported_package",
     message: "whatever",
-  }) === "Det paketet är inte tillåtet. Sajtagent kan använda Next, React, TypeScript, clsx och lucide-react.",
+  }) === "Det paketet är inte tillåtet. Sajtagent kan använda Next, React, TypeScript, clsx, date-fns, lucide-react och zod.",
   "blocked package imports stay named and visible",
 )
 check(

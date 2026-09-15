@@ -6,7 +6,12 @@ import { shouldIdleNextPreviewPoll } from "../lib/siteagent/next-preview-poll.ts
 import { NEXT_SOURCE_FILE_CONTENT_MAX, NEXT_SOURCE_FILE_COUNT_MAX, NEXT_SOURCE_FILE_COUNT_MIN, NEXT_SOURCE_PATH_ALPHABET, NEXT_SOURCE_PATH_MAX, PREVIEW_ROUTE_LIMIT, assertPreviewSiteOrigin, canFinishJob, deriveAcceptedPreviewRoutes, gatewayHost, isNextPreviewUnavailableError, nextPreviewConfig, nextPreviewFailureStatus, outputDigest, previewBasePath, safeFilePath, sourceRevisionId, validateSourceFiles, validateStaticFiles, type NextAccepted, type NextJob, type NextState } from "../lib/siteagent/server/next-preview-model.ts"
 import { applyPageOnlyMutations, applySiteNavigation, classifyExplicitPageAdds, classifyExplicitPageRemoves, classifyPageOnlyMutations, composeNextPageStub, composeSajtagentNav, executeNextPageMutation, isControllerOwnedSourcePath, isPageOnlyPrompt, listedPageRoutes, mergeGeneratedSourceFiles, modelVisibleBaseFiles, pagePathForRoute, parseManualPageRoute, planNextPageMutation, planPageOnlyMutations, SAJTAGENT_NAV_PATH } from "../lib/siteagent/server/next-preview-pages.ts"
 import { GENERATE_CONTEXT_BUDGET_V1, packGenerateBaseFiles } from "../lib/siteagent/server/next-preview-generate-context.ts"
-import { applyAcceptedPackageManifest, NEXT_OPTIONAL_PACKAGES } from "../lib/siteagent/server/next-preview-packages.ts"
+import {
+  applyAcceptedPackageManifest,
+  NEXT_OPTIONAL_PACKAGES,
+  nextOptionalPackageNamesSv,
+  UNSUPPORTED_PACKAGE_PUBLIC_MESSAGE_V1,
+} from "../lib/siteagent/server/next-preview-packages.ts"
 import { ownerAcceptedPageRoutes } from "../lib/siteagent/server/agent-build-profile.ts"
 import { serveAcceptedStatic, gatewayHostnameAllowed } from "../lib/siteagent/server/next-preview-gateway.ts"
 
@@ -433,6 +438,27 @@ check(() => {
     { path: "app/layout.tsx", content: "export default function Layout({children}:{children:React.ReactNode}){return children}" },
   ])
   assert.equal(JSON.parse(pinned.find(file => file.path === "package.json")?.content ?? "{}").dependencies.clsx, NEXT_OPTIONAL_PACKAGES.clsx)
+})
+check(() => {
+  const pinned = applyAcceptedPackageManifest([
+    { path: "app/page.tsx", content: "'use client';import {z} from \"zod\";export default function Page(){return null}" },
+    { path: "app/layout.tsx", content: "export default function Layout({children}:{children:React.ReactNode}){return children}" },
+  ])
+  assert.equal(JSON.parse(pinned.find(file => file.path === "package.json")?.content ?? "{}").dependencies.zod, NEXT_OPTIONAL_PACKAGES.zod)
+})
+check(() => {
+  const pinned = applyAcceptedPackageManifest([
+    { path: "app/page.tsx", content: "'use client';import {format} from \"date-fns\";export default function Page(){return null}" },
+    { path: "app/layout.tsx", content: "export default function Layout({children}:{children:React.ReactNode}){return children}" },
+  ])
+  assert.equal(JSON.parse(pinned.find(file => file.path === "package.json")?.content ?? "{}").dependencies["date-fns"], NEXT_OPTIONAL_PACKAGES["date-fns"])
+})
+check(() => {
+  assert.equal(nextOptionalPackageNamesSv(), "clsx, date-fns, lucide-react och zod")
+  assert.equal(
+    UNSUPPORTED_PACKAGE_PUBLIC_MESSAGE_V1,
+    "Det paketet är inte tillåtet. Sajtagent kan använda Next, React, TypeScript, clsx, date-fns, lucide-react och zod.",
+  )
 })
 check(() => {
   const pinned = applyAcceptedPackageManifest([

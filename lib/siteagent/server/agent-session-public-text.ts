@@ -1,4 +1,5 @@
 import type { AgentEventV1 } from "../../../contracts/agent-session-v1.ts"
+import { UNSUPPORTED_PACKAGE_PUBLIC_MESSAGE_V1 } from "./next-preview-packages.ts"
 
 export const RAW_REASONING_MARKER_V1 =
   /<\s*\/?\s*(?:analysis|thinking|reasoning|chain[-_ ]of[-_ ]thought)\b|(?:^|\n)\s*(?:analysis|reasoning|chain[- ]of[- ]thought)\s*:/i
@@ -58,8 +59,7 @@ const SAFE_TURN_FAILED_BY_CODE_V1: Record<string, string> = {
     "Källan gick inte att använda. Beskriv sidan tydligare eller försök igen.",
   source_context_too_large:
     "Sidan är för stor för att ändras i ett steg. Dela upp beställningen eller korta den nämnda sidan.",
-  unsupported_package:
-    "Det paketet är inte tillåtet. Sajtagent kan använda Next, React, TypeScript, clsx och lucide-react.",
+  unsupported_package: UNSUPPORTED_PACKAGE_PUBLIC_MESSAGE_V1,
   invalid_package:
     "package.json gick inte att använda. Sajtagent styr beroenden själv.",
   workspace_revision_unavailable:

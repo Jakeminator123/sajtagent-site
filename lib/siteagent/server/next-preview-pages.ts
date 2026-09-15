@@ -83,6 +83,74 @@ export function composeNextPageStub(route: string): string {
   return `'use client'\n\nexport default function Page() {\n  return (\n    <main>\n      <h1>${heading}</h1>\n    </main>\n  )\n}\n`
 }
 
+export const SAJTAGENT_NAV_PATH = "app/sajtagent-nav.tsx"
+
+function isSiteManagedSourcePath(path: string): boolean {
+  return path === SAJTAGENT_NAV_PATH
+}
+
+function sortPageRoutes(routes: readonly string[]): string[] {
+  return [...new Set(routes)].sort((left, right) => {
+    if (left === "/") return -1
+    if (right === "/") return 1
+    return left < right ? -1 : left > right ? 1 : 0
+  })
+}
+
+function listedPageRoutes(files: readonly SourceFile[]): string[] {
+  return sortPageRoutes([...pagesByRoute(files).keys()])
+}
+
+export function composeSajtagentNav(routes: readonly string[]): string {
+  const links = sortPageRoutes(routes).map((route) => {
+    const href = route === "/" ? "/" : route
+    return `      <Link href="${href}">${pageHeading(route)}</Link>`
+  })
+  return [
+    "'use client'",
+    "",
+    'import Link from "next/link"',
+    "",
+    "export function SajtagentNav() {",
+    "  return (",
+    '    <nav aria-label="Sidor" style={{display:"flex",gap:"1rem",flexWrap:"wrap",padding:"0.75rem 1rem",borderBottom:"1px solid #ddd"}}>',
+    ...links,
+    "    </nav>",
+    "  )",
+    "}",
+    "",
+  ].join("\n")
+}
+
+export function ensureSajtagentNavInLayout(content: string): string {
+  let next = content
+  if (!/from\s+["']\.\/sajtagent-nav["']/.test(next)) {
+    next = `import { SajtagentNav } from "./sajtagent-nav"\n${next}`
+  }
+  if (!/<SajtagentNav\b/.test(next)) {
+    if (next.includes("{children}")) next = next.replace("{children}", "<SajtagentNav />{children}")
+    else if (next.includes("{ children }")) next = next.replace("{ children }", "<SajtagentNav />{ children }")
+    else if (next.includes("</body>")) next = next.replace("</body>", "<SajtagentNav /></body>")
+  }
+  return next
+}
+
+export function applySiteNavigation(files: readonly SourceFile[]): SourceFile[] {
+  const byPath = new Map(files.map((file) => [file.path, file] as const))
+  const routes = listedPageRoutes(files)
+  byPath.set(SAJTAGENT_NAV_PATH, { path: SAJTAGENT_NAV_PATH, content: composeSajtagentNav(routes) })
+  const layout = byPath.get("app/layout.tsx") ?? byPath.get("app/layout.jsx") ?? byPath.get("app/layout.js")
+  if (layout) {
+    byPath.set(layout.path, { path: layout.path, content: ensureSajtagentNavInLayout(layout.content) })
+  } else {
+    byPath.set("app/layout.tsx", {
+      path: "app/layout.tsx",
+      content: `import { SajtagentNav } from "./sajtagent-nav"\n\nexport default function Layout({children}:{children:React.ReactNode}){return <html lang="sv"><body><SajtagentNav />{children}</body></html>}\n`,
+    })
+  }
+  return validateSourceFiles([...byPath.values()])
+}
+
 export function nextPageIdempotencyKey(projectId: string, op: NextPageOp, route: string, jobId: string): string {
   return `pages:${projectId}:${op}:${route}:${jobId}`
 }
@@ -203,10 +271,10 @@ function omittedSourcePaths(baseFiles: readonly SourceFile[], generatedFiles: re
   const generated = new Set(generatedFiles.map(file => file.path))
   const omitted = new Set<string>()
   for (const path of reported) {
-    if (!generated.has(path) && !isControllerOwnedSourcePath(path)) omitted.add(path)
+    if (!generated.has(path) && !isControllerOwnedSourcePath(path) && !isSiteManagedSourcePath(path)) omitted.add(path)
   }
   for (const file of baseFiles) {
-    if (!generated.has(file.path) && !isControllerOwnedSourcePath(file.path)) omitted.add(file.path)
+    if (!generated.has(file.path) && !isControllerOwnedSourcePath(file.path) && !isSiteManagedSourcePath(file.path)) omitted.add(file.path)
   }
   return omitted
 }
@@ -242,7 +310,7 @@ export function mergeGeneratedSourceFiles(input: {
     if (home) merged.set(home.path, home)
   }
 
-  return validateSourceFiles([...merged.values()])
+  return applySiteNavigation([...merged.values()])
 }
 
 export function planNextPageMutation(input: {
@@ -273,7 +341,7 @@ export function planNextPageMutation(input: {
     if (existing.length > 0) return { files, rebuild: false, idempotencyKey }
     const path = pagePathForRoute(route)
     return {
-      files: validateSourceFiles([...files, { path, content: composeNextPageStub(route) }]),
+      files: applySiteNavigation([...files, { path, content: composeNextPageStub(route) }]),
       rebuild: true,
       idempotencyKey,
     }
@@ -282,7 +350,7 @@ export function planNextPageMutation(input: {
   if (existing.length === 0) return { files, rebuild: false, idempotencyKey }
   const remove = new Set(existing.map(file => file.path))
   return {
-    files: validateSourceFiles(files.filter(file => !remove.has(file.path))),
+    files: applySiteNavigation(files.filter(file => !remove.has(file.path))),
     rebuild: true,
     idempotencyKey,
   }

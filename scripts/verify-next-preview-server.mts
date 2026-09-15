@@ -4,7 +4,7 @@ import { dirname, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 import { shouldIdleNextPreviewPoll } from "../lib/siteagent/next-preview-poll.ts"
 import { NEXT_SOURCE_FILE_CONTENT_MAX, NEXT_SOURCE_FILE_COUNT_MAX, NEXT_SOURCE_FILE_COUNT_MIN, NEXT_SOURCE_PATH_ALPHABET, NEXT_SOURCE_PATH_MAX, PREVIEW_ROUTE_LIMIT, assertPreviewSiteOrigin, canFinishJob, deriveAcceptedPreviewRoutes, gatewayHost, isNextPreviewUnavailableError, nextPreviewConfig, nextPreviewFailureStatus, outputDigest, previewBasePath, safeFilePath, sourceRevisionId, validateSourceFiles, validateStaticFiles, type NextAccepted, type NextJob, type NextState } from "../lib/siteagent/server/next-preview-model.ts"
-import { classifyExplicitPageAdds, classifyExplicitPageRemoves, composeNextPageStub, executeNextPageMutation, isControllerOwnedSourcePath, mergeGeneratedSourceFiles, pagePathForRoute, parseManualPageRoute, planNextPageMutation } from "../lib/siteagent/server/next-preview-pages.ts"
+import { applySiteNavigation, classifyExplicitPageAdds, classifyExplicitPageRemoves, composeNextPageStub, composeSajtagentNav, executeNextPageMutation, isControllerOwnedSourcePath, mergeGeneratedSourceFiles, pagePathForRoute, parseManualPageRoute, planNextPageMutation, SAJTAGENT_NAV_PATH } from "../lib/siteagent/server/next-preview-pages.ts"
 import { serveAcceptedStatic, gatewayHostnameAllowed } from "../lib/siteagent/server/next-preview-gateway.ts"
 
 let checks=0
@@ -271,6 +271,38 @@ check(() => {
   })
   assert.equal(planned.rebuild, true)
   assert.ok(planned.files.some(file => file.path === "app/kontakt/page.tsx" && file.content.includes("use client")))
+  const nav = planned.files.find(file => file.path === SAJTAGENT_NAV_PATH)
+  assert.match(nav?.content ?? "", /href="\/kontakt"/)
+  assert.match(nav?.content ?? "", /href="\/"/)
+  assert.match(planned.files.find(file => file.path === "app/layout.tsx")?.content ?? "", /SajtagentNav/)
+})
+check(() => {
+  const planned = planNextPageMutation({
+    state: acceptedState,
+    sourceFiles: applySiteNavigation([...basePages, { path: "app/kontakt/page.tsx", content: composeNextPageStub("/kontakt") }]),
+    op: "remove",
+    route: "/om",
+    jobId: acceptedPages.jobId,
+    sourceRevisionId: acceptedPages.sourceRevisionId,
+  })
+  assert.equal(planned.rebuild, true)
+  assert.equal(planned.files.some(file => file.path === "app/om/page.tsx"), false)
+  assert.doesNotMatch(planned.files.find(file => file.path === SAJTAGENT_NAV_PATH)?.content ?? "", /href="\/om"/)
+  assert.match(planned.files.find(file => file.path === SAJTAGENT_NAV_PATH)?.content ?? "", /href="\/kontakt"/)
+})
+check(() => {
+  const merged = mergeGeneratedSourceFiles({
+    baseFiles: basePages,
+    generatedFiles: generatedOnlyKontakt,
+    omittedBasePaths: ["app/page.tsx", "app/om/page.tsx"],
+    prompt: "Lägg till /kontakt",
+  })
+  assert.match(merged.find(file => file.path === SAJTAGENT_NAV_PATH)?.content ?? "", /href="\/om"/)
+  assert.match(merged.find(file => file.path === SAJTAGENT_NAV_PATH)?.content ?? "", /href="\/kontakt"/)
+})
+check(() => {
+  assert.match(composeSajtagentNav(["/", "/om"]), /<Link href="\/om">Om<\/Link>/)
+  assert.match(composeSajtagentNav(["/", "/om"]), /from "next\/link"/)
 })
 check(() => assert.throws(() => planNextPageMutation({
   state: acceptedState,

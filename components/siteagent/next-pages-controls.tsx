@@ -67,7 +67,7 @@ export function NextPagesAddForm({
         <p className="text-[10px] leading-relaxed text-workflow-text-subtle">{disabledReason}</p>
       ) : (
         <p className="text-[10px] leading-relaxed text-workflow-text-subtle">
-          Adress som /kontakt. Navigation läggs till i nästa prompt eller med egna länkar.
+          Adress som /kontakt. En länkrad i sajten uppdateras med sidan.
         </p>
       )}
       {error ? <p role="alert" className="text-[10px] text-amber-800">{error}</p> : null}

@@ -48,6 +48,20 @@ check(
 )
 check(
   publicTurnFailedMessageV1({
+    code: "source_generation_failed",
+    message: "whatever",
+  }) === "Sajtagent fick ingen användbar React-källa. Försök igen.",
+  "named next-source generation failure is visible",
+)
+check(
+  publicTurnFailedMessageV1({
+    code: "invalid_generated_source",
+    message: "invalid payload https://internal.example/secret",
+  }) === "Källan gick inte att använda. Beskriv sidan tydligare eller försök igen.",
+  "invalid generated source is not treated as a contract leak",
+)
+check(
+  publicTurnFailedMessageV1({
     code: "runtime_stream_incomplete",
     message: "whatever",
   }) === RUNTIME_STREAM_FAILED_MESSAGE_V1,

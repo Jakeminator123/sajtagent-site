@@ -35,6 +35,12 @@ const SAFE_TURN_FAILED_BY_CODE_V1: Record<string, string> = {
   runtime_message_private: PRIVATE_REASONING_BLOCKED_MESSAGE_V1,
   build_join_rejected:
     "Bygget kunde inte slutföras. Ingen preview accepterades.",
+  source_generation_failed:
+    "Sajtagent fick ingen användbar React-källa. Försök igen.",
+  invalid_generated_source:
+    "Källan gick inte att använda. Beskriv sidan tydligare eller försök igen.",
+  project_busy:
+    "Ett annat bygge körs redan. Vänta och försök igen.",
   openclaw_empty_answer:
     "Sajtagent slutförde turen utan ett visningsbart svar.",
   openclaw_run_timeout: "Sajtagent nådde tidsgränsen för den här turen.",

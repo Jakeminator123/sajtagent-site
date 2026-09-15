@@ -26,6 +26,12 @@ try {
   await assert.rejects(()=>client.build(job,files,new Date().toISOString()),error => error instanceof Error && error.message==="runtime_transport_5xx");checks++
   globalThis.fetch=async ()=>new Response(null,{status:404})
   await assert.rejects(()=>client.build(job,files,new Date().toISOString()),error => error instanceof Error && error.message==="runtime_transport_4xx");checks++
+  globalThis.fetch=async ()=>Response.json({error:"source_generation_failed"},{status:422})
+  await assert.rejects(()=>client.generate({tenantId:job.tenantId,projectId:job.projectId,prompt:"A real site",baseFiles:[]}),error => error instanceof Error && error.message==="source_generation_failed");checks++
+  globalThis.fetch=async ()=>Response.json({error:"unsupported_generated_source"},{status:422})
+  await assert.rejects(()=>client.generate({tenantId:job.tenantId,projectId:job.projectId,prompt:"A real site",baseFiles:[]}),error => error instanceof Error && error.message==="invalid_generated_source");checks++
+  globalThis.fetch=async ()=>Response.json({error:"https://runtime.internal.example/secret"},{status:422})
+  await assert.rejects(()=>client.generate({tenantId:job.tenantId,projectId:job.projectId,prompt:"A real site",baseFiles:[]}),error => error instanceof Error && error.message==="runtime_transport_4xx");checks++
   globalThis.fetch=async ()=>{throw new Error("ECONNRESET https://runtime.example.com/secret")}
   await assert.rejects(()=>client.build(job,files,new Date().toISOString()),error => error instanceof Error && error.message==="runtime_transport_failed");checks++
   globalThis.fetch=async (_input,init)=>{

@@ -4,7 +4,7 @@ import { isNextPreviewUnavailableError } from "./next-preview-model.ts"
 /**
  * Closed POST /next failure reasons. HTTP mapping:
  * 500 = permanent server fault (byte verification or artifact configuration)
- * 502 = artifact deploy/upload failed, or runtime/worker rejected the job
+ * 502 = artifact deploy/upload failed, or runtime/worker/source rejected the job
  * 503 = runtime unavailable — unknown errors stay 503 without a reason
  *
  * `next_preview_unavailable` is not in this set; it remains 404 (expected-off,
@@ -17,6 +17,8 @@ export const NEXT_BUILD_FAILURE_REASONS = [
   "runtime_transport_5xx",
   "runtime_transport_failed",
   "worker_build_failed",
+  "source_generation_failed",
+  "invalid_generated_source",
   "configuration_missing",
 ] as const
 
@@ -28,6 +30,8 @@ export const NEXT_BUILD_FAILURE_STATUS = {
   artifact_deploy_failed: 502,
   runtime_transport_4xx: 502,
   worker_build_failed: 502,
+  source_generation_failed: 502,
+  invalid_generated_source: 502,
   runtime_transport_5xx: 503,
   runtime_transport_failed: 503,
 } as const satisfies Record<NextBuildFailureReason, 500 | 502 | 503>
@@ -49,7 +53,12 @@ const INTERNAL_TO_REASON = {
   invalid_static_output: "worker_build_failed",
   invalid_static_encoding: "worker_build_failed",
   invalid_next_output: "worker_build_failed",
-  source_generation_failed: "worker_build_failed",
+  source_generation_failed: "source_generation_failed",
+  invalid_generated_source: "invalid_generated_source",
+  source_generation_timeout: "runtime_transport_5xx",
+  source_job_expired: "source_generation_failed",
+  source_job_binding_conflict: "worker_build_failed",
+  source_job_terminal: "worker_build_failed",
   source_binding_mismatch: "worker_build_failed",
   preview_protection_required: "configuration_missing",
   invalid_next_runtime_config: "configuration_missing",
@@ -58,6 +67,8 @@ const INTERNAL_TO_REASON = {
 const NAMED_CLIENT = {
   project_not_found: { status: 404, error: "next_build_failed" },
   project_busy: { status: 409, error: "project_busy" },
+  source_generator_busy: { status: 409, error: "project_busy" },
+  worker_busy_or_recovery_required: { status: 409, error: "project_busy" },
   stale_source_generation: { status: 409, error: "stale_source_generation" },
   source_context_too_large: { status: 400, error: "source_context_too_large" },
 } as const

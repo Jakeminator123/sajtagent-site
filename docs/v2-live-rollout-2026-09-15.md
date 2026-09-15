@@ -26,7 +26,69 @@ inte en formatmigrering; default när Next är tillgängligt förblir `next`.
 `blocked`-stegen (`hard_timeout_kills_worker_process`,
 `runtime_restart_reopens_exact_accepted_source`,
 `cross_worker_files_and_isolated_execution`) kräver processbevis från runtime
-och en auktoriserad omstart. De kan inte passeras från Site.
+och en auktoriserad omstart. Drivern kan inte passera dem från Site; samtliga
+tre är sedan bevisade utanför drivern, se nedan och i
+[runtime-bevisen](https://github.com/Jakeminator123/sajtagent-sprites/blob/main/docs/runtime-process-evidence-2026-09-15.md).
+
+## Andra testfönstret: ny produktadress och dedikerade konton
+
+| Vad | Resultat |
+| --- | --- |
+| Produktens origin | `https://sajtagent.se`. `www` och `sajtagent-site.vercel.app` är omdirigeringar dit, inte egna origins |
+| Live-E2E på den nya adressen | **17/17 live-steg passed**, 3 `blocked`, exit 2 |
+| Testkonton | `test1@sajtagent.se` … `test9@sajtagent.se`, bekräftade, lösenordsinloggning verifierad genom `/login` |
+| Site-halvan av reopen | **Bevisad**, se nedan |
+| Next efter fönstret | `false` som en post för alla targets; Production redeployad |
+
+### Varför origin är en enda adress
+
+Appen jämför webbläsarens `Origin` mot exakt `SITEAGENT_SITE_ORIGIN`. När
+apex först fick certifikat levererade `https://sajtagent.se` hela appen medan
+varje muterande Next-route svarade `origin_denied` — sidor som ser hela ut och
+vägrar spara. Mätt live innan omdirigeringen sattes. Efter bytet gäller det
+omvända: `sajtagent-site.vercel.app` som `Origin` ger `origin_denied`, vilket
+är rätt, eftersom den adressen numera bara är en omdirigering.
+
+Observera att publicerade kundsajter ligger på `*.sites.sajtagent.se`, alltså
+**under** produktens origin. `publicationDomain()` kontrollerar bara det
+omvända förhållandet, så bytet passerar valideringen. Mätt på ett riktigt
+inloggat konto: sessionskakan är host-only på `sajtagent.se` och skickas inte
+till någon publicerad kundsajt, och ingen kaka sätts på `.sajtagent.se`.
+Kakan saknar dock `Secure` (och `HttpOnly`, vilket är avsiktligt i
+`@supabase/ssr`). HSTS på `sajtagent.se` är `max-age=63072000`, så en
+webbläsare som sett domänen en gång uppgraderar själv till HTTPS. Kvarstår:
+sätt `Secure` explicit och behåll regeln att ingen kaka får domänattribut.
+
+### Site-halvan av `runtime_restart_reopens_exact_accepted_source`
+
+Samma inloggade ägare läste sitt accepterade projekt genom produkt-API:et före
+och efter en auktoriserad omstart av `siteagent-runtime` (pid 20644 → 29746,
+`openclaw-gateway` orörd). Identiskt i båda mätningarna: `jobId`,
+`sourceRevisionId`, `previewRef`, `deploymentId`, `acceptedAt`,
+`outputSha256`, antal källkodsfiler och deras digest. `POST .../next/access`
+utfärdade fortfarande en grant (200). Runtime-halvan bevisades separat i
+Sprites #36.
+
+### Next av: verifierat på ett inloggat konto
+
+Med `SITEAGENT_NEXT_ENABLED=false` svarar `GET .../next`,
+`POST .../next/profile` och `POST .../next/access` alla **404**
+`next_preview_unavailable` för projektets ägare. Det bekräftar live att
+access-routens klassificering i [#45](https://github.com/Jakeminator123/sajtagent-site/pull/45)
+fungerar: före den fixen gav samma anrop 403 `preview_access_denied` och såg
+ut som ett nekande i stället för en avstängd funktion.
+
+### Testkonton
+
+Nio konton, `test1@sajtagent.se` … `test9@sajtagent.se`, skapade direkt i
+`auth.users` med bcrypt-hash, bekräftad e-post, `email`-identitet och samma
+metadataform som befintliga konton. De ersätter operatörens riktiga
+brevlådor i `V2_E2E_*`. Lösenordet är gemensamt och finns bara i den ignorerade
+`.env.rollout.local` och i databasen. **Dessa konton är laborationskonton och
+får aldrig återanvändas för något verkligt.** Magiska länkar till den nya
+adressen kräver att `https://sajtagent.se/auth/callback` finns i Supabase
+Auth:s redirect-lista; lösenordsinloggning berörs inte och är den väg drivern
+använder.
 
 ## Rotorsaker som hittades
 
@@ -102,7 +164,7 @@ fel. Med Next av ska `real_next_build_accepted` falla med
 Snabbkontroller utan E2E:
 
 ```powershell
-curl.exe -s -o NUL -w "%{http_code}`n" https://sajtagent-site.vercel.app/
+curl.exe -s -o NUL -w "%{http_code}`n" https://sajtagent.se/
 curl.exe -s -o NUL -L -w "%{http_code} %{url_effective}`n" https://<hash>.sites.sajtagent.se/
 npm run check:next-preview; npm run check:next-publication
 ```

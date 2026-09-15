@@ -37,6 +37,12 @@ generated lockfile, so it is not a promise of a byte-identical rebuild.
 1. Site authenticates the owner and selects project, job, revision, preview ref.
    `POST /api/siteagent/projects/:id/next` receives `{prompt}` or `{files:[{path,content}]}`;
    browser input never selects a worker, tenant, job or revision.
+   Source limits mirror Sprites `NextBuildRequestV2Schema` and must change with it:
+   path alphabet `^[A-Za-z0-9_@.()[\] /-]+$`, max 240 chars, per-file content
+   512 KiB, Site file count 2–250 (stricter than the controller's 1–256), plus
+   Site-only leading-dot / duplicate / bundle-ceiling checks. Named 400 codes
+   (`invalid_source_path`, `invalid_source_file_size`, `invalid_source_count`,
+   `invalid_source_bundle`) never echo file contents.
    Prompt mode first calls signed `/v2/next-source`: the existing OpenClaw
    conversation provider has all tools denied and returns JSON source only.
    Preparation has a distinct job ID; the final build revision is never changed.
@@ -58,9 +64,13 @@ generated lockfile, so it is not a promise of a byte-identical rebuild.
    metadata, original anonymous URL denial and every deployed static file byte.
    Missing deployment protection fails closed, never produces accepted state.
 5. Postgres row lock compares current job/project/revision/ref, active building
-   status and lifetime. Only server `begin` can change job ID. Failures, explicit
-   cancel, aborted HTTP request, timeout and stale responses keep accepted data.
-   The remaining A old-failure regression is covered in the server checker.
+   status and lifetime. Only server `begin` can change job ID. Failures persist
+   the same allowlisted `reason` on `current.failureCode`; unknown errors keep
+   `build_or_verification_failed`. Explicit cancel, aborted HTTP request,
+   timeout and stale responses keep accepted data. Chat marks a Next failure
+   retryable only for transient runtime unavailability (`runtime_transport_5xx`
+   / `runtime_transport_failed` / unknown 503), not for 500/502. The remaining
+   A old-failure regression is covered in the server checker.
 6. The accepted source and output are durable in `next_preview_states`. Source
    reopening does not require a living Runtime process. V1 tables are untouched.
 
@@ -72,8 +82,11 @@ gateway hosts `proxy.ts` blocks every Site/UI/auth/API/asset route except the
 two gateway routes, including `_next`, images and extensions.
 
 - Site POST `/projects/:id/next/access` requires the configured Site Origin and
-  current owner Supabase claims/session. It mints an opaque, one-use 60-second
-  grant in DB; never a Supabase or Vercel token.
+  current owner Supabase claims/session. Next disabled or incomplete config is
+  404 `next_preview_unavailable` (same as #37), not 403. A genuine grant denial
+  stays 403 `preview_access_denied`. Malformed/oversized binding bodies are
+  400/413. Persistence failures are 503 `preview_access_unavailable`. It mints
+  an opaque, one-use 60-second grant in DB; never a Supabase or Vercel token.
 - The Builder form POSTs that grant into the iframe. Gateway exchanges it for a
   15-minute `__Host-` HttpOnly Secure SameSite=None Partitioned cookie. Browser
   support for partitioned cookies must be exercised in live browser smoke.

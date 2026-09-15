@@ -1,6 +1,11 @@
 import assert from "node:assert/strict"
+import { readFileSync } from "node:fs"
+import { dirname, resolve } from "node:path"
+import { fileURLToPath } from "node:url"
 import type { Pool } from "pg"
+import { ZodError } from "zod"
 import { NextPreviewAccessBindingSchema, previewGrantHash, matchesPreviewAccessBinding } from "../lib/siteagent/server/next-preview-access-binding.ts"
+import { nextAccessFailureResponse } from "../lib/siteagent/server/next-preview-failure.ts"
 import { PostgresNextPreviewRepository } from "../lib/siteagent/server/next-preview-repository.ts"
 import type { NextAccepted } from "../lib/siteagent/server/next-preview-model.ts"
 
@@ -59,4 +64,22 @@ assert.ok(await repo.exchangeGrant(legacy, "project.preview.example"), "bodyless
 assert.notEqual(previewGrantHash("token", binding), previewGrantHash("token"))
 assert.equal(matchesPreviewAccessBinding(accepted, binding), false)
 assert.equal(NextPreviewAccessBindingSchema.safeParse({ ...binding, sourceRevisionId: "wrong" }).success, false)
-console.log("Next preview access: bound one-use grants, stale acceptance denial and legacy compatibility pass (mock SQL; not live browser/DB)")
+
+assert.deepEqual(nextAccessFailureResponse(new Error("next_preview_unavailable")), { status: 404, body: { error: "next_preview_unavailable" } })
+assert.deepEqual(nextAccessFailureResponse(new Error("preview_access_denied")), { status: 403, body: { error: "preview_access_denied" } })
+assert.deepEqual(nextAccessFailureResponse(new Error("payload_too_large")), { status: 413, body: { error: "payload_too_large" } })
+assert.deepEqual(nextAccessFailureResponse(new ZodError([])), { status: 400, body: { error: "invalid_access_binding" } })
+assert.deepEqual(nextAccessFailureResponse(new Error("persistence_unavailable")), { status: 503, body: { error: "preview_access_unavailable" } })
+const leaked = nextAccessFailureResponse(new Error("Bearer grant token https://host.preview.example"))
+assert.equal(JSON.stringify(leaked).includes("Bearer"), false)
+assert.equal(JSON.stringify(leaked).includes("preview.example"), false)
+
+const accessRoute = readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), "../app/api/siteagent/projects/[projectId]/next/access/route.ts"), "utf8")
+assert.match(accessRoute, /nextAccessFailureResponse\(error\)/)
+assert.match(accessRoute, /content-length/)
+assert.match(accessRoute, /transfer-encoding/)
+assert.match(accessRoute, /error:"origin_denied"/)
+assert.match(accessRoute, /error:"unauthenticated"/)
+assert.doesNotMatch(accessRoute, /catch \{ return Response\.json\(\{error:"preview_access_denied"\}/)
+assert.doesNotMatch(accessRoute, /error\.message/)
+console.log("Next preview access: bound one-use grants, stale acceptance denial, classified access failures and legacy compatibility pass (mock SQL; not live browser/DB)")

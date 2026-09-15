@@ -63,8 +63,31 @@ const NAMED_CLIENT = {
 } as const
 
 export type NextBuildFailureBody = {
-  error: "next_preview_unavailable" | "next_build_failed" | "project_busy" | "source_context_too_large" | "stale_source_generation"
+  error: "next_preview_unavailable" | "next_build_failed" | "project_busy" | "source_context_too_large" | "stale_source_generation" |
+    "invalid_source_path" | "invalid_source_file_size" | "invalid_source_bundle" | "invalid_source_count"
   reason?: NextBuildFailureReason
+}
+
+const NAMED_SOURCE_ERRORS = [
+  "invalid_source_path",
+  "invalid_source_file_size",
+  "invalid_source_bundle",
+  "invalid_source_count",
+] as const
+
+export type NextAccessFailureBody = {
+  error: "next_preview_unavailable" | "preview_access_denied" | "invalid_access_binding" | "payload_too_large" | "preview_access_unavailable"
+}
+
+function namedSourceZodConstraint(error: z.ZodError): NextBuildFailureBody["error"] | null {
+  for (const issue of error.issues) {
+    if (issue.path.includes("content") && issue.code === "too_big") return "invalid_source_file_size"
+    if (issue.path[0] === "files" && issue.path.length === 1 && (issue.code === "too_big" || issue.code === "too_small")) {
+      return "invalid_source_count"
+    }
+    if (issue.path.includes("path")) return "invalid_source_path"
+  }
+  return null
 }
 
 export function isNextBuildFailureReason(value: string): value is NextBuildFailureReason {
@@ -77,15 +100,47 @@ export function nextBuildFailureResponse(error: unknown): { status: number; body
     return { status: 404, body: { error: "next_preview_unavailable" } }
   }
   if (error instanceof z.ZodError) {
-    return { status: 400, body: { error: "next_build_failed" } }
+    const source = namedSourceZodConstraint(error)
+    return { status: 400, body: { error: source ?? "next_build_failed" } }
   }
   const code = error instanceof Error ? error.message : ""
   const named = Object.hasOwn(NAMED_CLIENT, code) ? NAMED_CLIENT[code as keyof typeof NAMED_CLIENT] : undefined
   if (named) return { status: named.status, body: { error: named.error } }
-  if (code.startsWith("invalid_source")) return { status: 400, body: { error: "next_build_failed" } }
+  if ((NAMED_SOURCE_ERRORS as readonly string[]).includes(code)) {
+    return { status: 400, body: { error: code as (typeof NAMED_SOURCE_ERRORS)[number] } }
+  }
+  if (code.startsWith("invalid_source")) return { status: 400, body: { error: "invalid_source_path" } }
   if (Object.hasOwn(INTERNAL_TO_REASON, code)) {
     const reason = INTERNAL_TO_REASON[code as keyof typeof INTERNAL_TO_REASON]
     return { status: NEXT_BUILD_FAILURE_STATUS[reason], body: { error: "next_build_failed", reason } }
   }
   return { status: 503, body: { error: "next_build_failed" } }
+}
+
+/** Persist only the closed POST /next reason set. Unknown errors keep the generic code. */
+export function persistedNextFailureCode(error: unknown): string {
+  const reason = nextBuildFailureResponse(error).body.reason
+  return reason && isNextBuildFailureReason(reason) ? reason : "build_or_verification_failed"
+}
+
+/** Retry only when the identical request might succeed after a transient runtime outage. */
+export function isRetryableNextFailure(mapped: { status: number; body: NextBuildFailureBody }): boolean {
+  return mapped.body.reason === "runtime_transport_5xx" ||
+    mapped.body.reason === "runtime_transport_failed" ||
+    (mapped.status === 503 && mapped.body.error === "next_build_failed" && mapped.body.reason === undefined)
+}
+
+/** Safe access-route body. Never echoes `error.message`, grants, hostnames or tokens. */
+export function nextAccessFailureResponse(error: unknown): { status: number; body: NextAccessFailureBody } {
+  if (isNextPreviewUnavailableError(error)) {
+    return { status: 404, body: { error: "next_preview_unavailable" } }
+  }
+  if (error instanceof z.ZodError) {
+    return { status: 400, body: { error: "invalid_access_binding" } }
+  }
+  const code = error instanceof Error ? error.message : ""
+  if (code === "payload_too_large") return { status: 413, body: { error: "payload_too_large" } }
+  if (code === "invalid_json") return { status: 400, body: { error: "invalid_access_binding" } }
+  if (code === "preview_access_denied") return { status: 403, body: { error: "preview_access_denied" } }
+  return { status: 503, body: { error: "preview_access_unavailable" } }
 }

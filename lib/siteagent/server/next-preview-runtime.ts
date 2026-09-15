@@ -15,6 +15,8 @@ const NAMED_RUNTIME_ERRORS = new Set([
   "source_job_binding_conflict",
   "source_job_terminal",
   "source_context_too_large",
+  "unsupported_package",
+  "invalid_package",
 ])
 
 /** Closed runtime `{error}` codes only. Never echo an arbitrary body. */

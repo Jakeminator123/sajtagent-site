@@ -22,6 +22,8 @@ function pagesMutationError(status: number, code: string): string {
   if (code === "home_page_reserved") return "Startsidan / kan inte tas bort."
   if (code === "invalid_page_route") return "Ogiltig sidadress. Använd /namn med a-z, 0-9 och bindestreck."
   if (code === "accepted_source_not_found") return "Ingen accepterad React-sajt att ändra ännu."
+  if (code === "unsupported_package") return "Det paketet är inte tillåtet. Sajtagent kan använda Next, React, TypeScript, clsx och lucide-react."
+  if (code === "invalid_package") return "package.json gick inte att använda. Sajtagent styr beroenden själv."
   return "Sidan kunde inte ändras. Den senaste verifierade versionen behålls."
 }
 

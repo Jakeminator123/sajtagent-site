@@ -39,6 +39,10 @@ const SAFE_TURN_FAILED_BY_CODE_V1: Record<string, string> = {
     "Sajtagent fick ingen användbar React-källa. Försök igen.",
   invalid_generated_source:
     "Källan gick inte att använda. Beskriv sidan tydligare eller försök igen.",
+  unsupported_package:
+    "Det paketet är inte tillåtet. Sajtagent kan använda Next, React, TypeScript, clsx och lucide-react.",
+  invalid_package:
+    "package.json gick inte att använda. Sajtagent styr beroenden själv.",
   project_busy:
     "Ett annat bygge körs redan. Vänta och försök igen.",
   openclaw_empty_answer:

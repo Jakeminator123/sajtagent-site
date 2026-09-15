@@ -30,6 +30,10 @@ try {
   await assert.rejects(()=>client.generate({tenantId:job.tenantId,projectId:job.projectId,prompt:"A real site",baseFiles:[]}),error => error instanceof Error && error.message==="source_generation_failed");checks++
   globalThis.fetch=async ()=>Response.json({error:"unsupported_generated_source"},{status:422})
   await assert.rejects(()=>client.generate({tenantId:job.tenantId,projectId:job.projectId,prompt:"A real site",baseFiles:[]}),error => error instanceof Error && error.message==="invalid_generated_source");checks++
+  globalThis.fetch=async ()=>Response.json({error:"unsupported_package"},{status:400})
+  await assert.rejects(()=>client.generate({tenantId:job.tenantId,projectId:job.projectId,prompt:"A real site",baseFiles:[]}),error => error instanceof Error && error.message==="unsupported_package");checks++
+  globalThis.fetch=async ()=>Response.json({error:"invalid_package"},{status:400})
+  await assert.rejects(()=>client.build(job,files,new Date().toISOString()),error => error instanceof Error && error.message==="invalid_package");checks++
   globalThis.fetch=async ()=>Response.json({error:"https://runtime.internal.example/secret"},{status:422})
   await assert.rejects(()=>client.generate({tenantId:job.tenantId,projectId:job.projectId,prompt:"A real site",baseFiles:[]}),error => error instanceof Error && error.message==="runtime_transport_4xx");checks++
   globalThis.fetch=async ()=>{throw new Error("ECONNRESET https://runtime.example.com/secret")}

@@ -71,11 +71,14 @@ const NAMED_CLIENT = {
   worker_busy_or_recovery_required: { status: 409, error: "project_busy" },
   stale_source_generation: { status: 409, error: "stale_source_generation" },
   source_context_too_large: { status: 400, error: "source_context_too_large" },
+  unsupported_package: { status: 400, error: "unsupported_package" },
+  invalid_package: { status: 400, error: "invalid_package" },
 } as const
 
 export type NextBuildFailureBody = {
   error: "next_preview_unavailable" | "next_build_failed" | "project_busy" | "source_context_too_large" | "stale_source_generation" |
-    "invalid_source_path" | "invalid_source_file_size" | "invalid_source_bundle" | "invalid_source_count"
+    "invalid_source_path" | "invalid_source_file_size" | "invalid_source_bundle" | "invalid_source_count" |
+    "unsupported_package" | "invalid_package"
   reason?: NextBuildFailureReason
 }
 

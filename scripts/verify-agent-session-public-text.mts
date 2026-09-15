@@ -62,6 +62,20 @@ check(
 )
 check(
   publicTurnFailedMessageV1({
+    code: "unsupported_package",
+    message: "whatever",
+  }) === "Det paketet är inte tillåtet. Sajtagent kan använda Next, React, TypeScript, clsx och lucide-react.",
+  "blocked package imports stay named and visible",
+)
+check(
+  publicTurnFailedMessageV1({
+    code: "invalid_package",
+    message: "invalid package.json https://internal.example/secret",
+  }) === "package.json gick inte att använda. Sajtagent styr beroenden själv.",
+  "invalid package.json is not treated as a contract leak",
+)
+check(
+  publicTurnFailedMessageV1({
     code: "runtime_stream_incomplete",
     message: "whatever",
   }) === RUNTIME_STREAM_FAILED_MESSAGE_V1,

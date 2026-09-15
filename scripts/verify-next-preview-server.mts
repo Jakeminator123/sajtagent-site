@@ -148,6 +148,7 @@ check(() => assert.match(profileRoute, /nextPreviewConfig\(\)/))
 check(() => assert.match(profileRoute, /setProfilePreference/))
 check(() => assert.match(nextProject, /setProfilePreference/))
 check(() => assert.match(nextProject, /\/next\/profile/))
+check(() => assert.match(nextProject, /code === "unsupported_package"/))
 
 const basePages = [
   { path: "package.json", content: '{"dependencies":{"next":"16.3.3"}}' },

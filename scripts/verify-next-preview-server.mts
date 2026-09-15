@@ -419,6 +419,27 @@ check(() => {
     /unsupported_package/,
   )
 })
+check(() => {
+  const pinned = applyAcceptedPackageManifest([
+    { path: "app/page.tsx", content: "'use client';import Menu from \"lucide-react/icons/menu\";export default function Page(){return <Menu/>}" },
+    { path: "app/layout.tsx", content: "export default function Layout({children}:{children:React.ReactNode}){return children}" },
+  ])
+  assert.equal(JSON.parse(pinned.find(file => file.path === "package.json")?.content ?? "{}").dependencies["lucide-react"], NEXT_OPTIONAL_PACKAGES["lucide-react"])
+})
+check(() => {
+  const pinned = applyAcceptedPackageManifest([
+    { path: "app/page.tsx", content: "'use client';import \"clsx\";export default function Page(){return null}" },
+    { path: "app/layout.tsx", content: "export default function Layout({children}:{children:React.ReactNode}){return children}" },
+  ])
+  assert.equal(JSON.parse(pinned.find(file => file.path === "package.json")?.content ?? "{}").dependencies.clsx, NEXT_OPTIONAL_PACKAGES.clsx)
+})
+check(() => {
+  const pinned = applyAcceptedPackageManifest([
+    { path: "app/page.tsx", content: "// import lodash from \"lodash\"\nexport default function Page(){return null}" },
+    { path: "app/layout.tsx", content: "export default function Layout({children}:{children:React.ReactNode}){return children}" },
+  ])
+  assert.equal(JSON.parse(pinned.find(file => file.path === "package.json")?.content ?? "{}").dependencies.lodash, undefined)
+})
 check(() => assert.deepEqual(listedPageRoutes(basePages), ["/", "/om"]))
 check(() => assert.deepEqual(
   ownerAcceptedPageRoutes(
@@ -468,6 +489,7 @@ check(() => assert.match(pagesRoute, /getAcceptedSource/))
 check(() => assert.doesNotMatch(pagesRoute, /body\.files/))
 check(() => assert.match(serviceSource, /mergeGeneratedSourceFiles/))
 check(() => assert.match(serviceSource, /applyAcceptedPackageManifest/))
+check(() => assert.match(readFileSync(resolve(here, "../lib/siteagent/server/next-preview-packages.ts"), "utf8"), /collectBareSpecifiers/))
 check(() => assert.match(serviceSource, /mutateNextPreviewPages/))
 check(() => assert.match(serviceSource, /mutateNextPreviewPagesFromPrompt/))
 const joinSource = readFileSync(resolve(here, "../lib/siteagent/server/agent-turn-build-join.ts"), "utf8")

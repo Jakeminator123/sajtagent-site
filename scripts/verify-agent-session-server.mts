@@ -594,8 +594,9 @@ check(
     failedBuild.events.some(
       (event) =>
         event.type === "turn.failed" &&
+        event.payload.code === "runtime_unavailable" &&
         event.payload.message ===
-          "Bygget kunde inte slutföras. Ingen preview accepterades.",
+          "Sajtagentens privata runtime är inte ansluten. Inget svar eller bygge simulerades.",
     ) &&
     !JSON.stringify(failedBuild.events).includes("private runtime failure"),
   "a failed BuildJob closes the tool without minting preview.ready",
@@ -2129,6 +2130,29 @@ for (const failureMode of ["before-start", "after-start", "wrong-job", "throws-a
     !failedNext.events.some(event => event.type === "next.preview.ready" || event.type === "preview.ready" || event.type === "turn.completed"),
     `${failureMode}: Next failure cannot claim a preview or strand the turn after build.started`)
 }
+const namedSourceFailCoordinator: AgentTurnBuildCoordinatorV1 = {
+  plan: nextCoordinator.plan,
+  async run(input) {
+    await input.onStarted?.({ job: { jobId: "job:next-source-fail", createdAt: buildVerifiedAt } })
+    return {
+      kind: "next", record: null, httpStatus: 502, nextResult: null,
+      failure: { code: "invalid_generated_source", retryable: false, failedAt: buildVerifiedAt },
+    }
+  },
+}
+const namedSourceFail = await startAgentTurnV1({
+  ...nextRequest, turnId: "turn:next-invalid-source01", idempotencyKey: "idem:next-invalid-source",
+}, principal, { ...nextDeps, buildCoordinator: namedSourceFailCoordinator })
+check(
+  namedSourceFail.kind === "created" &&
+    namedSourceFail.events.some(event =>
+      event.type === "turn.failed" &&
+      event.payload.code === "invalid_generated_source" &&
+      event.payload.message === "Källan gick inte att använda. Beskriv sidan tydligare eller försök igen."
+    ) &&
+    !namedSourceFail.events.some(event => event.type === "next.preview.ready"),
+  "a named next-source 4xx is shown instead of the generic preview-rejected line",
+)
 const allNextHistory = await nextRepository.readEvents(principal, nextSession.session.sessionId, 0)
 check(allNextHistory.kind === "found" && validateAgentSessionHistoryV1(allNextHistory.events).success,
   "mixed Next success, answer and failures persist replayable session-global sequences")

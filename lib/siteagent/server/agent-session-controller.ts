@@ -451,6 +451,7 @@ async function* completeBuildHandoff(
         artifacts: [],
       },
     })
+    const failedCode = buildResult?.code ?? nextFailure?.code ?? "build_join_rejected"
     append({
       schemaVersion: 1,
       sessionId: record.request.sessionId,
@@ -458,8 +459,11 @@ async function* completeBuildHandoff(
       occurredAt: failedAt,
       type: "turn.failed",
       payload: {
-        code: buildResult?.code ?? nextFailure?.code ?? "build_join_rejected",
-        message: "Bygget kunde inte slutföras. Ingen preview accepterades.",
+        code: failedCode,
+        message: publicTurnFailedMessageV1({
+          code: failedCode,
+          message: "Bygget kunde inte slutföras. Ingen preview accepterades.",
+        }),
         retryable: buildResult?.retryable ?? nextFailure?.retryable ?? result.httpStatus >= 500,
       },
     })

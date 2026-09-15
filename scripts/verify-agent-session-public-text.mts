@@ -78,6 +78,13 @@ check(
 )
 check(
   publicTurnFailedMessageV1({
+    code: "workspace_revision_unavailable",
+    message: "Next-CAS-objektet saknas för den signerade revisionen.",
+  }) === "Sajtagent kunde inte läsa projektfilerna för den här turen.",
+  "a missing project snapshot stays a short Swedish failure",
+)
+check(
+  publicTurnFailedMessageV1({
     code: "runtime_stream_incomplete",
     message: "whatever",
   }) === RUNTIME_STREAM_FAILED_MESSAGE_V1,

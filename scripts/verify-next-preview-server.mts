@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url"
 import { shouldIdleNextPreviewPoll } from "../lib/siteagent/next-preview-poll.ts"
 import { NEXT_SOURCE_FILE_CONTENT_MAX, NEXT_SOURCE_FILE_COUNT_MAX, NEXT_SOURCE_FILE_COUNT_MIN, NEXT_SOURCE_PATH_ALPHABET, NEXT_SOURCE_PATH_MAX, PREVIEW_ROUTE_LIMIT, assertPreviewSiteOrigin, canFinishJob, deriveAcceptedPreviewRoutes, gatewayHost, isNextPreviewUnavailableError, nextPreviewConfig, nextPreviewFailureStatus, outputDigest, previewBasePath, safeFilePath, sourceRevisionId, validateSourceFiles, validateStaticFiles, type NextAccepted, type NextJob, type NextState } from "../lib/siteagent/server/next-preview-model.ts"
 import { applyPageOnlyMutations, applySiteNavigation, classifyExplicitPageAdds, classifyExplicitPageRemoves, classifyPageOnlyMutations, composeNextPageStub, composeSajtagentNav, executeNextPageMutation, isControllerOwnedSourcePath, listedPageRoutes, mergeGeneratedSourceFiles, modelVisibleBaseFiles, pagePathForRoute, parseManualPageRoute, planNextPageMutation, SAJTAGENT_NAV_PATH } from "../lib/siteagent/server/next-preview-pages.ts"
+import { applyAcceptedPackageManifest, NEXT_OPTIONAL_PACKAGES } from "../lib/siteagent/server/next-preview-packages.ts"
 import { ownerAcceptedPageRoutes } from "../lib/siteagent/server/agent-build-profile.ts"
 import { serveAcceptedStatic, gatewayHostnameAllowed } from "../lib/siteagent/server/next-preview-gateway.ts"
 
@@ -367,6 +368,33 @@ check(() => assert.throws(() => planNextPageMutation({
   jobId: acceptedPages.jobId,
   sourceRevisionId: acceptedPages.sourceRevisionId,
 }), /invalid_page_route/))
+check(() => {
+  const merged = mergeGeneratedSourceFiles({
+    baseFiles: [
+      ...basePages,
+      { path: "app/om/page.tsx", content: 'import { Menu } from "lucide-react"\nexport default function Om(){return <Menu />}' },
+    ],
+    generatedFiles: generatedOnlyKontakt,
+    omittedBasePaths: ["app/page.tsx", "app/om/page.tsx"],
+    prompt: "Lägg till /kontakt",
+  })
+  const pinned = applyAcceptedPackageManifest(merged)
+  const manifest = JSON.parse(pinned.find(file => file.path === "package.json")?.content ?? "{}")
+  assert.equal(merged.some(file => file.path === "app/om/page.tsx" && file.content.includes("lucide-react")), true)
+  assert.equal(JSON.parse(merged.find(file => file.path === "package.json")?.content ?? "{}").dependencies["lucide-react"], undefined)
+  assert.equal(manifest.dependencies["lucide-react"], NEXT_OPTIONAL_PACKAGES["lucide-react"])
+  assert.equal(manifest.dependencies.clsx, undefined)
+  assert.equal(manifest.dependencies.next, "16.3.3")
+})
+check(() => {
+  assert.throws(
+    () => applyAcceptedPackageManifest([
+      { path: "app/page.tsx", content: 'import lodash from "lodash"\nexport default function Page(){return null}' },
+      { path: "app/layout.tsx", content: "export default function Layout({children}:{children:React.ReactNode}){return children}" },
+    ]),
+    /unsupported_package/,
+  )
+})
 check(() => assert.deepEqual(listedPageRoutes(basePages), ["/", "/om"]))
 check(() => assert.deepEqual(
   ownerAcceptedPageRoutes(
@@ -415,6 +443,7 @@ check(() => assert.match(pagesRoute, /nextPreviewOwnerReadModel/))
 check(() => assert.match(pagesRoute, /getAcceptedSource/))
 check(() => assert.doesNotMatch(pagesRoute, /body\.files/))
 check(() => assert.match(serviceSource, /mergeGeneratedSourceFiles/))
+check(() => assert.match(serviceSource, /applyAcceptedPackageManifest/))
 check(() => assert.match(serviceSource, /mutateNextPreviewPages/))
 check(() => assert.match(serviceSource, /mutateNextPreviewPagesFromPrompt/))
 const joinSource = readFileSync(resolve(here, "../lib/siteagent/server/agent-turn-build-join.ts"), "utf8")

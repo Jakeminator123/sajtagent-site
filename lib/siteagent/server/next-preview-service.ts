@@ -6,6 +6,7 @@ import { NextRuntimeClient } from "./next-preview-runtime.ts"
 import { StaticNextDeployer } from "./next-preview-deployer.ts"
 import { nextPreviewConfig, sourceRevisionId, validateSourceFiles, type NextJob, type NextState, type SourceFile } from "./next-preview-model.ts"
 import { persistedNextFailureCode } from "./next-preview-failure.ts"
+import { applyAcceptedPackageManifest } from "./next-preview-packages.ts"
 import { applyPageOnlyMutations, executeNextPageMutation, mergeGeneratedSourceFiles, modelVisibleBaseFiles, type NextPageMutationRequest, type PageOnlyMutation } from "./next-preview-pages.ts"
 
 export { nextPreviewConfig } from "./next-preview-model.ts"
@@ -26,7 +27,7 @@ export type NextPreviewBuildObserver = {
 export async function buildNextPreview(principal: BuildPrincipalV1, projectId: string, input: SourceFile[], abort?: AbortSignal, expectedAcceptedJobId?: string | null, observer?: NextPreviewBuildObserver): Promise<NextState | null> {
   const config = nextPreviewConfig()
   const repo = await nextPreviewRepository()
-  const files = validateSourceFiles(input)
+  const files = validateSourceFiles(applyAcceptedPackageManifest(input))
   const createdAt = new Date().toISOString()
   const deadline = Math.min(Date.parse(createdAt)+600_000, observer?.deadlineAt ? Date.parse(observer.deadlineAt) : Infinity)
   if (!Number.isFinite(deadline) || deadline - Date.parse(createdAt) <= 120_000) throw new Error("turn_deadline_exceeded")

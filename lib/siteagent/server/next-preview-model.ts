@@ -97,7 +97,7 @@ export function validateSourceFiles(files: SourceFile[]): SourceFile[] {
     names.add(file.path)
     bytes += Buffer.byteLength(file.content)
   }
-  // Runtime C owns the fixed build package. Generated source intentionally omits it.
+  // Runtime owns the toolchain. Site rewrites package.json from the merged source.
   if (bytes > NEXT_SOURCE_BUNDLE_MAX) throw new Error("invalid_source_bundle")
   return parsed.sort((a, b) => a.path < b.path ? -1 : a.path > b.path ? 1 : 0)
 }

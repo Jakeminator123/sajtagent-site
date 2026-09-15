@@ -60,6 +60,8 @@ const SAFE_TURN_FAILED_BY_CODE_V1: Record<string, string> = {
     "Det paketet är inte tillåtet. Sajtagent kan använda Next, React, TypeScript, clsx och lucide-react.",
   invalid_package:
     "package.json gick inte att använda. Sajtagent styr beroenden själv.",
+  workspace_revision_unavailable:
+    "Sajtagent kunde inte läsa projektfilerna för den här turen.",
   project_busy:
     "Ett annat bygge körs redan. Vänta och försök igen.",
   openclaw_empty_answer:

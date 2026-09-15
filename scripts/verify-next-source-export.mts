@@ -82,6 +82,25 @@ const pkg = JSON.parse(entries.get("package.json")!)
 assert.deepEqual(pkg.dependencies, { next: "16.3.3", react: "19.2.3", "react-dom": "19.2.3" })
 assert.deepEqual(pkg.devDependencies, { typescript: "5.7.3", "@types/react": "19.2.2", "@types/node": "22.19.1" })
 assert.deepEqual(pkg.scripts, { dev: "next dev", build: "next build" })
+const lucideFiles: SourceFile[] = [
+  { path: "app/layout.tsx", content: files[0].content },
+  { path: "app/page.tsx", content: 'import { Menu } from "lucide-react"; export default function Page(){return <Menu />}' },
+  { path: "package.json", content: '{"dependencies":{"next":"16.3.3"}}' },
+]
+const lucideAccepted = {
+  ...accepted,
+  jobId: "job:lucide",
+  sourceRevisionId: sourceRevisionId(principal.tenantId, projectId, lucideFiles),
+}
+row = { accepted: lucideAccepted, accepted_source_files: lucideFiles }
+const lucideArchive = await createAcceptedNextSourceArchive(pool, principal, projectId, {
+  sourceRevisionId: lucideAccepted.sourceRevisionId,
+  jobId: lucideAccepted.jobId,
+})
+const lucidePkg = JSON.parse(unzip(lucideArchive.bytes).get("package.json")!)
+assert.equal(lucidePkg.dependencies["lucide-react"], "1.45.0")
+assert.deepEqual(lucidePkg.scripts, { dev: "next dev", build: "next build" })
+row = { accepted, accepted_source_files: files }
 assert.doesNotMatch(entries.get("next.config.mjs")!, /basePath|previewRef|SITEAGENT|https:/)
 assert.match(entries.get("next.config.mjs")!, /"output": "export"/)
 assert.doesNotMatch(Buffer.from(archive.bytes).toString(), /private-artifact\.example\.test|compiled output/)

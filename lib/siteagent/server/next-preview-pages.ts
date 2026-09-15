@@ -13,7 +13,26 @@ export const NEXT_PAGE_ROUTE_PATTERN = new RegExp(`^\\/(?:${PAGE_ROUTE_BODY})?$`
 const PAGE_FILE_PATTERN = new RegExp(`^app\\/(?:(${PAGE_ROUTE_BODY})\\/)?page\\.(tsx|jsx|js)$`)
 const CONTROLLER_OWNED_SOURCE_PATH = /(^|\/)(next\.config\.[^/]+|package(-lock)?\.json|npm-shrinkwrap\.json|yarn\.lock|pnpm-lock\.yaml|\.npmrc)$/
 const HOME_PAGE_PATHS = new Set(["app/page.tsx", "app/page.jsx", "app/page.js"])
+const ADD_VERB = /(?:lägg\s+till|skapa|add)\b/i
 const REMOVE_VERB = /(?:ta\s+bort|radera|släng|remove|delete)/i
+const RESERVED_ADD_SLUGS = new Set(["start", "hem", "home", "index", "startsida"])
+
+function lastMatchIndex(pattern: RegExp, text: string): number {
+  const global = new RegExp(pattern.source, pattern.flags.includes("g") ? pattern.flags : `${pattern.flags}g`)
+  let last = -1
+  for (const match of text.matchAll(global)) {
+    if (match.index !== undefined) last = match.index
+  }
+  return last
+}
+
+function nearestPageVerb(prompt: string, index: number): "add" | "remove" | null {
+  const before = prompt.slice(Math.max(0, index - 80), index)
+  const addAt = lastMatchIndex(ADD_VERB, before)
+  const removeAt = lastMatchIndex(REMOVE_VERB, before)
+  if (addAt < 0 && removeAt < 0) return null
+  return addAt >= removeAt ? "add" : "remove"
+}
 
 export const NextPageMutationRequestSchema = z.object({
   op: z.enum(["add", "remove"]),
@@ -90,10 +109,50 @@ function bindNamedPage(name: string, pages: Map<string, SourceFile[]>): string |
 }
 
 function clauseHasRemoveVerb(prompt: string, index: number): boolean {
-  const start = Math.max(0, index - 80)
-  const before = prompt.slice(start, index)
-  if (/(?:lägg\s+till|add|skapa)\s+$/i.test(before)) return false
-  return REMOVE_VERB.test(before)
+  return nearestPageVerb(prompt, index) === "remove"
+}
+
+function clauseHasAddVerb(prompt: string, index: number): boolean {
+  return nearestPageVerb(prompt, index) === "add"
+}
+
+function explicitAddRoute(token: string): string | null {
+  const route = token.startsWith("/") ? token.toLowerCase() : `/${token.toLowerCase()}`
+  if (route === "/") return null
+  const slug = route.slice(1).split("/").at(-1) ?? ""
+  if (RESERVED_ADD_SLUGS.has(slug)) return null
+  try {
+    return parseManualPageRoute(route)
+  } catch {
+    return null
+  }
+}
+
+/** Fail-closed: only explicit `/route` or a unique `sidan`-bind. Never `/`. */
+export function classifyExplicitPageAdds(prompt: string, baseFiles: readonly SourceFile[]): string[] {
+  if (!ADD_VERB.test(prompt)) return []
+  const pages = pagesByRoute(baseFiles)
+  const routes = new Set<string>()
+
+  for (const match of prompt.matchAll(new RegExp(`\\/${PAGE_ROUTE_BODY}`, "gi"))) {
+    if (match.index === undefined || !clauseHasAddVerb(prompt, match.index)) continue
+    const route = explicitAddRoute(match[0])
+    if (route && !pages.has(route)) routes.add(route)
+  }
+
+  for (const match of prompt.matchAll(new RegExp(`\\b(${PAGE_SEGMENT})-?sidan?\\b`, "gi"))) {
+    if (match.index === undefined || !clauseHasAddVerb(prompt, match.index)) continue
+    const route = explicitAddRoute(match[1])
+    if (route && !pages.has(route)) routes.add(route)
+  }
+
+  for (const match of prompt.matchAll(new RegExp(`sidan\\s+(\\/?${PAGE_SEGMENT})\\b`, "gi"))) {
+    if (match.index === undefined || !clauseHasAddVerb(prompt, match.index)) continue
+    const route = explicitAddRoute(match[1])
+    if (route && !pages.has(route)) routes.add(route)
+  }
+
+  return [...routes].map(pagePathForRoute).sort()
 }
 
 /** Fail-closed: only exact, uniquely bound page paths. Never `/`. */
@@ -161,6 +220,7 @@ export function mergeGeneratedSourceFiles(input: {
   const generatedByPath = new Map(input.generatedFiles.map(file => [file.path, file] as const))
   const baseByPath = new Map(input.baseFiles.map(file => [file.path, file] as const))
   const explicitRemoves = new Set(classifyExplicitPageRemoves(input.prompt, input.baseFiles))
+  const explicitAdds = new Set(classifyExplicitPageAdds(input.prompt, input.baseFiles))
   const omitted = omittedSourcePaths(input.baseFiles, input.generatedFiles, input.omittedBasePaths ?? [])
 
   const merged = new Map(generatedByPath)
@@ -170,6 +230,11 @@ export function mergeGeneratedSourceFiles(input: {
     if (base) merged.set(path, base)
   }
   for (const path of explicitRemoves) merged.delete(path)
+  for (const path of explicitAdds) {
+    if (explicitRemoves.has(path) || merged.has(path)) continue
+    const route = sourcePathToPageRoute(path)
+    if (route) merged.set(path, { path, content: composeNextPageStub(route) })
+  }
 
   const generatedHasHome = [...merged.keys()].some(isHomePagePath)
   if (!generatedHasHome) {

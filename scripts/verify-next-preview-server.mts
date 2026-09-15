@@ -4,7 +4,7 @@ import { dirname, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 import { shouldIdleNextPreviewPoll } from "../lib/siteagent/next-preview-poll.ts"
 import { NEXT_SOURCE_FILE_CONTENT_MAX, NEXT_SOURCE_FILE_COUNT_MAX, NEXT_SOURCE_FILE_COUNT_MIN, NEXT_SOURCE_PATH_ALPHABET, NEXT_SOURCE_PATH_MAX, PREVIEW_ROUTE_LIMIT, assertPreviewSiteOrigin, canFinishJob, deriveAcceptedPreviewRoutes, gatewayHost, isNextPreviewUnavailableError, nextPreviewConfig, nextPreviewFailureStatus, outputDigest, previewBasePath, safeFilePath, sourceRevisionId, validateSourceFiles, validateStaticFiles, type NextAccepted, type NextJob, type NextState } from "../lib/siteagent/server/next-preview-model.ts"
-import { classifyExplicitPageRemoves, composeNextPageStub, executeNextPageMutation, isControllerOwnedSourcePath, mergeGeneratedSourceFiles, pagePathForRoute, parseManualPageRoute, planNextPageMutation } from "../lib/siteagent/server/next-preview-pages.ts"
+import { classifyExplicitPageAdds, classifyExplicitPageRemoves, composeNextPageStub, executeNextPageMutation, isControllerOwnedSourcePath, mergeGeneratedSourceFiles, pagePathForRoute, parseManualPageRoute, planNextPageMutation } from "../lib/siteagent/server/next-preview-pages.ts"
 import { serveAcceptedStatic, gatewayHostnameAllowed } from "../lib/siteagent/server/next-preview-gateway.ts"
 
 let checks=0
@@ -206,6 +206,39 @@ check(() => assert.deepEqual(classifyExplicitPageRemoves("ta bort kontaktsidan",
 check(() => assert.deepEqual(classifyExplicitPageRemoves("uppdatera kontaktsidan", [...basePages, { path: "app/kontakt/page.tsx", content: "x" }]), []))
 check(() => assert.deepEqual(classifyExplicitPageRemoves("ta bort startsidan", basePages), []))
 check(() => assert.deepEqual(classifyExplicitPageRemoves("ta bort sidan", basePages), []))
+check(() => assert.deepEqual(classifyExplicitPageAdds("lägg till /kontakt", basePages), ["app/kontakt/page.tsx"]))
+check(() => assert.deepEqual(classifyExplicitPageAdds("skapa kontaktsidan", basePages), ["app/kontakt/page.tsx"]))
+check(() => assert.deepEqual(classifyExplicitPageAdds("lägg till sidan om", basePages), []))
+check(() => assert.deepEqual(classifyExplicitPageAdds("lägg till sidan team", basePages), ["app/team/page.tsx"]))
+check(() => assert.deepEqual(classifyExplicitPageAdds("lägg till en sida", basePages), []))
+check(() => assert.deepEqual(classifyExplicitPageAdds("uppdatera /kontakt", basePages), []))
+check(() => assert.deepEqual(classifyExplicitPageAdds("lägg till startsidan", basePages), []))
+check(() => {
+  const generatedHomeOnly = [
+    { path: "package.json", content: '{"dependencies":{"next":"16.3.3"}}' },
+    { path: "app/layout.tsx", content: "export default function Layout({children}:{children:React.ReactNode}){return <html><body>{children}</body></html>}" },
+    { path: "app/page.tsx", content: "export default function Home(){return <h1>Hem</h1>}" },
+  ]
+  const merged = mergeGeneratedSourceFiles({
+    baseFiles: basePages,
+    generatedFiles: generatedHomeOnly,
+    omittedBasePaths: ["app/om/page.tsx"],
+    prompt: "Lägg till /kontakt",
+  })
+  assert.ok(merged.some(file => file.path === "app/om/page.tsx"))
+  const added = merged.find(file => file.path === "app/kontakt/page.tsx")
+  assert.ok(added?.content.includes("<h1>Kontakt</h1>"), "prompt add inserts a stub when the model omitted the page")
+})
+check(() => {
+  const merged = mergeGeneratedSourceFiles({
+    baseFiles: basePages,
+    generatedFiles: generatedOnlyKontakt,
+    omittedBasePaths: ["app/page.tsx", "app/om/page.tsx"],
+    prompt: "Lägg till /kontakt och ta bort /om",
+  })
+  assert.ok(merged.some(file => file.path === "app/kontakt/page.tsx" && file.content.includes("Kontakt")))
+  assert.equal(merged.some(file => file.path === "app/om/page.tsx"), false)
+})
 check(() => assert.equal(isControllerOwnedSourcePath("package.json"), true))
 check(() => assert.equal(isControllerOwnedSourcePath("app/page.tsx"), false))
 check(() => assert.equal(pagePathForRoute("/kontakt"), "app/kontakt/page.tsx"))

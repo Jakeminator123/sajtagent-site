@@ -67,7 +67,8 @@ export async function generateNextPreview(principal: BuildPrincipalV1, projectId
   if (observer?.latestStartAt && Date.now() > Date.parse(observer.latestStartAt)) throw new Error("turn_policy_expired")
   const generated=await runtime.generate({tenantId:principal.tenantId,projectId,prompt,baseFiles},abort)
   abort?.throwIfAborted()
-  // Runtime replaces the whole file set. Site restores omitted base pages unless the prompt bound a remove.
+  // Runtime replaces the whole file set. Site restores omitted base pages, drops
+  // fail-closed removes, and inserts a stub when the prompt bound an add the model omitted.
   const files=mergeGeneratedSourceFiles({baseFiles,generatedFiles:generated.files,omittedBasePaths:generated.omittedBasePaths,prompt})
   return buildNextPreview(principal,projectId,files,abort,state.accepted?.jobId??null,observer)
 }

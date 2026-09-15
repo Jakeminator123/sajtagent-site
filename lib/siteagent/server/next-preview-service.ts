@@ -6,7 +6,7 @@ import { NextRuntimeClient } from "./next-preview-runtime.ts"
 import { StaticNextDeployer } from "./next-preview-deployer.ts"
 import { nextPreviewConfig, sourceRevisionId, validateSourceFiles, type NextJob, type NextState, type SourceFile } from "./next-preview-model.ts"
 import { persistedNextFailureCode } from "./next-preview-failure.ts"
-import { executeNextPageMutation, mergeGeneratedSourceFiles, modelVisibleBaseFiles, type NextPageMutationRequest } from "./next-preview-pages.ts"
+import { applyPageOnlyMutations, executeNextPageMutation, mergeGeneratedSourceFiles, modelVisibleBaseFiles, type NextPageMutationRequest, type PageOnlyMutation } from "./next-preview-pages.ts"
 
 export { nextPreviewConfig } from "./next-preview-model.ts"
 
@@ -90,4 +90,26 @@ export async function mutateNextPreviewPages(
     request,
     build: (files, expectedAcceptedJobId) => buildNextPreview(principal, projectId, files, abort, expectedAcceptedJobId, observer),
   })
+}
+
+export async function mutateNextPreviewPagesFromPrompt(
+  principal: BuildPrincipalV1,
+  projectId: string,
+  mutations: readonly PageOnlyMutation[],
+  abort?: AbortSignal,
+  observer?: NextPreviewBuildObserver,
+): Promise<NextState | null> {
+  const repo = await nextPreviewRepository()
+  const state = await repo.getState(principal, projectId)
+  if (!state) throw new Error("project_not_found")
+  const sourceFiles = await repo.getAcceptedSource(principal, projectId)
+  if (!state.accepted || !sourceFiles?.length) throw new Error("accepted_source_not_found")
+  if (state.current?.status === "building" && Date.parse(state.current.expiresAt) > Date.now()) {
+    throw new Error("project_busy")
+  }
+  const files = applyPageOnlyMutations(sourceFiles, mutations)
+  const before = sourceFiles.map((file) => `${file.path}\0${file.content}`).sort().join("\n")
+  const after = files.map((file) => `${file.path}\0${file.content}`).sort().join("\n")
+  if (before === after) return state
+  return buildNextPreview(principal, projectId, files, abort, state.accepted.jobId, observer)
 }

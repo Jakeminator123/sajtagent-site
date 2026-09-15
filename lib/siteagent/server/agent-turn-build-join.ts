@@ -37,12 +37,14 @@ import type { NextJob } from "./next-preview-model.ts"
 import { PostgresNextPreviewRepository } from "./next-preview-repository.ts"
 import { agentBuildProfile, readBuildProfilePreference } from "./agent-build-profile.ts"
 import { isRetryableNextFailure, nextBuildFailureResponse } from "./next-preview-failure.ts"
+import { classifyPageOnlyMutations, type PageOnlyMutation } from "./next-preview-pages.ts"
 
 export type AgentTurnBuildPlanV1 = {
   intentType: BuilderIntentV1["intentType"]
   request: CreateBuildJobRequestV1
   profile?: "next"
   nextBaseJobId?: string | null
+  pageMutations?: PageOnlyMutation[]
 }
 
 export type AgentBuildStartedV1 = { job: Pick<StoredBuildJobV1["job"], "jobId" | "createdAt"> }
@@ -147,9 +149,16 @@ export class PostgresAgentTurnBuildCoordinatorV1
     const intentType = BuilderIntentTypeV1Schema.parse(
       (profile === "next" ? nextState.accepted : project.activeVersion) ? "site.change" : "site.create",
     )
+    const sourceFiles = profile === "next" && nextState.accepted
+      ? await this.nextPreviews.getAcceptedSource(input.principal, input.session.projectId)
+      : null
+    const pageMutations = sourceFiles
+      ? classifyPageOnlyMutations(input.request.message, sourceFiles)
+      : null
     return {
       intentType,
       ...(profile === "next" ? { profile, nextBaseJobId: nextState.accepted?.jobId ?? null } : {}),
+      ...(pageMutations ? { pageMutations } : {}),
       request: CreateBuildJobRequestV1Schema.parse({
         schemaVersion: 1,
         projectId: input.session.projectId,
@@ -175,22 +184,38 @@ export class PostgresAgentTurnBuildCoordinatorV1
     if (input.plan.profile === "next") {
       let started: NextJob | null = null
       try {
-        const { generateNextPreview } = await import("./next-preview-service.ts")
-        const state = await generateNextPreview(
-          input.principal,
-          input.plan.request.projectId,
-          input.plan.request.intent.message,
-          undefined,
-          {
-            latestStartAt: input.latestStartAt,
-            deadlineAt: input.deadlineAt,
-            expectedAcceptedJobId: input.plan.nextBaseJobId,
-            onStarted: async (job, createdAt) => {
-              started = job
-              await input.onStarted?.({ job: { jobId: job.jobId, createdAt } })
-            },
-          },
-        )
+        const { generateNextPreview, mutateNextPreviewPagesFromPrompt } = await import("./next-preview-service.ts")
+        const state = input.plan.pageMutations?.length
+          ? await mutateNextPreviewPagesFromPrompt(
+              input.principal,
+              input.plan.request.projectId,
+              input.plan.pageMutations,
+              undefined,
+              {
+                latestStartAt: input.latestStartAt,
+                deadlineAt: input.deadlineAt,
+                expectedAcceptedJobId: input.plan.nextBaseJobId,
+                onStarted: async (job, createdAt) => {
+                  started = job
+                  await input.onStarted?.({ job: { jobId: job.jobId, createdAt } })
+                },
+              },
+            )
+          : await generateNextPreview(
+              input.principal,
+              input.plan.request.projectId,
+              input.plan.request.intent.message,
+              undefined,
+              {
+                latestStartAt: input.latestStartAt,
+                deadlineAt: input.deadlineAt,
+                expectedAcceptedJobId: input.plan.nextBaseJobId,
+                onStarted: async (job, createdAt) => {
+                  started = job
+                  await input.onStarted?.({ job: { jobId: job.jobId, createdAt } })
+                },
+              },
+            )
         const accepted = state?.accepted
         const binding: NextJob | null = started
         if (!binding || !accepted ||

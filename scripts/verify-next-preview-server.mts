@@ -4,7 +4,7 @@ import { dirname, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 import { shouldIdleNextPreviewPoll } from "../lib/siteagent/next-preview-poll.ts"
 import { NEXT_SOURCE_FILE_CONTENT_MAX, NEXT_SOURCE_FILE_COUNT_MAX, NEXT_SOURCE_FILE_COUNT_MIN, NEXT_SOURCE_PATH_ALPHABET, NEXT_SOURCE_PATH_MAX, PREVIEW_ROUTE_LIMIT, assertPreviewSiteOrigin, canFinishJob, deriveAcceptedPreviewRoutes, gatewayHost, isNextPreviewUnavailableError, nextPreviewConfig, nextPreviewFailureStatus, outputDigest, previewBasePath, safeFilePath, sourceRevisionId, validateSourceFiles, validateStaticFiles, type NextAccepted, type NextJob, type NextState } from "../lib/siteagent/server/next-preview-model.ts"
-import { applySiteNavigation, classifyExplicitPageAdds, classifyExplicitPageRemoves, composeNextPageStub, composeSajtagentNav, executeNextPageMutation, isControllerOwnedSourcePath, listedPageRoutes, mergeGeneratedSourceFiles, modelVisibleBaseFiles, pagePathForRoute, parseManualPageRoute, planNextPageMutation, SAJTAGENT_NAV_PATH } from "../lib/siteagent/server/next-preview-pages.ts"
+import { applyPageOnlyMutations, applySiteNavigation, classifyExplicitPageAdds, classifyExplicitPageRemoves, classifyPageOnlyMutations, composeNextPageStub, composeSajtagentNav, executeNextPageMutation, isControllerOwnedSourcePath, listedPageRoutes, mergeGeneratedSourceFiles, modelVisibleBaseFiles, pagePathForRoute, parseManualPageRoute, planNextPageMutation, SAJTAGENT_NAV_PATH } from "../lib/siteagent/server/next-preview-pages.ts"
 import { ownerAcceptedPageRoutes } from "../lib/siteagent/server/agent-build-profile.ts"
 import { serveAcceptedStatic, gatewayHostnameAllowed } from "../lib/siteagent/server/next-preview-gateway.ts"
 
@@ -214,6 +214,23 @@ check(() => assert.deepEqual(classifyExplicitPageAdds("lägg till sidan team", b
 check(() => assert.deepEqual(classifyExplicitPageAdds("lägg till en sida", basePages), []))
 check(() => assert.deepEqual(classifyExplicitPageAdds("uppdatera /kontakt", basePages), []))
 check(() => assert.deepEqual(classifyExplicitPageAdds("lägg till startsidan", basePages), []))
+check(() => assert.deepEqual(classifyPageOnlyMutations("lägg till /kontakt", basePages), [{ op: "add", route: "/kontakt" }]))
+check(() => assert.deepEqual(classifyPageOnlyMutations("ta bort /om", basePages), [{ op: "remove", route: "/om" }]))
+check(() => assert.deepEqual(
+  classifyPageOnlyMutations("lägg till /kontakt och ta bort /om", basePages),
+  [{ op: "add", route: "/kontakt" }, { op: "remove", route: "/om" }],
+))
+check(() => assert.equal(classifyPageOnlyMutations("lägg till /kontakt och gör hero blå", basePages), null))
+check(() => assert.equal(classifyPageOnlyMutations("Bygg en landningssida för ett bageri", basePages), null))
+check(() => {
+  const files = applyPageOnlyMutations(basePages, [
+    { op: "add", route: "/kontakt" },
+    { op: "remove", route: "/om" },
+  ])
+  assert.ok(files.some(file => file.path === "app/kontakt/page.tsx"))
+  assert.equal(files.some(file => file.path === "app/om/page.tsx"), false)
+  assert.match(files.find(file => file.path === SAJTAGENT_NAV_PATH)?.content ?? "", /href="\/kontakt"/)
+})
 check(() => {
   const generatedHomeOnly = [
     { path: "package.json", content: '{"dependencies":{"next":"16.3.3"}}' },
@@ -395,6 +412,10 @@ check(() => assert.match(pagesRoute, /getAcceptedSource/))
 check(() => assert.doesNotMatch(pagesRoute, /body\.files/))
 check(() => assert.match(serviceSource, /mergeGeneratedSourceFiles/))
 check(() => assert.match(serviceSource, /mutateNextPreviewPages/))
+check(() => assert.match(serviceSource, /mutateNextPreviewPagesFromPrompt/))
+const joinSource = readFileSync(resolve(here, "../lib/siteagent/server/agent-turn-build-join.ts"), "utf8")
+check(() => assert.match(joinSource, /classifyPageOnlyMutations/))
+check(() => assert.match(joinSource, /pageMutations/))
 check(() => assert.match(serviceSource, /buildNextPreview\(principal, projectId, files, abort, expectedAcceptedJobId/))
 check(() => assert.match(serviceSource, /const generated=await runtime.generate/))
 check(() => assert.match(serviceSource, /modelVisibleBaseFiles\(baseFiles\)/))

@@ -265,6 +265,77 @@ export function classifyExplicitPageRemoves(prompt: string, baseFiles: readonly 
   return [...paths].sort()
 }
 
+export type PageOnlyMutation = { op: NextPageOp; route: string }
+
+function isPageOnlyPrompt(prompt: string): boolean {
+  const leftover = prompt
+    .normalize("NFC")
+    .replace(new RegExp(ADD_VERB.source, "giu"), " ")
+    .replace(new RegExp(REMOVE_VERB.source, "giu"), " ")
+    .replace(new RegExp(`\\/${PAGE_ROUTE_BODY}`, "giu"), " ")
+    .replace(new RegExp(`\\b${PAGE_SEGMENT}-?sidan?\\b`, "giu"), " ")
+    .replace(/\bsidan\b/giu, " ")
+    .replace(/\b(och|samt|plus|and|en|ett|den|det|på|i|till|för|med)\b/giu, " ")
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .trim()
+  return leftover.length === 0
+}
+
+/**
+ * Fail-closed: only when the prompt is nothing but explicit page add/remove.
+ * "lägg till /kontakt och gör hero blå" stays a full generate.
+ */
+export function classifyPageOnlyMutations(
+  prompt: string,
+  baseFiles: readonly SourceFile[],
+): PageOnlyMutation[] | null {
+  const addPaths = classifyExplicitPageAdds(prompt, baseFiles)
+  const removePaths = classifyExplicitPageRemoves(prompt, baseFiles)
+  if (addPaths.length === 0 && removePaths.length === 0) return null
+  if (!isPageOnlyPrompt(prompt)) return null
+  const ops: PageOnlyMutation[] = []
+  const seen = new Set<string>()
+  for (const path of addPaths) {
+    const route = sourcePathToPageRoute(path)
+    if (!route || route === "/") return null
+    if (seen.has(route)) return null
+    seen.add(route)
+    ops.push({ op: "add", route })
+  }
+  for (const path of removePaths) {
+    const route = sourcePathToPageRoute(path)
+    if (!route || route === "/") return null
+    if (seen.has(route)) return null
+    seen.add(route)
+    ops.push({ op: "remove", route })
+  }
+  return ops.length > 0 ? ops : null
+}
+
+export function applyPageOnlyMutations(
+  files: readonly SourceFile[],
+  mutations: readonly PageOnlyMutation[],
+): SourceFile[] {
+  const byPath = new Map(files.map((file) => [file.path, file] as const))
+  for (const mutation of mutations) {
+    const route = parseManualPageRoute(mutation.route)
+    if (mutation.op === "add") {
+      const slug = route.slice(1).split("/").at(-1) ?? ""
+      if (route !== "/" && RESERVED_ADD_SLUGS.has(slug)) throw new Error("invalid_page_route")
+      const path = pagePathForRoute(route)
+      if (!byPath.has(path)) byPath.set(path, { path, content: composeNextPageStub(route) })
+      continue
+    }
+    if (route === "/") throw new Error("home_page_reserved")
+    for (const file of [...byPath.values()]) {
+      if (sourcePathToPageRoute(file.path) === route && !isHomePagePath(file.path)) {
+        byPath.delete(file.path)
+      }
+    }
+  }
+  return applySiteNavigation([...byPath.values()])
+}
+
 export function readOmittedBasePaths(value: unknown): string[] {
   if (!value || typeof value !== "object" || !("omittedBasePaths" in value)) return []
   const raw = (value as { omittedBasePaths: unknown }).omittedBasePaths

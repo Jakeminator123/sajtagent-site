@@ -14,6 +14,10 @@ async function stage(name, fn) {
   try { const result = await fn(); record(name, "passed"); return result }
   catch (error) {
     record(name, "failed", error instanceof SmokeFailure ? error.message : "redacted_execution_error")
+    // Opt-in local diagnostics only: error class and a short message, never bodies, cookies or grants.
+    if (process.env.V2_E2E_DEBUG === "1" && !(error instanceof SmokeFailure)) {
+      console.error(JSON.stringify({ stage: name, error: error?.constructor?.name ?? typeof error, message: String(error?.message ?? error).slice(0, 240) }))
+    }
     throw error
   }
 }
@@ -228,8 +232,14 @@ async function runLive() {
         await page.getByTestId("revision").filter({ hasText: `revision ${marker}` }).waitFor()
         const counter = page.getByTestId("counter")
         requireThat((await counter.textContent())?.trim() === "Count: 0", "public_counter_initial_state_wrong")
-        await counter.click()
-        await page.waitForFunction(() => document.querySelector('[data-testid="counter"]')?.textContent?.trim() === "Count: 1")
+        // Clicks before hydration are dropped by React; retry until exactly one registers.
+        let counted = false
+        for (let attempt = 0; attempt < 8 && !counted; attempt += 1) {
+          await counter.click()
+          counted = await page.waitForFunction(() => document.querySelector('[data-testid="counter"]')?.textContent?.trim() === "Count: 1", null, { timeout: 1_500 })
+            .then(() => true, () => false)
+        }
+        requireThat(counted, "public_counter_not_interactive")
         const scripts = await page.locator("script[src]").evaluateAll(nodes => nodes.map(node => node.src))
         const asset = scripts.find(url => url.includes("/_next/") && url.endsWith(".js"))
         requireThat(asset && new URL(asset).origin === origin, "public_next_asset_missing_or_wrong_origin")

@@ -290,13 +290,13 @@ function FaceCard({
       role="region"
       aria-label={headerLabel}
       aria-busy={face.id === "agent" ? isStreaming : undefined}
-      style={{ width: size.w, height: size.h, x, y, perspective: 1400 }}
+      style={{ width: size.w, height: size.h, x, y }}
       className={cn("relative pointer-events-auto shrink-0", dragging && "select-none touch-none")}
     >
       <motion.div
         animate={{ rotateY: flipped ? 180 : 0 }}
         transition={dragging ? { duration: 0 } : spring}
-        style={{ transformStyle: "preserve-3d" }}
+        style={{ transformStyle: "preserve-3d", perspective: 1400 }}
         className="relative w-full h-full"
       >
         {/* Framsida — pointer-events stängs av när den är bortvänd */}

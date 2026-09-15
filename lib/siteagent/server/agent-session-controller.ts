@@ -26,6 +26,8 @@ import type {
 import type { AgentSessionRuntimeClientV1 } from "./agent-session-runtime-client.ts"
 import {
   buildSuccessAssistantDeltaV1,
+  NEXT_BUILD_SUCCESS_DELTA_V1,
+  pageOnlyMutationAssistantDeltaV1,
   containsPrivateReasoningV1,
   publicRuntimeCatchMessageV1,
   publicTurnFailedMessageV1,
@@ -418,7 +420,12 @@ async function* completeBuildHandoff(
     append({
       schemaVersion: 1, sessionId: record.request.sessionId, turnId: record.request.turnId,
       occurredAt: nextResult.verifiedAt, type: "message.delta",
-      payload: { messageId: createMessageId(dependencies), delta: "Klart — din React/Next-sida är byggd och verifierad. Previewn är redo." },
+      payload: {
+        messageId: createMessageId(dependencies),
+        delta: plan.pageMutations?.length
+          ? pageOnlyMutationAssistantDeltaV1(plan.pageMutations)
+          : NEXT_BUILD_SUCCESS_DELTA_V1,
+      },
     })
     append({
       schemaVersion: 1, sessionId: record.request.sessionId, turnId: record.request.turnId,

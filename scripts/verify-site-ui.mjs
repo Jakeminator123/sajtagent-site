@@ -231,6 +231,16 @@ assert.match(
 )
 assert.doesNotMatch(
   cubeStageSource,
+  /style=\{\{ width: size\.w, height: size\.h, x, y, perspective/,
+  "3D perspective must not sit on the dragged node",
+)
+assert.match(
+  cubeStageSource,
+  /transformStyle: "preserve-3d", perspective: 1400/,
+  "card flip keeps perspective on the inner face, not the drag layer",
+)
+assert.doesNotMatch(
+  cubeStageSource,
   /LayoutGroup/,
   "open cards must not share a LayoutGroup with the dock",
 )

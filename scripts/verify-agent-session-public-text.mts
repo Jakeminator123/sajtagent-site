@@ -7,8 +7,10 @@ import {
   PRIVATE_REASONING_BLOCKED_MESSAGE_V1,
   RUNTIME_CONTRACT_FAILED_MESSAGE_V1,
   RUNTIME_STREAM_FAILED_MESSAGE_V1,
+  NEXT_BUILD_SUCCESS_DELTA_V1,
   SHORT_BUILD_SUCCESS_STATUS_DELTA_V1,
   buildSuccessAssistantDeltaV1,
+  pageOnlyMutationAssistantDeltaV1,
   containsPrivateReasoningV1,
   publicRuntimeCatchMessageV1,
   publicTurnFailedMessageV1,
@@ -146,6 +148,22 @@ check(
   buildSuccessAssistantDeltaV1("Jag har byggt startsidan med hero.") ===
     SHORT_BUILD_SUCCESS_STATUS_DELTA_V1,
   "existing OpenClaw summary gets a short status instead of the canned wipe",
+)
+check(
+  pageOnlyMutationAssistantDeltaV1([{ op: "add", route: "/kontakt" }]) ===
+    "Jag lade till /kontakt. Previewn är uppdaterad.",
+  "a page-only add names the new route instead of claiming a full rebuild",
+)
+check(
+  pageOnlyMutationAssistantDeltaV1([
+    { op: "add", route: "/kontakt" },
+    { op: "remove", route: "/om" },
+  ]) === "Jag lade till /kontakt och tog bort /om. Previewn är uppdaterad.",
+  "a page-only add+remove names both routes",
+)
+check(
+  pageOnlyMutationAssistantDeltaV1([]) === NEXT_BUILD_SUCCESS_DELTA_V1,
+  "empty page mutations keep the generic Next success line",
 )
 
 const accepted: AgentEventV1 = {

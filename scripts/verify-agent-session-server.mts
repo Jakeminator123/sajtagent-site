@@ -2269,6 +2269,38 @@ const forgedNext = await startAgentTurnV1({ ...nextRequest, turnId: "turn:next-f
 check(forgedNext.kind === "created" && forgedNext.events.at(-1)?.type === "turn.failed" &&
   !forgedNext.events.some(event => event.type === "next.preview.ready") && nextRuns === 1,
   "runtime cannot forge Site's Next acceptance event")
+const pageCoordinator: AgentTurnBuildCoordinatorV1 = {
+  async plan(input) {
+    const plan = await nextCoordinator.plan(input)
+    return plan ? { ...plan, pageMutations: [{ op: "add", route: "/kontakt" }] } : null
+  },
+  async run(input) {
+    await input.onStarted?.({ job: { jobId: "job:next-page-add", createdAt: buildVerifiedAt } })
+    return {
+      kind: "next", record: null, httpStatus: 201,
+      nextResult: {
+        schemaVersion: 2, status: "succeeded", projectId: input.plan.request.projectId,
+        jobId: "job:next-page-add", sourceRevisionId: `revision:sha256:${"c".repeat(64)}`,
+        previewRef: "preview:nextpageaddabcdefghijklmn", verifiedAt: buildVerifiedAt,
+      },
+    }
+  },
+}
+const pageTurn = await startAgentTurnV1({
+  ...nextRequest,
+  turnId: "turn:next-page-add0000001",
+  idempotencyKey: "idem:next-page-add",
+  message: "lägg till /kontakt",
+}, principal, { ...nextDeps, buildCoordinator: pageCoordinator })
+check(pageTurn.kind === "created", "a page-only prompt still completes through the ordinary Next turn")
+check(
+  pageTurn.kind === "created" &&
+    pageTurn.events.some((event) =>
+      event.type === "message.delta" &&
+      event.payload.delta === "Jag lade till /kontakt. Previewn är uppdaterad.",
+    ),
+  "a page-only Next turn tells the user which page was added",
+)
 
 
 // Simulate a process dying after reservation, before it writes any SSE event.

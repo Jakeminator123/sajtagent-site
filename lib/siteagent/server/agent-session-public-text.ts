@@ -27,6 +27,23 @@ export const CANNED_BUILD_SUCCESS_DELTA_V1 =
 export const SHORT_BUILD_SUCCESS_STATUS_DELTA_V1 =
   "Previewn är verifierad och redo."
 
+export const NEXT_BUILD_SUCCESS_DELTA_V1 =
+  "Klart — din React/Next-sida är byggd och verifierad. Previewn är redo."
+
+export function pageOnlyMutationAssistantDeltaV1(
+  mutations: readonly { op: "add" | "remove"; route: string }[],
+): string {
+  const added = mutations.filter((item) => item.op === "add").map((item) => item.route)
+  const removed = mutations.filter((item) => item.op === "remove").map((item) => item.route)
+  const parts: string[] = []
+  if (added.length === 1) parts.push(`lade till ${added[0]}`)
+  else if (added.length > 1) parts.push(`lade till ${added.join(", ")}`)
+  if (removed.length === 1) parts.push(`tog bort ${removed[0]}`)
+  else if (removed.length > 1) parts.push(`tog bort ${removed.join(", ")}`)
+  if (parts.length === 0) return NEXT_BUILD_SUCCESS_DELTA_V1
+  return `Jag ${parts.join(" och ")}. Previewn är uppdaterad.`
+}
+
 const SAFE_TURN_FAILED_BY_CODE_V1: Record<string, string> = {
   runtime_unavailable: RUNTIME_UNAVAILABLE_MESSAGE_V1,
   runtime_invalid: RUNTIME_INVALID_MESSAGE_V1,

@@ -32,7 +32,7 @@ Production-specifika och osynliga för de lokala verifieringarna.
 
 | # | Symptom | Rotorsak | Fix |
 | --- | --- | --- | --- |
-| 1 | `POST .../next` → 503 `next_build_failed` efter ~48 s | Vercel injicerade Toolbar-skriptet (`vercel.live/_next-live/feedback/feedback.js`, +288 bytes) i `turbopack-*.js` på artefaktprojektets preview-deploys. `StaticNextDeployer` jämför bytes exakt → `deployment_bytes_mismatch`. Site mappar alla okända fel till 503. | Env på **artefaktprojektet** `sajtagent-next-artifacts`: `VERCEL_PREVIEW_FEEDBACK_ENABLED=0` (publik config). Ingen kodändring. |
+| 1 | `POST .../next` → 503 `next_build_failed` efter ~48 s | Vercel injicerade Toolbar-skriptet (`vercel.live/_next-live/feedback/feedback.js`, +288 bytes) i `turbopack-*.js` på artefaktprojektets preview-deploys. `StaticNextDeployer` jämför bytes exakt → `deployment_bytes_mismatch`. Site mappar alla okända fel till 503. | Env på **artefaktprojektet** `sajtagent-next-artifacts`: `VERCEL_PREVIEW_FEEDBACK_ENABLED=0` (publik config). Kod (#44): samma fel är nu 500 med `reason:"deployment_bytes_mismatch"`. 404 är bara Next-av (#37), inte äkta serverfel. |
 | 2 | Ägarens `POST .../next/access` utan body → 403 `preview_access_denied` | På Vercel är `request.body` en tom stream vid body-lös POST (lokalt `null`). JSON-parse kastade och fångades som 403. | Routen avgör "binding skickad" via `content-length`/`transfer-encoding`. |
 | 3 | Alla publicerade sajter → **500** | Publiceringsgatewayen svarade 307 med relativ `Location`. Next-proxyadaptern kräver absolut URL → `ERR_INVALID_URL`. | Absolut same-origin `Location`. |
 | 4 | Slutlig publik URL saknade `/` | Next:s inbyggda 308 strippade katalog-snedstrecket på båda gateways, trots att kundexporten byggs med `trailingSlash: true`. | `skipTrailingSlashRedirect: true` + proxyn återinför default-redirecten för Site-hosten (byggd från vanlig `URL`, eftersom `NextURL` lägger tillbaka snedstrecket). |
@@ -113,5 +113,5 @@ testkontona) och kan användas som `<hash>`.
 - Automatisk wildcard-certförnyelse är obevisad (se plattformens checklista).
 - Testkontona är riktiga brevlådor, inte fixtures. Byt till dedikerade konton
   innan drivern körs regelbundet.
-- Preflight-skriptet kontrollerar inte `VERCEL_PREVIEW_FEEDBACK_ENABLED` på
-  artefaktprojektet; lägg till när preflight nästa gång ändras.
+- Preflight `--live-vercel` kräver nu `VERCEL_PREVIEW_FEEDBACK_ENABLED=0` på
+  artefaktprojektet för production, preview och development.

@@ -22,6 +22,12 @@ try {
   report.workerBinding=originalBinding
   globalThis.fetch=async ()=>Response.json({error:"no"},{status:503})
   await assert.rejects(()=>client.cancel(job),/runtime_cancel_unconfirmed/);checks++
+  globalThis.fetch=async ()=>new Response(null,{status:503})
+  await assert.rejects(()=>client.build(job,files,new Date().toISOString()),error => error instanceof Error && error.message==="runtime_transport_5xx");checks++
+  globalThis.fetch=async ()=>new Response(null,{status:404})
+  await assert.rejects(()=>client.build(job,files,new Date().toISOString()),error => error instanceof Error && error.message==="runtime_transport_4xx");checks++
+  globalThis.fetch=async ()=>{throw new Error("ECONNRESET https://runtime.example.com/secret")}
+  await assert.rejects(()=>client.build(job,files,new Date().toISOString()),error => error instanceof Error && error.message==="runtime_transport_failed");checks++
   globalThis.fetch=async (_input,init)=>{
     const body=JSON.parse(String(init?.body));assert.equal(body.baseFiles.length,0);assert.equal(body.prompt,"A real site");
     return Response.json({schemaVersion:2,tenantId:body.tenantId,projectId:body.projectId,jobId:body.jobId,sourceRevisionId:sourceRevisionId(body.tenantId,body.projectId,generatedFiles),files:generatedFiles})

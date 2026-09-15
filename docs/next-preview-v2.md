@@ -7,8 +7,11 @@ authenticated `GET /api/siteagent/projects/:id/next` returns **404**
 `{error:"next_preview_unavailable"}` so Vercel 5xx monitors do not treat the
 intentional fail-closed path as an outage. That 404 is only the expected-off
 state, not a genuine fault. Classified POST `/next` server faults are 5xx with
-an allowlisted `reason` (500 permanent, 502 upstream/worker, 503 unavailable);
-unknown errors still return 503 `{error:"next_build_failed"}`. The first profile is genuine Next `output: export`
+an allowlisted `reason` (500 permanent, 502 upstream/worker/source, 503 unavailable);
+unknown errors still return 503 `{error:"next_build_failed"}`. Runtime 4xx bodies
+with a closed `{error}` code (`source_generation_failed`,
+`invalid_generated_source`) keep that reason instead of collapsing to
+`runtime_transport_4xx`. The first profile is genuine Next `output: export`
 with interactive client JavaScript; SSR, customer API routes, arbitrary build
 configuration and secrets in customer execution are not supported.
 

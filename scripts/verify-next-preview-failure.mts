@@ -31,7 +31,12 @@ const INTERNAL_CASES = [
   ["invalid_static_output", 502, "worker_build_failed"],
   ["invalid_static_encoding", 502, "worker_build_failed"],
   ["invalid_next_output", 502, "worker_build_failed"],
-  ["source_generation_failed", 502, "worker_build_failed"],
+  ["source_generation_failed", 502, "source_generation_failed"],
+  ["invalid_generated_source", 502, "invalid_generated_source"],
+  ["source_generation_timeout", 503, "runtime_transport_5xx"],
+  ["source_job_expired", 502, "source_generation_failed"],
+  ["source_job_binding_conflict", 502, "worker_build_failed"],
+  ["source_job_terminal", 502, "worker_build_failed"],
   ["source_binding_mismatch", 502, "worker_build_failed"],
   ["preview_protection_required", 500, "configuration_missing"],
   ["invalid_next_runtime_config", 500, "configuration_missing"],
@@ -49,9 +54,11 @@ assert.deepEqual([...NEXT_BUILD_FAILURE_REASONS].sort(), [
   "artifact_deploy_failed",
   "configuration_missing",
   "deployment_bytes_mismatch",
+  "invalid_generated_source",
   "runtime_transport_4xx",
   "runtime_transport_5xx",
   "runtime_transport_failed",
+  "source_generation_failed",
   "worker_build_failed",
 ])
 
@@ -61,6 +68,8 @@ assert.equal("reason" in unavailable.body, false)
 
 assert.deepEqual(nextBuildFailureResponse(new Error("project_not_found")), { status: 404, body: { error: "next_build_failed" } })
 assert.deepEqual(nextBuildFailureResponse(new Error("project_busy")), { status: 409, body: { error: "project_busy" } })
+assert.deepEqual(nextBuildFailureResponse(new Error("source_generator_busy")), { status: 409, body: { error: "project_busy" } })
+assert.deepEqual(nextBuildFailureResponse(new Error("worker_busy_or_recovery_required")), { status: 409, body: { error: "project_busy" } })
 assert.deepEqual(nextBuildFailureResponse(new Error("stale_source_generation")), { status: 409, body: { error: "stale_source_generation" } })
 assert.deepEqual(nextBuildFailureResponse(new Error("source_context_too_large")), { status: 400, body: { error: "source_context_too_large" } })
 assert.deepEqual(nextBuildFailureResponse(new Error("invalid_source_path")), { status: 400, body: { error: "invalid_source_path" } })
@@ -73,6 +82,9 @@ assert.equal(persistedNextFailureCode(new Error("vercel_api_failed")), "artifact
 assert.equal(persistedNextFailureCode(new Error("secret https://internal.example/token")), "build_or_verification_failed")
 assert.equal(isRetryableNextFailure(nextBuildFailureResponse(new Error("runtime_transport_5xx"))), true)
 assert.equal(isRetryableNextFailure(nextBuildFailureResponse(new Error("runtime_transport_failed"))), true)
+assert.equal(isRetryableNextFailure(nextBuildFailureResponse(new Error("source_generation_timeout"))), true)
+assert.equal(isRetryableNextFailure(nextBuildFailureResponse(new Error("source_generation_failed"))), false)
+assert.equal(isRetryableNextFailure(nextBuildFailureResponse(new Error("invalid_generated_source"))), false)
 assert.equal(isRetryableNextFailure(nextBuildFailureResponse(new Error("deployment_bytes_mismatch"))), false)
 assert.equal(isRetryableNextFailure(nextBuildFailureResponse(new Error("worker_build_failed"))), false)
 assert.equal(isRetryableNextFailure(nextBuildFailureResponse(new Error("unknown"))), true)

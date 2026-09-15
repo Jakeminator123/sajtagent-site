@@ -4,7 +4,7 @@ import { dirname, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 import { shouldIdleNextPreviewPoll } from "../lib/siteagent/next-preview-poll.ts"
 import { NEXT_SOURCE_FILE_CONTENT_MAX, NEXT_SOURCE_FILE_COUNT_MAX, NEXT_SOURCE_FILE_COUNT_MIN, NEXT_SOURCE_PATH_ALPHABET, NEXT_SOURCE_PATH_MAX, PREVIEW_ROUTE_LIMIT, assertPreviewSiteOrigin, canFinishJob, deriveAcceptedPreviewRoutes, gatewayHost, isNextPreviewUnavailableError, nextPreviewConfig, nextPreviewFailureStatus, outputDigest, previewBasePath, safeFilePath, sourceRevisionId, validateSourceFiles, validateStaticFiles, type NextAccepted, type NextJob, type NextState } from "../lib/siteagent/server/next-preview-model.ts"
-import { applySiteNavigation, classifyExplicitPageAdds, classifyExplicitPageRemoves, composeNextPageStub, composeSajtagentNav, executeNextPageMutation, isControllerOwnedSourcePath, mergeGeneratedSourceFiles, pagePathForRoute, parseManualPageRoute, planNextPageMutation, SAJTAGENT_NAV_PATH } from "../lib/siteagent/server/next-preview-pages.ts"
+import { applySiteNavigation, classifyExplicitPageAdds, classifyExplicitPageRemoves, composeNextPageStub, composeSajtagentNav, executeNextPageMutation, isControllerOwnedSourcePath, mergeGeneratedSourceFiles, modelVisibleBaseFiles, pagePathForRoute, parseManualPageRoute, planNextPageMutation, SAJTAGENT_NAV_PATH } from "../lib/siteagent/server/next-preview-pages.ts"
 import { serveAcceptedStatic, gatewayHostnameAllowed } from "../lib/siteagent/server/next-preview-gateway.ts"
 
 let checks=0
@@ -241,6 +241,15 @@ check(() => {
 })
 check(() => assert.equal(isControllerOwnedSourcePath("package.json"), true))
 check(() => assert.equal(isControllerOwnedSourcePath("app/page.tsx"), false))
+check(() => {
+  const visible = modelVisibleBaseFiles([
+    ...basePages,
+    { path: SAJTAGENT_NAV_PATH, content: composeSajtagentNav(["/", "/om"]) },
+  ])
+  assert.equal(visible.some(file => file.path === "package.json"), false)
+  assert.equal(visible.some(file => file.path === SAJTAGENT_NAV_PATH), false)
+  assert.ok(visible.some(file => file.path === "app/page.tsx"))
+})
 check(() => assert.equal(pagePathForRoute("/kontakt"), "app/kontakt/page.tsx"))
 check(() => assert.equal(parseManualPageRoute("/kontakt"), "/kontakt"))
 check(() => assert.equal(parseManualPageRoute("/"), "/"))
@@ -358,6 +367,7 @@ check(() => assert.match(serviceSource, /mergeGeneratedSourceFiles/))
 check(() => assert.match(serviceSource, /mutateNextPreviewPages/))
 check(() => assert.match(serviceSource, /buildNextPreview\(principal, projectId, files, abort, expectedAcceptedJobId/))
 check(() => assert.match(serviceSource, /const generated=await runtime.generate/))
+check(() => assert.match(serviceSource, /modelVisibleBaseFiles\(baseFiles\)/))
 check(() => assert.match(readFileSync(resolve(here, "../lib/siteagent/server/next-preview-runtime.ts"), "utf8"), /18_000/))
 check(() => assert.match(nextProject, /\/next\/pages/))
 check(() => assert.match(nextProject, /mutatePages/))

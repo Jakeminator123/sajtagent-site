@@ -6,7 +6,7 @@ import { NextRuntimeClient } from "./next-preview-runtime.ts"
 import { StaticNextDeployer } from "./next-preview-deployer.ts"
 import { nextPreviewConfig, sourceRevisionId, validateSourceFiles, type NextJob, type NextState, type SourceFile } from "./next-preview-model.ts"
 import { persistedNextFailureCode } from "./next-preview-failure.ts"
-import { executeNextPageMutation, mergeGeneratedSourceFiles, type NextPageMutationRequest } from "./next-preview-pages.ts"
+import { executeNextPageMutation, mergeGeneratedSourceFiles, modelVisibleBaseFiles, type NextPageMutationRequest } from "./next-preview-pages.ts"
 
 export { nextPreviewConfig } from "./next-preview-model.ts"
 
@@ -65,7 +65,7 @@ export async function generateNextPreview(principal: BuildPrincipalV1, projectId
   const baseFiles=await repo.getAcceptedSource(principal,projectId)??[]
   const runtime=new NextRuntimeClient(config.SITEAGENT_RUNTIME_URL,config.SITEAGENT_RUNTIME_SIGNING_KEY)
   if (observer?.latestStartAt && Date.now() > Date.parse(observer.latestStartAt)) throw new Error("turn_policy_expired")
-  const generated=await runtime.generate({tenantId:principal.tenantId,projectId,prompt,baseFiles},abort)
+  const generated=await runtime.generate({tenantId:principal.tenantId,projectId,prompt,baseFiles:modelVisibleBaseFiles(baseFiles)},abort)
   abort?.throwIfAborted()
   // Runtime replaces the whole file set. Site restores omitted base pages, drops
   // fail-closed removes, and inserts a stub when the prompt bound an add the model omitted.

@@ -16,6 +16,7 @@ const HOME_PAGE_PATHS = new Set(["app/page.tsx", "app/page.jsx", "app/page.js"])
 const ADD_VERB = /(?:lägg\s+till|skapa|add)\b/i
 const REMOVE_VERB = /(?:ta\s+bort|radera|släng|remove|delete)/i
 const RESERVED_ADD_SLUGS = new Set(["start", "hem", "home", "index", "startsida"])
+export const SAJTAGENT_NAV_PATH = "app/sajtagent-nav.tsx"
 
 function lastMatchIndex(pattern: RegExp, text: string): number {
   const global = new RegExp(pattern.source, pattern.flags.includes("g") ? pattern.flags : `${pattern.flags}g`)
@@ -46,6 +47,15 @@ export type NextPageOp = NextPageMutationRequest["op"]
 
 export function isControllerOwnedSourcePath(path: string): boolean {
   return CONTROLLER_OWNED_SOURCE_PATH.test(path)
+}
+
+export function isSiteManagedSourcePath(path: string): boolean {
+  return path === SAJTAGENT_NAV_PATH
+}
+
+/** Files the model may see. Site/controller rewrite the rest after generate. */
+export function modelVisibleBaseFiles(files: readonly SourceFile[]): SourceFile[] {
+  return files.filter((file) => !isControllerOwnedSourcePath(file.path) && !isSiteManagedSourcePath(file.path))
 }
 
 export function isHomePagePath(path: string): boolean {
@@ -81,12 +91,6 @@ export function pageHeading(route: string): string {
 export function composeNextPageStub(route: string): string {
   const heading = pageHeading(parseManualPageRoute(route))
   return `'use client'\n\nexport default function Page() {\n  return (\n    <main>\n      <h1>${heading}</h1>\n    </main>\n  )\n}\n`
-}
-
-export const SAJTAGENT_NAV_PATH = "app/sajtagent-nav.tsx"
-
-function isSiteManagedSourcePath(path: string): boolean {
-  return path === SAJTAGENT_NAV_PATH
 }
 
 function sortPageRoutes(routes: readonly string[]): string[] {

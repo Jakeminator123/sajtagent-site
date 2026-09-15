@@ -14,7 +14,7 @@ export const NEXT_PAGE_ROUTE_PATTERN = new RegExp(`^\\/(?:${PAGE_ROUTE_BODY})?$`
 const PAGE_FILE_PATTERN = new RegExp(`^app\\/(?:(${PAGE_ROUTE_BODY})\\/)?page\\.(tsx|jsx|js)$`)
 const CONTROLLER_OWNED_SOURCE_PATH = /(^|\/)(next\.config\.[^/]+|package(-lock)?\.json|npm-shrinkwrap\.json|yarn\.lock|pnpm-lock\.yaml|\.npmrc)$/
 const HOME_PAGE_PATHS = new Set(["app/page.tsx", "app/page.jsx", "app/page.js"])
-const ADD_VERB = /(?:lägg\s+till|skapa|add)\b/i
+const ADD_VERB = /(?:lägg(?:a)?\s+till|skapa|add)\b/i
 const REMOVE_VERB = /(?:ta\s+bort|radera|släng|remove|delete)/i
 const RESERVED_ADD_SLUGS = new Set(["start", "hem", "home", "index", "startsida"])
 export const SAJTAGENT_NAV_PATH = "app/sajtagent-nav.tsx"
@@ -267,6 +267,9 @@ export function classifyExplicitPageRemoves(prompt: string, baseFiles: readonly 
 
 export type PageOnlyMutation = { op: NextPageOp; route: string }
 
+const PAGE_ONLY_FILLER =
+  /\b(kan|kunna|vill|skulle|ska|kunde|du|ni|jag|tack|tackar|please|snälla|bara|också|även|kanske|gärna|väl|could|you)\b/giu
+
 function isPageOnlyPrompt(prompt: string): boolean {
   const leftover = prompt
     .normalize("NFC")
@@ -276,6 +279,7 @@ function isPageOnlyPrompt(prompt: string): boolean {
     .replace(new RegExp(`\\b${PAGE_SEGMENT}-?sidan?\\b`, "giu"), " ")
     .replace(/\bsidan\b/giu, " ")
     .replace(/\b(och|samt|plus|and|en|ett|den|det|på|i|till|för|med)\b/giu, " ")
+    .replace(PAGE_ONLY_FILLER, " ")
     .replace(/[^\p{L}\p{N}]+/gu, " ")
     .trim()
   return leftover.length === 0

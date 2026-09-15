@@ -208,6 +208,7 @@ check(() => assert.deepEqual(classifyExplicitPageRemoves("uppdatera kontaktsidan
 check(() => assert.deepEqual(classifyExplicitPageRemoves("ta bort startsidan", basePages), []))
 check(() => assert.deepEqual(classifyExplicitPageRemoves("ta bort sidan", basePages), []))
 check(() => assert.deepEqual(classifyExplicitPageAdds("lägg till /kontakt", basePages), ["app/kontakt/page.tsx"]))
+check(() => assert.deepEqual(classifyExplicitPageAdds("kan du lägga till /kontakt", basePages), ["app/kontakt/page.tsx"]))
 check(() => assert.deepEqual(classifyExplicitPageAdds("skapa kontaktsidan", basePages), ["app/kontakt/page.tsx"]))
 check(() => assert.deepEqual(classifyExplicitPageAdds("lägg till sidan om", basePages), []))
 check(() => assert.deepEqual(classifyExplicitPageAdds("lägg till sidan team", basePages), ["app/team/page.tsx"]))
@@ -215,12 +216,15 @@ check(() => assert.deepEqual(classifyExplicitPageAdds("lägg till en sida", base
 check(() => assert.deepEqual(classifyExplicitPageAdds("uppdatera /kontakt", basePages), []))
 check(() => assert.deepEqual(classifyExplicitPageAdds("lägg till startsidan", basePages), []))
 check(() => assert.deepEqual(classifyPageOnlyMutations("lägg till /kontakt", basePages), [{ op: "add", route: "/kontakt" }]))
+check(() => assert.deepEqual(classifyPageOnlyMutations("kan du lägga till /kontakt", basePages), [{ op: "add", route: "/kontakt" }]))
+check(() => assert.deepEqual(classifyPageOnlyMutations("lägg till /kontakt tack", basePages), [{ op: "add", route: "/kontakt" }]))
 check(() => assert.deepEqual(classifyPageOnlyMutations("ta bort /om", basePages), [{ op: "remove", route: "/om" }]))
 check(() => assert.deepEqual(
   classifyPageOnlyMutations("lägg till /kontakt och ta bort /om", basePages),
   [{ op: "add", route: "/kontakt" }, { op: "remove", route: "/om" }],
 ))
 check(() => assert.equal(classifyPageOnlyMutations("lägg till /kontakt och gör hero blå", basePages), null))
+check(() => assert.equal(classifyPageOnlyMutations("kan du lägga till /kontakt och gör hero blå", basePages), null))
 check(() => assert.equal(classifyPageOnlyMutations("Bygg en landningssida för ett bageri", basePages), null))
 check(() => {
   const files = applyPageOnlyMutations(basePages, [

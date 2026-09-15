@@ -219,9 +219,24 @@ assert.match(
   /dragConstraints=\{stageRef\}/,
   "open cards must stay inside the preview stage while traveling left and right",
 )
+assert.doesNotMatch(
+  cubeStageSource,
+  /absolute left-4 top-4 bottom-4 flex flex-col items-start/,
+  "open cards must not live in a left flex column that fights left-right drag",
+)
+assert.doesNotMatch(
+  cubeStageSource,
+  /absolute right-4 top-4 bottom-40 flex flex-col items-end/,
+  "open cards must not live in a right flex column that fights left-right drag",
+)
 assert.match(
   cubeStageSource,
-  /dragging && "select-none touch-none"/,
+  /function stackedCardHome/,
+  "column is only a home corner on the stage, not a drag parent",
+)
+assert.match(
+  cubeStageSource,
+  /dragging && "z-30 select-none touch-none"/,
   "touch scrolling must yield only while a card is being dragged",
 )
 assert.match(

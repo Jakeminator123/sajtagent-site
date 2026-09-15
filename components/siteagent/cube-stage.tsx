@@ -69,11 +69,32 @@ interface CubeStageProps {
   resetLayout: () => void
 }
 
+const STAGE_GUTTER = 16
+const OPEN_CARD_GAP = 12
+
+function stackedCardHome(
+  column: "left" | "right",
+  faces: readonly FaceDef[],
+  index: number,
+  sizes: Record<FaceId, FaceSize>,
+): { left?: number; right?: number; top: number } {
+  let top = STAGE_GUTTER
+  for (let i = 0; i < index; i += 1) {
+    const face = faces[i]
+    if (!face) continue
+    top += sizes[face.id].h + OPEN_CARD_GAP
+  }
+  return column === "left"
+    ? { left: STAGE_GUTTER, top }
+    : { right: STAGE_GUTTER, top }
+}
+
 /** Ett öppet kort: dragbart i headern, resize-kanter, ev. flippbart. */
 function FaceCard({
   face,
   size,
   offset,
+  home,
   column,
   flipped,
   locked,
@@ -88,6 +109,7 @@ function FaceCard({
   face: FaceDef
   size: FaceSize
   offset: FaceOffset
+  home: { left?: number; right?: number; top: number }
   column: "left" | "right"
   flipped: boolean
   locked: boolean
@@ -290,13 +312,27 @@ function FaceCard({
       role="region"
       aria-label={headerLabel}
       aria-busy={face.id === "agent" ? isStreaming : undefined}
-      style={{ width: size.w, height: size.h, x, y }}
-      className={cn("relative pointer-events-auto shrink-0", dragging && "select-none touch-none")}
+      style={{
+        width: size.w,
+        height: size.h,
+        x,
+        y,
+        top: home.top,
+        ...(home.left != null ? { left: home.left } : { right: home.right }),
+      }}
+      className={cn(
+        "absolute pointer-events-auto shrink-0 z-10",
+        dragging && "z-30 select-none touch-none",
+      )}
     >
       <motion.div
         animate={{ rotateY: flipped ? 180 : 0 }}
         transition={dragging ? { duration: 0 } : spring}
-        style={{ transformStyle: "preserve-3d", perspective: 1400 }}
+        style={
+          dragging
+            ? { transformStyle: "preserve-3d" }
+            : { transformStyle: "preserve-3d", perspective: 1400 }
+        }
         className="relative w-full h-full"
       >
         {/* Framsida — pointer-events stängs av när den är bortvänd */}
@@ -445,39 +481,33 @@ export function CubeStage({
     >
       <PreviewStage />
 
-      {/* Öppna kort — vänster kolumn */}
-      <div className="absolute left-4 top-4 bottom-4 flex flex-col items-start gap-3 pointer-events-none z-10">
-          {openLeft.map((face) => (
-            <FaceCard
-              key={face.id}
-              face={face}
-              size={sizes[face.id]}
-              offset={offsets[face.id]}
-              column="left"
-              flipped={Boolean(flipped[face.id])}
-              locked={face.id === "choices" && choicesLocked}
-              stageRef={stageRef}
-              {...cardProps}
-            />
-          ))}
-        </div>
-
-        {/* Öppna kort — höger kolumn (lämnar plats för kortleken nertill) */}
-        <div className="absolute right-4 top-4 bottom-40 flex flex-col items-end gap-3 pointer-events-none z-10 overflow-visible">
-          {openRight.map((face) => (
-            <FaceCard
-              key={face.id}
-              face={face}
-              size={sizes[face.id]}
-              offset={offsets[face.id]}
-              column="right"
-              flipped={Boolean(flipped[face.id])}
-              locked={false}
-              stageRef={stageRef}
-              {...cardProps}
-            />
-          ))}
-        </div>
+      {/* Öppna kort sitter på scenen. Kolumnen är bara hemposition, inte en flex-wrapper
+          som gör att dragConstraints mäts mot fel offset-parent. */}
+      {[
+        ...openLeft.map((face, index) => ({
+          face,
+          column: "left" as const,
+          home: stackedCardHome("left", openLeft, index, sizes),
+        })),
+        ...openRight.map((face, index) => ({
+          face,
+          column: "right" as const,
+          home: stackedCardHome("right", openRight, index, sizes),
+        })),
+      ].map(({ face, column, home }) => (
+        <FaceCard
+          key={face.id}
+          face={face}
+          size={sizes[face.id]}
+          offset={offsets[face.id]}
+          home={home}
+          column={column}
+          flipped={Boolean(flipped[face.id])}
+          locked={face.id === "choices" && choicesLocked}
+          stageRef={stageRef}
+          {...cardProps}
+        />
+      ))}
 
         {/* Kortleken — nedvikta kort BAKOM varandra, bara främsta syns. */}
         {dockedFaces.length > 0 && (

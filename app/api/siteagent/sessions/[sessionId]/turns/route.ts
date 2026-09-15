@@ -2,7 +2,11 @@ import { ZodError } from "zod"
 
 import { AgentTurnRequestV1Schema } from "../../../../../../contracts/agent-session-v1.ts"
 import { PostgresAgentTurnBuildCoordinatorV1 } from "../../../../../../lib/siteagent/server/agent-turn-build-join.ts"
-import { prepareAgentTurnV1 } from "../../../../../../lib/siteagent/server/agent-session-controller.ts"
+import {
+  acceptedNextSourceRevisionIdV1,
+  prepareAgentTurnV1,
+} from "../../../../../../lib/siteagent/server/agent-session-controller.ts"
+import { PostgresNextPreviewRepository } from "../../../../../../lib/siteagent/server/next-preview-repository.ts"
 import { createAgentSessionRuntimeClientV1 } from "../../../../../../lib/siteagent/server/agent-session-runtime-env.ts"
 import {
   agentEventStreamSseResponseV1,
@@ -99,10 +103,15 @@ export async function POST(
         },
       })
     }
+    const nextPreviews = new PostgresNextPreviewRepository(pool)
     const result = await prepareAgentTurnV1(input, principal, {
       repository: new PostgresAgentSessionRepositoryV1(pool),
       runtime: createAgentSessionRuntimeClientV1(),
       buildCoordinator: new PostgresAgentTurnBuildCoordinatorV1(pool),
+      readAcceptedNextSourceRevisionId: async (owner, projectId) =>
+        acceptedNextSourceRevisionIdV1(
+          (await nextPreviews.getState(owner, projectId))?.accepted?.sourceRevisionId,
+        ),
     })
     if (result.kind === "created") return agentEventStreamSseResponseV1(result.events)
     if (result.kind === "existing") return agentEventsSseResponseV1(result.events)

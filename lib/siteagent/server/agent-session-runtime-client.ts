@@ -50,6 +50,7 @@ export const ReadyAgentTurnRuntimeHealthV1Schema = z
 export type RuntimeAgentTurnIngressV1 = {
   schemaVersion: 1
   tenantId: string
+  projectReadRevisionId?: string
   session: AgentSessionV1
   turn: AgentTurnRequestV1
   policy: AgentTurnPolicyV1
@@ -59,6 +60,7 @@ export type RuntimeAgentTurnIngressV1 = {
 export interface AgentSessionRuntimeClientV1 {
   streamTurn(input: {
     tenantId: string
+    projectReadRevisionId?: string
     session: AgentSessionV1
     request: AgentTurnRequestV1
     policy: AgentTurnPolicyV1
@@ -393,6 +395,7 @@ export class SignedAgentSessionRuntimeClientV1
 
   async *streamTurn(input: {
     tenantId: string
+    projectReadRevisionId?: string
     session: AgentSessionV1
     request: AgentTurnRequestV1
     policy: AgentTurnPolicyV1
@@ -401,6 +404,9 @@ export class SignedAgentSessionRuntimeClientV1
     yield* this.runTurn({
       schemaVersion: 1,
       tenantId: input.tenantId,
+      ...(input.projectReadRevisionId
+        ? { projectReadRevisionId: input.projectReadRevisionId }
+        : {}),
       session: input.session,
       turn: input.request,
       policy: input.policy,

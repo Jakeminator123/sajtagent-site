@@ -240,10 +240,12 @@ if (refreshed.kind !== "opened") throw new Error("session_refresh_failed")
 
 let answerRuntimeCalls = 0
 const observedAnswerPolicies: RuntimeAgentTurnIngressV1["policy"][] = []
+const observedAnswerReadRevisions: Array<string | undefined> = []
 const answerRuntime: AgentSessionRuntimeClientV1 = {
   async *streamTurn(input) {
     answerRuntimeCalls += 1
     observedAnswerPolicies.push(input.policy)
+    observedAnswerReadRevisions.push(input.projectReadRevisionId)
     yield {
       schemaVersion: 1,
       sessionId: input.session.sessionId,
@@ -317,6 +319,63 @@ check(
       "conversation.respond,project.read" &&
     observedAnswerPolicies[0]?.maxToolCalls === 16,
   "a normal AgentSession turn dispatches conversation.respond and project.read without a BuildJob",
+)
+check(
+  observedAnswerReadRevisions[0] === undefined,
+  "HTML-session turns do not invent a Next CAS revision for project.read",
+)
+const nextSourceRevision = `revision:sha256:${"b".repeat(64)}`
+let observedNextReadRevision: string | undefined
+const nextReadRuntime: AgentSessionRuntimeClientV1 = {
+  async *streamTurn(input) {
+    observedNextReadRevision = input.projectReadRevisionId
+    yield {
+      schemaVersion: 1,
+      sessionId: input.session.sessionId,
+      turnId: input.request.turnId,
+      eventId: "event:runtime0000000011",
+      sequence: input.baseSequence + 1,
+      occurredAt: input.policy.issuedAt,
+      type: "turn.accepted",
+      payload: { acceptedAt: input.policy.issuedAt },
+    }
+    yield {
+      schemaVersion: 1,
+      sessionId: input.session.sessionId,
+      turnId: input.request.turnId,
+      eventId: "event:runtime0000000012",
+      sequence: input.baseSequence + 2,
+      occurredAt: new Date(Date.parse(input.policy.issuedAt) + 1_000).toISOString(),
+      type: "message.delta",
+      payload: { messageId: "message:next-read", delta: "Jag läste app/page.tsx." },
+    }
+    yield {
+      schemaVersion: 1,
+      sessionId: input.session.sessionId,
+      turnId: input.request.turnId,
+      eventId: "event:runtime0000000013",
+      sequence: input.baseSequence + 3,
+      occurredAt: new Date(Date.parse(input.policy.issuedAt) + 2_000).toISOString(),
+      type: "turn.completed",
+      payload: { outcome: "answered" },
+    }
+  },
+}
+const nextReadRequest = request({
+  sessionId: refreshed.session.sessionId,
+  turnId: "turn:0000000000000014",
+  idempotencyKey: "idem:next-read",
+  revisionId: refreshed.session.activeBaseRevisionId,
+})
+const nextRead = await startAgentTurnV1(nextReadRequest, principal, {
+  ...dependencies,
+  runtime: nextReadRuntime,
+  readAcceptedNextSourceRevisionId: async () => nextSourceRevision,
+})
+check(nextRead.kind === "created", "a Next-aware conversation turn can complete")
+check(
+  observedNextReadRevision === nextSourceRevision,
+  "Site sends the accepted Next sourceRevisionId beside the HTML session revision",
 )
 check(
   answered.events.every(
@@ -962,6 +1021,11 @@ check(
   turnRouteSource.includes("PostgresAgentTurnBuildCoordinatorV1") &&
     turnRouteSource.includes("buildCoordinator:"),
   "the product turn route injects the server-owned BuildJob join",
+)
+check(
+  turnRouteSource.includes("readAcceptedNextSourceRevisionId") &&
+    turnRouteSource.includes("acceptedNextSourceRevisionIdV1"),
+  "the product turn route sends the accepted Next source revision for project.read",
 )
 check(
   buildJoinSource.startsWith('import "server-only"') &&

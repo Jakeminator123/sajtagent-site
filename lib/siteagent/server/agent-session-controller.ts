@@ -72,6 +72,16 @@ export type AgentSessionControllerDependenciesV1 = {
   createSessionSecret?: () => string
   issuePolicy?: AgentTurnPolicyIssuerV1
   buildCoordinator?: AgentTurnBuildCoordinatorV1 | null
+  readAcceptedNextSourceRevisionId?: (
+    principal: BuildPrincipalV1,
+    projectId: string,
+  ) => Promise<string | null>
+}
+
+const NEXT_SOURCE_REVISION_RE_V2 = /^revision:sha256:[a-f0-9]{64}$/
+
+export function acceptedNextSourceRevisionIdV1(value: string | null | undefined): string | null {
+  return value && NEXT_SOURCE_REVISION_RE_V2.test(value) ? value : null
 }
 
 export type OpenAgentSessionResultV1 =
@@ -600,8 +610,19 @@ async function* streamRuntimeEvents(
     const events: AgentEventV1[] = []
     let bytes = 0
     let pendingTerminal: AgentEventV1 | null = null
+    const projectReadRevisionId =
+      record.policy.capabilities.includes("project.read") &&
+      dependencies.readAcceptedNextSourceRevisionId
+        ? acceptedNextSourceRevisionIdV1(
+            await dependencies.readAcceptedNextSourceRevisionId(
+              principal,
+              session.projectId,
+            ),
+          ) ?? undefined
+        : undefined
     for await (const value of dependencies.runtime.streamTurn({
       tenantId: principal.tenantId,
+      ...(projectReadRevisionId ? { projectReadRevisionId } : {}),
       session,
       request: record.request,
       policy: record.policy,

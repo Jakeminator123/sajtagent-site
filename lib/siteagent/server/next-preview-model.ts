@@ -2,8 +2,25 @@ import { createHash } from "node:crypto"
 import { z } from "zod"
 import { SourceRevisionIdV2Schema, PreviewRefV2Schema } from "../../../contracts/deployment-v2.ts"
 
-export const SourceFileSchema = z.object({ path: z.string().min(1).max(240), content: z.string().max(1_000_000) }).strict()
-export const NextSourceRequestSchema = z.object({ files: z.array(SourceFileSchema).min(2).max(250) }).strict()
+/**
+ * Mirrors `NextBuildRequestV2Schema` in sajtagent-sprites (`src/next-worker-v2.ts`).
+ * Site may stay stricter (file count 2–250 vs 1–256) but never looser. Change both repos together.
+ */
+export const NEXT_SOURCE_FILE_CONTENT_MAX = 512 * 1024
+export const NEXT_SOURCE_PATH_MAX = 240
+export const NEXT_SOURCE_FILE_COUNT_MIN = 2
+export const NEXT_SOURCE_FILE_COUNT_MAX = 250
+export const NEXT_SOURCE_BUNDLE_MAX = 2_000_000
+/** Mirrors the controller source-path alphabet. Source only — not export output or gateway paths. */
+export const NEXT_SOURCE_PATH_ALPHABET = /^[A-Za-z0-9_@.()[\] /-]+$/
+
+export const SourceFileSchema = z.object({
+  path: z.string().min(1).max(NEXT_SOURCE_PATH_MAX).regex(NEXT_SOURCE_PATH_ALPHABET),
+  content: z.string().max(NEXT_SOURCE_FILE_CONTENT_MAX),
+}).strict()
+export const NextSourceRequestSchema = z.object({
+  files: z.array(SourceFileSchema).min(NEXT_SOURCE_FILE_COUNT_MIN).max(NEXT_SOURCE_FILE_COUNT_MAX),
+}).strict()
 export type SourceFile = z.infer<typeof SourceFileSchema>
 export type StaticFile = { path: string; content: string; encoding: "base64" }
 export type NextBinding = { tenantId: string; projectId: string; jobId: string; sourceRevisionId: string; previewRef: string }
@@ -16,12 +33,18 @@ export function supportedArtifactProtection(mode: unknown): boolean {
   return typeof mode === "string" && ["all", "preview", "all_except_custom_domains"].includes(mode)
 }
 
+/** Path safety for stored/served bytes. Not the controller source alphabet. */
 export function safeFilePath(path: string): boolean {
   return path.length <= 240 && !path.startsWith("/") && !/[\\\x00-\x20?#%]/.test(path) &&
     path.split("/").every((part) => part !== "" && part !== "." && part !== "..")
 }
 
 export function validateSourceFiles(files: SourceFile[]): SourceFile[] {
+  if (files.length < NEXT_SOURCE_FILE_COUNT_MIN || files.length > NEXT_SOURCE_FILE_COUNT_MAX) throw new Error("invalid_source_count")
+  for (const file of files) {
+    if (file.content.length > NEXT_SOURCE_FILE_CONTENT_MAX) throw new Error("invalid_source_file_size")
+    if (!NEXT_SOURCE_PATH_ALPHABET.test(file.path) || file.path.length > NEXT_SOURCE_PATH_MAX) throw new Error("invalid_source_path")
+  }
   const parsed = NextSourceRequestSchema.parse({ files }).files
   const names = new Set<string>()
   let bytes = 0
@@ -32,7 +55,7 @@ export function validateSourceFiles(files: SourceFile[]): SourceFile[] {
     bytes += Buffer.byteLength(file.content)
   }
   // Runtime C owns the fixed build package. Generated source intentionally omits it.
-  if (bytes > 2_000_000) throw new Error("invalid_source_bundle")
+  if (bytes > NEXT_SOURCE_BUNDLE_MAX) throw new Error("invalid_source_bundle")
   return parsed.sort((a, b) => a.path < b.path ? -1 : a.path > b.path ? 1 : 0)
 }
 

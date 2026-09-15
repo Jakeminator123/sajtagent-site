@@ -7,7 +7,10 @@ import {
   NEXT_BUILD_FAILURE_REASONS,
   NEXT_BUILD_FAILURE_STATUS,
   isNextBuildFailureReason,
+  isRetryableNextFailure,
+  nextAccessFailureResponse,
   nextBuildFailureResponse,
+  persistedNextFailureCode,
 } from "../lib/siteagent/server/next-preview-failure.ts"
 
 const INTERNAL_CASES = [
@@ -59,8 +62,29 @@ assert.deepEqual(nextBuildFailureResponse(new Error("project_not_found")), { sta
 assert.deepEqual(nextBuildFailureResponse(new Error("project_busy")), { status: 409, body: { error: "project_busy" } })
 assert.deepEqual(nextBuildFailureResponse(new Error("stale_source_generation")), { status: 409, body: { error: "stale_source_generation" } })
 assert.deepEqual(nextBuildFailureResponse(new Error("source_context_too_large")), { status: 400, body: { error: "source_context_too_large" } })
-assert.deepEqual(nextBuildFailureResponse(new Error("invalid_source_path")), { status: 400, body: { error: "next_build_failed" } })
+assert.deepEqual(nextBuildFailureResponse(new Error("invalid_source_path")), { status: 400, body: { error: "invalid_source_path" } })
+assert.deepEqual(nextBuildFailureResponse(new Error("invalid_source_file_size")), { status: 400, body: { error: "invalid_source_file_size" } })
+assert.deepEqual(nextBuildFailureResponse(new Error("invalid_source_bundle")), { status: 400, body: { error: "invalid_source_bundle" } })
+assert.deepEqual(nextBuildFailureResponse(new Error("invalid_source_count")), { status: 400, body: { error: "invalid_source_count" } })
 assert.deepEqual(nextBuildFailureResponse(new ZodError([])), { status: 400, body: { error: "next_build_failed" } })
+assert.equal(persistedNextFailureCode(new Error("deployment_bytes_mismatch")), "deployment_bytes_mismatch")
+assert.equal(persistedNextFailureCode(new Error("vercel_api_failed")), "artifact_deploy_failed")
+assert.equal(persistedNextFailureCode(new Error("secret https://internal.example/token")), "build_or_verification_failed")
+assert.equal(isRetryableNextFailure(nextBuildFailureResponse(new Error("runtime_transport_5xx"))), true)
+assert.equal(isRetryableNextFailure(nextBuildFailureResponse(new Error("runtime_transport_failed"))), true)
+assert.equal(isRetryableNextFailure(nextBuildFailureResponse(new Error("deployment_bytes_mismatch"))), false)
+assert.equal(isRetryableNextFailure(nextBuildFailureResponse(new Error("worker_build_failed"))), false)
+assert.equal(isRetryableNextFailure(nextBuildFailureResponse(new Error("unknown"))), true)
+
+assert.deepEqual(nextAccessFailureResponse(new Error("next_preview_unavailable")), { status: 404, body: { error: "next_preview_unavailable" } })
+assert.deepEqual(nextAccessFailureResponse(new Error("preview_access_denied")), { status: 403, body: { error: "preview_access_denied" } })
+assert.deepEqual(nextAccessFailureResponse(new Error("payload_too_large")), { status: 413, body: { error: "payload_too_large" } })
+assert.deepEqual(nextAccessFailureResponse(new Error("invalid_json")), { status: 400, body: { error: "invalid_access_binding" } })
+assert.deepEqual(nextAccessFailureResponse(new ZodError([])), { status: 400, body: { error: "invalid_access_binding" } })
+assert.deepEqual(nextAccessFailureResponse(new Error("persistence_unavailable")), { status: 503, body: { error: "preview_access_unavailable" } })
+const accessLeak = nextAccessFailureResponse(new Error("grant=abc hostname=secret.preview.example"))
+assert.deepEqual(accessLeak, { status: 503, body: { error: "preview_access_unavailable" } })
+assert.equal(JSON.stringify(accessLeak).includes("grant=abc"), false)
 
 const leaks = [
   "Bearer tok_live_not_a_real_secret",

@@ -55,7 +55,7 @@ export class NextRuntimeClient {
       if(value.tenantId!==input.tenantId || value.projectId!==input.projectId || value.jobId!==jobId || value.sourceRevisionId!==sourceRevisionId(input.tenantId,input.projectId,files))throw new Error("source_binding_mismatch")
       return files
     } catch (error) {
-      if (error instanceof Error && ["source_binding_mismatch","invalid_source_path","invalid_source_bundle"].includes(error.message)) throw error
+      if (error instanceof Error && ["source_binding_mismatch","invalid_source_path","invalid_source_bundle","invalid_source_file_size","invalid_source_count"].includes(error.message)) throw error
       throw new Error("worker_build_failed")
     }
   }

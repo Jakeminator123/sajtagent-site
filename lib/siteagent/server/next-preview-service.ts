@@ -5,6 +5,7 @@ import { PostgresNextPreviewRepository } from "./next-preview-repository.ts"
 import { NextRuntimeClient } from "./next-preview-runtime.ts"
 import { StaticNextDeployer } from "./next-preview-deployer.ts"
 import { nextPreviewConfig, sourceRevisionId, validateSourceFiles, type NextJob, type NextState, type SourceFile } from "./next-preview-model.ts"
+import { persistedNextFailureCode } from "./next-preview-failure.ts"
 
 export { nextPreviewConfig } from "./next-preview-model.ts"
 
@@ -46,7 +47,7 @@ export async function buildNextPreview(principal: BuildPrincipalV1, projectId: s
     if (!await repo.finish(principal,job,{...binding,...deployment,files:output,acceptedAt:new Date().toISOString()})) throw new Error("stale_job_result")
   } catch (error) {
     await runtime.cancel(job).catch(()=>{})
-    await repo.finish(principal,job,null,"build_or_verification_failed")
+    await repo.finish(principal,job,null,persistedNextFailureCode(error))
     throw error
   } finally {
     abort?.removeEventListener("abort",onAbort)

@@ -36,7 +36,7 @@ import { PostgresSiteVersionRepositoryV1 } from "./version-repository.ts"
 import type { NextJob } from "./next-preview-model.ts"
 import { PostgresNextPreviewRepository } from "./next-preview-repository.ts"
 import { agentBuildProfile } from "./agent-build-profile.ts"
-import { nextBuildFailureResponse } from "./next-preview-failure.ts"
+import { isRetryableNextFailure, nextBuildFailureResponse } from "./next-preview-failure.ts"
 
 export type AgentTurnBuildPlanV1 = {
   intentType: BuilderIntentV1["intentType"]
@@ -218,7 +218,7 @@ export class PostgresAgentTurnBuildCoordinatorV1
           kind: "next", record: null, httpStatus: mapped.status,
           nextResult: null, failure: {
             code: mapped.body.reason ?? mapped.body.error,
-            retryable: mapped.status >= 500,
+            retryable: isRetryableNextFailure(mapped),
             failedAt: new Date().toISOString(),
           },
         }

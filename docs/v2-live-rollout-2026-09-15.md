@@ -115,3 +115,7 @@ testkontona) och kan användas som `<hash>`.
   innan drivern körs regelbundet.
 - Preflight `--live-vercel` kräver nu `VERCEL_PREVIEW_FEEDBACK_ENABLED=0` på
   artefaktprojektet för production, preview och development.
+- Samma familj som nattens Production-buggar: access-routen får inte längre
+  mappa Next-av till 403, Site-källgränser speglar controllerns
+  `NextBuildRequestV2Schema`, och `failureCode` persisterar den klassade
+  reason-koden i stället för alltid `build_or_verification_failed`.

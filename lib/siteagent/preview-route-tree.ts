@@ -47,3 +47,21 @@ export function previewRouteLabel(route: string): string {
   if (route === "/") return "/"
   return route.slice(route.lastIndexOf("/") + 1)
 }
+
+/** After add/remove/generate, keep the current page or open the new one. */
+export function nextPreviewRouteAfterChange(input: {
+  previousRoutes: readonly string[]
+  nextRoutes: readonly string[]
+  currentRoute: string
+  pendingRoute?: string | null
+}): string {
+  const next = input.nextRoutes
+  if (next.length === 0) return "/"
+  if (input.pendingRoute && next.includes(input.pendingRoute)) return input.pendingRoute
+  const added = next.filter(
+    (route) => route !== "/" && !input.previousRoutes.includes(route),
+  )
+  if (input.previousRoutes.length > 0 && added.length > 0) return added[0] ?? "/"
+  if (next.includes(input.currentRoute)) return input.currentRoute
+  return next[0] ?? "/"
+}

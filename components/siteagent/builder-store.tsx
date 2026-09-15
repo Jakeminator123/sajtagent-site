@@ -46,6 +46,7 @@ import {
 } from "@/lib/siteagent/read-model"
 import type { ChatMessage, PreviewStatus, PublishState, SiteVersion } from "@/lib/siteagent/types"
 import { canSendWithNextProfile, isNextBuildActive, reconcileNextPreview, type NextAvailability, type NextBuildProfile, type NextProjectState } from "@/lib/siteagent/next-preview-client"
+import { nextPreviewRouteAfterChange } from "@/lib/siteagent/preview-route-tree"
 import { useNextProject } from "./use-next-project"
 
 type SessionStatusV1 = "opening" | "ready" | "error"
@@ -186,6 +187,8 @@ export function BuilderProvider({ children, initialProjectId = null, initialDraf
   const nextProject = useNextProject(projectId)
   const [previewSelection, setPreviewSelection] = useState<"auto" | "html" | "next">("auto")
   const [previewRoute, setPreviewRouteState] = useState("/")
+  const previousPreviewRoutesRef = useRef<string[]>([])
+  const pendingPreviewRouteRef = useRef<string | null>(null)
   const nextBuildActive = isNextBuildActive(nextProject.state?.current ?? null)
   const nextCurrent = nextProject.state?.current ?? null
   const buildProfileReady = canSendWithNextProfile(nextProject.availability, nextProject.hasNext)
@@ -256,11 +259,18 @@ export function BuilderProvider({ children, initialProjectId = null, initialDraf
   }, [previewKind, nextProject.state?.accepted?.routes, activeVersion])
 
   useEffect(() => {
-    if (previewRoutes.length === 0) {
-      if (previewRoute !== "/") setPreviewRouteState("/")
-      return
+    const previousRoutes = previousPreviewRoutesRef.current
+    const nextRoute = nextPreviewRouteAfterChange({
+      previousRoutes,
+      nextRoutes: previewRoutes,
+      currentRoute: previewRoute,
+      pendingRoute: pendingPreviewRouteRef.current,
+    })
+    previousPreviewRoutesRef.current = previewRoutes
+    if (pendingPreviewRouteRef.current && previewRoutes.includes(pendingPreviewRouteRef.current)) {
+      pendingPreviewRouteRef.current = null
     }
-    if (!previewRoutes.includes(previewRoute)) setPreviewRouteState(previewRoutes[0] ?? "/")
+    if (nextRoute !== previewRoute) setPreviewRouteState(nextRoute)
   }, [previewRoutes, previewRoute])
 
   const setPreviewRoute = useCallback((route: string) => {
@@ -989,7 +999,13 @@ export function BuilderProvider({ children, initialProjectId = null, initialDraf
     previewKind === "next" && nextProject.state?.accepted && !nextBuildActive && !agentTurnActive && nextProject.availability === "available",
   )
   const mutateNextPages = useCallback(async (op: "add" | "remove", route: string) => {
-    await nextProject.mutatePages(op, route)
+    if (op === "add") pendingPreviewRouteRef.current = route
+    try {
+      await nextProject.mutatePages(op, route)
+    } catch (error) {
+      if (op === "add" && pendingPreviewRouteRef.current === route) pendingPreviewRouteRef.current = null
+      throw error
+    }
   }, [nextProject.mutatePages])
 
   const value = useMemo<BuilderStore>(

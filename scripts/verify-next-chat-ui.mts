@@ -6,7 +6,7 @@ import { readFileSync } from "node:fs"
 import { dirname, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 import { canSendWithNextProfile, isNextBuildActive, nextSourceDownloadHref, parseNextProjectRead, parseNextProjectState, previewContentUrl, reconcileNextPreview } from "../lib/siteagent/next-preview-client.ts"
-import { buildPreviewRouteTree, previewRouteLabel } from "../lib/siteagent/preview-route-tree.ts"
+import { buildPreviewRouteTree, nextPreviewRouteAfterChange, previewRouteLabel } from "../lib/siteagent/preview-route-tree.ts"
 
 const sessionId = "session:abcdefghijklmnopqrstuvwxyzABCDEF"
 assert.equal(canSendWithNextProfile("loading", false), false, "a delayed profile must not expose an HTML send that the server routes to React")
@@ -125,6 +125,29 @@ assert.deepEqual(buildPreviewRouteTree(["/om/team", "/kontakt"]), [
 ])
 assert.equal(previewRouteLabel("/"), "/")
 assert.equal(previewRouteLabel("/om/team"), "team")
+assert.equal(nextPreviewRouteAfterChange({
+  previousRoutes: ["/", "/om"],
+  nextRoutes: ["/", "/kontakt", "/om"],
+  currentRoute: "/",
+  pendingRoute: "/kontakt",
+}), "/kontakt")
+assert.equal(nextPreviewRouteAfterChange({
+  previousRoutes: ["/", "/om"],
+  nextRoutes: ["/", "/kontakt", "/om"],
+  currentRoute: "/",
+}), "/kontakt")
+assert.equal(nextPreviewRouteAfterChange({
+  previousRoutes: [],
+  nextRoutes: ["/", "/om"],
+  currentRoute: "/",
+}), "/")
+assert.equal(nextPreviewRouteAfterChange({
+  previousRoutes: ["/", "/om"],
+  nextRoutes: ["/"],
+  currentRoute: "/om",
+}), "/")
+assert.match(store, /nextPreviewRouteAfterChange/)
+assert.match(store, /pendingPreviewRouteRef/)
 const sitemapFace = readFileSync(resolve(here, "../components/siteagent/faces/sitemap-face.tsx"), "utf8")
 assert.match(sitemapFace, /buildPreviewRouteTree/)
 assert.match(sitemapFace, /SitemapBranch/)

@@ -15,7 +15,7 @@ Both wildcard zones route to the Site gateway; the artifact project stays privat
 
 | Resource | Value |
 | --- | --- |
-| Site origin | `https://sajtagent-site.vercel.app` |
+| Site origin | `https://sajtagent.se` (bytt 2026-09-15; `www` och `sajtagent-site.vercel.app` omdirigerar dit) |
 | Private preview zone | `preview.sajtagent.se` |
 | Public publication zone | `sites.sajtagent.se` |
 | Vercel team | `team_j7KE5zKTm5rdg7zfWzOZhJ89` |

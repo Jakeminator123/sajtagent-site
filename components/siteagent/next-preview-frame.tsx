@@ -1,17 +1,20 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { acceptedPreviewableRoutes, previewContentUrl, type AcceptedNextPreview } from "@/lib/siteagent/next-preview-client"
+import { previewRouteFromFrameMessage } from "@/lib/siteagent/preview-route-tree"
 
 /** Customer code only runs on the owner-bound, separate-origin gateway. */
 export function NextPreviewFrame({
   accepted,
   refresh,
   route,
+  onRoute,
 }: {
   accepted: AcceptedNextPreview
   refresh: number
   route: string
+  onRoute?: (route: string) => void
 }) {
   const form = useRef<HTMLFormElement>(null)
   const iframe = useRef<HTMLIFrameElement>(null)
@@ -19,7 +22,7 @@ export function NextPreviewFrame({
   const [error, setError] = useState("")
   const [bootstrapped, setBootstrapped] = useState(false)
   const {projectId, jobId, sourceRevisionId, previewRef} = accepted
-  const previewable = acceptedPreviewableRoutes(accepted)
+  const previewable = useMemo(() => acceptedPreviewableRoutes(accepted), [accepted])
   const allowedRoute = previewable.includes(route) ? route : "/"
 
   useEffect(() => {
@@ -68,6 +71,18 @@ export function NextPreviewFrame({
     if (parsed.origin !== origin || parsed.protocol !== "https:" || parsed.search || parsed.hash) return
     if (frame.src !== next) frame.src = next
   }, [bootstrapped, allowedRoute, previewRef])
+
+  useEffect(() => {
+    const origin = previewOrigin.current
+    if (!bootstrapped || !origin || !onRoute) return
+    const onMessage = (event: MessageEvent) => {
+      if (event.origin !== origin) return
+      const next = previewRouteFromFrameMessage(event.data, previewable)
+      if (next) onRoute(next)
+    }
+    window.addEventListener("message", onMessage)
+    return () => window.removeEventListener("message", onMessage)
+  }, [bootstrapped, onRoute, previewable])
 
   return <div className="relative h-full w-full">
     {error && <p role="alert" className="absolute inset-x-0 top-0 z-10 bg-amber-50 p-3 text-sm text-amber-900">{error}</p>}

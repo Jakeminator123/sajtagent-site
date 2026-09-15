@@ -46,7 +46,7 @@ import {
 } from "@/lib/siteagent/read-model"
 import type { ChatMessage, PreviewStatus, PublishState, SiteVersion } from "@/lib/siteagent/types"
 import { acceptedPreviewableRoutes, canSendWithNextProfile, isNextBuildActive, reconcileNextPreview, type NextAvailability, type NextBuildProfile, type NextProjectState } from "@/lib/siteagent/next-preview-client"
-import { nextPreviewRouteAfterChange } from "@/lib/siteagent/preview-route-tree"
+import { nextPreviewRouteAfterChange, pendingPreviewRouteFromPrompt } from "@/lib/siteagent/preview-route-tree"
 import { useNextProject } from "./use-next-project"
 
 type SessionStatusV1 = "opening" | "ready" | "error"
@@ -649,6 +649,8 @@ export function BuilderProvider({ children, initialProjectId = null, initialDraf
             turnId,
           },
         ])
+        const hintedRoute = pendingPreviewRouteFromPrompt(trimmed)
+        if (hintedRoute) pendingPreviewRouteRef.current = hintedRoute
         pushLog("> skickar agentturn till Sajtagent")
 
         const onEvent = async (event: AgentEventV1) => {
@@ -790,6 +792,10 @@ export function BuilderProvider({ children, initialProjectId = null, initialDraf
           setPreviewSelection("html")
         }
       } catch (error) {
+        const hintedRoute = pendingPreviewRouteFromPrompt(trimmed)
+        if (hintedRoute && pendingPreviewRouteRef.current === hintedRoute) {
+          pendingPreviewRouteRef.current = null
+        }
         if (!controller.signal.aborted && requestGeneration === requestGenerationRef.current) {
           const rejected = rejectAgentEventStreamV1(
             projectionRef.current,

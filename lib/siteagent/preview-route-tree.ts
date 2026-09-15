@@ -78,6 +78,39 @@ export function normalizeManualPageRouteInput(value: string): string {
   return collapsed
 }
 
+export const SAJTAGENT_PREVIEW_ROUTE_MESSAGE_TYPE = "sajtagent.preview.route"
+
+const ADD_HINT = /(?:lägg(?:a)?\s+till|skapa|add)\b/i
+const PROMPT_ROUTE_TOKEN = /\/[a-z0-9]+(?:\/[a-z0-9]+)*/gi
+
+/** Static export path → owner route. `/om/` and `/om` are the same page. */
+export function previewRouteFromPathname(pathname: string): string {
+  if (!pathname || pathname === "/") return "/"
+  return pathname.replace(/\/+$/, "") || "/"
+}
+
+/** Parent window only accepts a typed route from the preview origin. */
+export function previewRouteFromFrameMessage(
+  data: unknown,
+  previewableRoutes: readonly string[],
+): string | null {
+  if (!data || typeof data !== "object") return null
+  const record = data as { type?: unknown; route?: unknown }
+  if (record.type !== SAJTAGENT_PREVIEW_ROUTE_MESSAGE_TYPE) return null
+  if (typeof record.route !== "string") return null
+  const route = previewRouteFromPathname(record.route)
+  return previewableRoutes.includes(route) ? route : null
+}
+
+/** One explicit add-route in the prompt, so preview can open it after the turn. */
+export function pendingPreviewRouteFromPrompt(message: string): string | null {
+  if (!ADD_HINT.test(message)) return null
+  const matches = message.toLowerCase().match(PROMPT_ROUTE_TOKEN)
+  if (!matches || matches.length !== 1) return null
+  const route = normalizeManualPageRouteInput(matches[0])
+  return route && route !== "/" ? route : null
+}
+
 /** After add/remove/generate, keep the current page or open the new one. */
 export function nextPreviewRouteAfterChange(input: {
   previousRoutes: readonly string[]

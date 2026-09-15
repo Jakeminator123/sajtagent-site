@@ -215,6 +215,7 @@ export function PreviewStage() {
                     accepted={accepted}
                     refresh={refresh}
                     route={previewRoute}
+                    onRoute={setPreviewRoute}
                   />
                 ) : (
                   <PreviewFrame />

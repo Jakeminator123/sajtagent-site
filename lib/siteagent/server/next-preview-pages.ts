@@ -1,5 +1,6 @@
 import { z } from "zod"
 import { SourceRevisionIdV2Schema } from "../../../contracts/deployment-v2.ts"
+import { SAJTAGENT_PREVIEW_ROUTE_MESSAGE_TYPE } from "../preview-route-tree.ts"
 import {
   NEXT_SOURCE_PATH_MAX,
   PREVIEW_ROUTE_LIMIT,
@@ -111,20 +112,29 @@ export function composeSajtagentNav(routes: readonly string[]): string {
     const href = route === "/" ? "/" : route
     return `      <Link href="${href}">${pageHeading(route)}</Link>`
   })
-  return [
-    "'use client'",
-    "",
-    'import Link from "next/link"',
-    "",
-    "export function SajtagentNav() {",
-    "  return (",
-    '    <nav aria-label="Sidor" style={{display:"flex",gap:"1rem",flexWrap:"wrap",padding:"0.75rem 1rem",borderBottom:"1px solid #ddd"}}>',
-    ...links,
-    "    </nav>",
-    "  )",
-    "}",
-    "",
-  ].join("\n")
+  return `'use client'
+
+import Link from "next/link"
+import { usePathname } from "next/navigation"
+import { useEffect } from "react"
+
+export function SajtagentNav() {
+  const pathname = usePathname()
+  useEffect(() => {
+    const route = !pathname || pathname === "/" ? "/" : pathname.replace(/\\/+$/, "") || "/"
+    try {
+      window.parent.postMessage({ type: "${SAJTAGENT_PREVIEW_ROUTE_MESSAGE_TYPE}", route }, "*")
+    } catch {
+      /* exported sites have no Builder parent */
+    }
+  }, [pathname])
+  return (
+    <nav aria-label="Sidor" style={{display:"flex",gap:"1rem",flexWrap:"wrap",padding:"0.75rem 1rem",borderBottom:"1px solid #ddd"}}>
+${links.join("\n")}
+    </nav>
+  )
+}
+`
 }
 
 export function ensureSajtagentNavInLayout(content: string): string {

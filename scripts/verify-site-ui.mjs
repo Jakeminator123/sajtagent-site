@@ -580,6 +580,21 @@ assert.match(
   /previewContentUrl/,
   "Next preview page URLs must use the gateway content path",
 )
+assert.match(
+  nextPreviewFrameSource,
+  /previewRouteFromFrameMessage/,
+  "Next preview must accept only typed route messages from the gateway origin",
+)
+assert.match(
+  nextPreviewFrameSource,
+  /event\.origin !== origin/,
+  "Next preview must ignore route messages from other origins",
+)
+assert.match(
+  previewStageSource,
+  /onRoute=\{setPreviewRoute\}/,
+  "In-preview navigation must update Karta and the chrome route",
+)
 assert.doesNotMatch(
   nextPreviewFrameSource,
   /src=\{/,

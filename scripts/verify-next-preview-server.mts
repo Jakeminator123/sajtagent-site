@@ -356,6 +356,8 @@ check(() => {
 check(() => {
   assert.match(composeSajtagentNav(["/", "/om"]), /<Link href="\/om">Om<\/Link>/)
   assert.match(composeSajtagentNav(["/", "/om"]), /from "next\/link"/)
+  assert.match(composeSajtagentNav(["/", "/om"]), /usePathname/)
+  assert.match(composeSajtagentNav(["/", "/om"]), /sajtagent\.preview\.route/)
 })
 check(() => assert.throws(() => planNextPageMutation({
   state: acceptedState,

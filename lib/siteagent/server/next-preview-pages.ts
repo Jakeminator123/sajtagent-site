@@ -270,7 +270,7 @@ export type PageOnlyMutation = { op: NextPageOp; route: string }
 const PAGE_ONLY_FILLER =
   /\b(kan|kunna|vill|skulle|ska|kunde|du|ni|jag|tack|tackar|please|snälla|bara|också|även|kanske|gärna|väl|could|you)\b/giu
 
-function isPageOnlyPrompt(prompt: string): boolean {
+export function isPageOnlyPrompt(prompt: string): boolean {
   const leftover = prompt
     .normalize("NFC")
     .replace(new RegExp(ADD_VERB.source, "giu"), " ")
@@ -391,6 +391,29 @@ export function mergeGeneratedSourceFiles(input: {
   }
 
   return applySiteNavigation([...merged.values()])
+}
+
+export function planPageOnlyMutations(input: {
+  state: NextState | null
+  sourceFiles: SourceFile[] | null
+  mutations: readonly PageOnlyMutation[]
+}): { files: SourceFile[]; rebuild: boolean } {
+  if (!input.state?.accepted || !input.sourceFiles?.length) throw new Error("accepted_source_not_found")
+  let files = input.sourceFiles
+  let rebuild = false
+  for (const mutation of input.mutations) {
+    const planned = planNextPageMutation({
+      state: input.state,
+      sourceFiles: files,
+      op: mutation.op,
+      route: mutation.route,
+      jobId: input.state.accepted.jobId,
+      sourceRevisionId: input.state.accepted.sourceRevisionId,
+    })
+    files = planned.files
+    rebuild = rebuild || planned.rebuild
+  }
+  return { files, rebuild }
 }
 
 export function planNextPageMutation(input: {

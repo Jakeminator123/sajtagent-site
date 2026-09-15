@@ -37,7 +37,7 @@ import type { NextJob } from "./next-preview-model.ts"
 import { PostgresNextPreviewRepository } from "./next-preview-repository.ts"
 import { agentBuildProfile, readBuildProfilePreference } from "./agent-build-profile.ts"
 import { isRetryableNextFailure, nextBuildFailureResponse } from "./next-preview-failure.ts"
-import { classifyPageOnlyMutations, type PageOnlyMutation } from "./next-preview-pages.ts"
+import { classifyPageOnlyMutations, isPageOnlyPrompt, type PageOnlyMutation } from "./next-preview-pages.ts"
 
 export type AgentTurnBuildPlanV1 = {
   intentType: BuilderIntentV1["intentType"]
@@ -155,6 +155,9 @@ export class PostgresAgentTurnBuildCoordinatorV1
     const pageMutations = sourceFiles
       ? classifyPageOnlyMutations(input.request.message, sourceFiles)
       : null
+    if (sourceFiles && !pageMutations && isPageOnlyPrompt(input.request.message)) {
+      return null
+    }
     return {
       intentType,
       ...(profile === "next" ? { profile, nextBaseJobId: nextState.accepted?.jobId ?? null } : {}),

@@ -216,8 +216,13 @@ assert.match(
 )
 assert.match(
   cubeStageSource,
-  /dragConstraints=\{stageRef\}/,
-  "open cards must stay inside the preview stage while traveling left and right",
+  /dragConstraints=\{false\}/,
+  "open-card drag must not remeasure the iframe-bearing stage on every move",
+)
+assert.match(
+  cubeStageSource,
+  /dragBoundsRef/,
+  "card travel is clamped from a one-shot stage measure at pointer down",
 )
 assert.doesNotMatch(
   cubeStageSource,
@@ -549,6 +554,16 @@ assert.match(
   sitemapFaceSource,
   /inte i previewn ännu/,
   "Map must mark source pages that are not in the accepted export",
+)
+assert.match(
+  sitemapFaceSource,
+  /sitemapRowNote/,
+  "Map must show group and not-yet-preview notes in the row, not only a title tooltip",
+)
+assert.doesNotMatch(
+  sitemapFaceSource,
+  /canSelect = previewKind === "next" && previewableRoutes\.length > 1/,
+  "Map must let the user select an export-backed page even when it is the only one",
 )
 assert.match(
   nextPreviewFrameSource,

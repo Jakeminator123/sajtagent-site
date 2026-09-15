@@ -10,6 +10,15 @@ import { useBuilder } from "../builder-store"
 import { NextPageRemoveButton, NextPagesAddForm } from "../next-pages-controls"
 import { buildPreviewRouteTree, previewRouteLabel, type PreviewRouteNode } from "@/lib/siteagent/preview-route-tree"
 
+function sitemapRowNote(
+  node: PreviewRouteNode,
+  previewableRoutes: readonly string[],
+): string | null {
+  if (node.virtual) return "grupp"
+  if (!previewableRoutes.includes(node.route)) return "inte i previewn ännu"
+  return null
+}
+
 function SitemapBranch({
   nodes,
   canSelect,
@@ -29,10 +38,13 @@ function SitemapBranch({
 }) {
   return (
     <ul className="flex flex-col gap-1">
-      {nodes.map((node) => (
+      {nodes.map((node) => {
+        const note = sitemapRowNote(node, previewableRoutes)
+        const selectable = canSelect && !node.virtual && previewableRoutes.includes(node.route)
+        return (
         <li key={node.route}>
           <div className="flex items-center gap-1">
-            {canSelect && !node.virtual && previewableRoutes.includes(node.route) ? (
+            {selectable ? (
               <button
                 type="button"
                 onClick={() => onSelect(node.route)}
@@ -50,13 +62,7 @@ function SitemapBranch({
               </button>
             ) : (
               <div
-                title={
-                  node.virtual
-                    ? `${node.route} (grupp)`
-                    : previewableRoutes.includes(node.route)
-                      ? node.route
-                      : `${node.route} (inte i previewn ännu)`
-                }
+                title={node.route}
                 className={cn(
                   "min-w-0 flex-1 rounded-md border border-workflow-border-subtle bg-workflow-node-input px-2 py-1 font-mono text-[10px]",
                   node.virtual || !previewableRoutes.includes(node.route)
@@ -65,6 +71,7 @@ function SitemapBranch({
                 )}
               >
                 {previewRouteLabel(node.route)}
+                {note ? <span className="ml-1 not-italic text-workflow-text-subtle">({note})</span> : null}
               </div>
             )}
             {node.route !== "/" && !node.virtual ? (
@@ -85,7 +92,8 @@ function SitemapBranch({
             </div>
           ) : null}
         </li>
-      ))}
+        )
+      })}
     </ul>
   )
 }
@@ -103,7 +111,7 @@ export function SitemapFace() {
     mutateNextPages,
     canMutateNextPages,
   } = useBuilder()
-  const canSelect = previewKind === "next" && previewableRoutes.length > 1
+  const canSelect = previewKind === "next"
   const building = previewStatus === "building"
   const pagesDisabled = !canMutateNextPages
   const pagesReason = building

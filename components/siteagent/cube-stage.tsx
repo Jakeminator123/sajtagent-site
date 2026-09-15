@@ -121,10 +121,10 @@ function FaceCard({
   resetFace: (id: FaceId) => void
   moveFace: (id: FaceId, x: number, y: number) => void
 }) {
-  const { isStreaming } = useBuilder()
   const dragRef = useRef<{ x: number; y: number } | null>(null)
   const dragNodeRef = useRef<HTMLDivElement | null>(null)
   const capturedPointerRef = useRef<number | null>(null)
+  const dragBoundsRef = useRef({ left: -1e6, right: 1e6, top: -1e6, bottom: 1e6 })
   const [dragging, setDragging] = useState(false)
   const dragControls = useDragControls()
   const x = useMotionValue(offset.x)
@@ -188,6 +188,7 @@ function FaceCard({
   const beginDrag = useCallback(
     (e: React.PointerEvent) => {
       const node = dragNodeRef.current
+      const stage = stageRef.current
       // Preview-iframen är ett syskon bakom korten. Utan capture försvinner
       // pointermove in i iframen och draget fryser mitt över previewn.
       if (node) {
@@ -198,11 +199,25 @@ function FaceCard({
           capturedPointerRef.current = null
         }
       }
+      if (stage) {
+        const stageBox = stage.getBoundingClientRect()
+        const originLeft =
+          home.left != null
+            ? stageBox.left + home.left
+            : stageBox.right - (home.right ?? STAGE_GUTTER) - size.w
+        const originTop = stageBox.top + home.top
+        dragBoundsRef.current = {
+          left: stageBox.left - originLeft,
+          right: stageBox.right - originLeft - size.w,
+          top: stageBox.top - originTop,
+          bottom: stageBox.bottom - originTop - size.h,
+        }
+      }
       setDragging(true)
       setStageDragging(true)
       dragControls.start(e)
     },
-    [dragControls],
+    [dragControls, home.left, home.right, home.top, size.h, size.w, stageRef],
   )
 
   // Dra från vilken "tom" yta som helst på kortet — men aldrig från
@@ -299,9 +314,16 @@ function FaceCard({
       drag
       dragListener={false}
       dragControls={dragControls}
-      dragConstraints={stageRef}
+      dragConstraints={false}
       dragMomentum={false}
       dragElastic={0}
+      onDrag={() => {
+        const bounds = dragBoundsRef.current
+        const nextX = Math.min(bounds.right, Math.max(bounds.left, x.get()))
+        const nextY = Math.min(bounds.bottom, Math.max(bounds.top, y.get()))
+        if (nextX !== x.get()) x.set(nextX)
+        if (nextY !== y.get()) y.set(nextY)
+      }}
       onDragEnd={() => {
         endDrag()
         moveFace(face.id, x.get(), y.get())
@@ -311,7 +333,6 @@ function FaceCard({
       onPointerDown={startBodyDrag}
       role="region"
       aria-label={headerLabel}
-      aria-busy={face.id === "agent" ? isStreaming : undefined}
       style={{
         width: size.w,
         height: size.h,
@@ -328,11 +349,7 @@ function FaceCard({
       <motion.div
         animate={{ rotateY: flipped ? 180 : 0 }}
         transition={dragging ? { duration: 0 } : spring}
-        style={
-          dragging
-            ? { transformStyle: "preserve-3d" }
-            : { transformStyle: "preserve-3d", perspective: 1400 }
-        }
+        style={dragging ? undefined : { transformStyle: "preserve-3d", perspective: 1400 }}
         className="relative w-full h-full"
       >
         {/* Framsida — pointer-events stängs av när den är bortvänd */}

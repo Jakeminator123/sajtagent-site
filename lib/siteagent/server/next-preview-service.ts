@@ -7,7 +7,7 @@ import { StaticNextDeployer } from "./next-preview-deployer.ts"
 import { nextPreviewConfig, sourceRevisionId, validateSourceFiles, type NextJob, type NextState, type SourceFile } from "./next-preview-model.ts"
 import { persistedNextFailureCode } from "./next-preview-failure.ts"
 import { applyAcceptedPackageManifest } from "./next-preview-packages.ts"
-import { applyPageOnlyMutations, executeNextPageMutation, mergeGeneratedSourceFiles, modelVisibleBaseFiles, type NextPageMutationRequest, type PageOnlyMutation } from "./next-preview-pages.ts"
+import { executeNextPageMutation, mergeGeneratedSourceFiles, modelVisibleBaseFiles, planPageOnlyMutations, type NextPageMutationRequest, type PageOnlyMutation } from "./next-preview-pages.ts"
 
 export { nextPreviewConfig } from "./next-preview-model.ts"
 
@@ -108,9 +108,7 @@ export async function mutateNextPreviewPagesFromPrompt(
   if (state.current?.status === "building" && Date.parse(state.current.expiresAt) > Date.now()) {
     throw new Error("project_busy")
   }
-  const files = applyPageOnlyMutations(sourceFiles, mutations)
-  const before = sourceFiles.map((file) => `${file.path}\0${file.content}`).sort().join("\n")
-  const after = files.map((file) => `${file.path}\0${file.content}`).sort().join("\n")
-  if (before === after) return state
-  return buildNextPreview(principal, projectId, files, abort, state.accepted.jobId, observer)
+  const planned = planPageOnlyMutations({ state, sourceFiles, mutations })
+  if (!planned.rebuild) return state
+  return buildNextPreview(principal, projectId, planned.files, abort, state.accepted.jobId, observer)
 }

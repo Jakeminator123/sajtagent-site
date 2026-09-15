@@ -1,6 +1,6 @@
 import { z } from "zod"
 import { SourceRevisionIdV2Schema } from "../../../contracts/deployment-v2.ts"
-import { SAJTAGENT_PREVIEW_ROUTE_MESSAGE_TYPE } from "../preview-route-tree.ts"
+import { isPageRouteInSubtree, SAJTAGENT_PREVIEW_ROUTE_MESSAGE_TYPE } from "../preview-route-tree.ts"
 import {
   NEXT_SOURCE_PATH_MAX,
   PREVIEW_ROUTE_LIMIT,
@@ -113,6 +113,17 @@ function sortPageRoutes(routes: readonly string[]): string[] {
 
 export function listedPageRoutes(files: readonly SourceFile[]): string[] {
   return sortPageRoutes([...pagesByRoute(files).keys()]).slice(0, PREVIEW_ROUTE_LIMIT)
+}
+
+export function pagePathsInSubtree(files: readonly SourceFile[], ancestor: string): string[] {
+  if (!ancestor || ancestor === "/") return []
+  const paths: string[] = []
+  for (const file of files) {
+    const route = sourcePathToPageRoute(file.path)
+    if (!route || route === "/" || isHomePagePath(file.path)) continue
+    if (isPageRouteInSubtree(route, ancestor)) paths.push(file.path)
+  }
+  return paths.sort()
 }
 
 export function composeSajtagentNav(routes: readonly string[]): string {
@@ -256,7 +267,9 @@ export function classifyExplicitPageRemoves(prompt: string, baseFiles: readonly 
   for (const match of prompt.matchAll(new RegExp(`\\/${PAGE_ROUTE_BODY}`, "gi"))) {
     if (match.index === undefined || !clauseHasRemoveVerb(prompt, match.index)) continue
     const route = match[0].toLowerCase()
-    if (route !== "/" && pages.has(route)) routes.add(route)
+    if (route !== "/" && (pages.has(route) || pagePathsInSubtree(baseFiles, route).length > 0)) {
+      routes.add(route)
+    }
   }
 
   for (const match of prompt.matchAll(new RegExp(`\\b(${PAGE_SEGMENT})-?sidan\\b`, "gi"))) {
@@ -278,9 +291,7 @@ export function classifyExplicitPageRemoves(prompt: string, baseFiles: readonly 
   const paths = new Set<string>()
   for (const route of routes) {
     if (route === "/") continue
-    for (const file of pages.get(route) ?? []) {
-      if (!isHomePagePath(file.path)) paths.add(file.path)
-    }
+    for (const path of pagePathsInSubtree(baseFiles, route)) paths.add(path)
   }
   return [...paths].sort()
 }
@@ -351,10 +362,8 @@ export function applyPageOnlyMutations(
       continue
     }
     if (route === "/") throw new Error("home_page_reserved")
-    for (const file of [...byPath.values()]) {
-      if (sourcePathToPageRoute(file.path) === route && !isHomePagePath(file.path)) {
-        byPath.delete(file.path)
-      }
+    for (const path of pagePathsInSubtree([...byPath.values()], route)) {
+      byPath.delete(path)
     }
   }
   return applySiteNavigation([...byPath.values()])
@@ -474,8 +483,8 @@ export function planNextPageMutation(input: {
     }
   }
 
-  if (existing.length === 0) return { files, rebuild: false, idempotencyKey }
-  const remove = new Set(existing.map(file => file.path))
+  const remove = new Set(pagePathsInSubtree(files, route))
+  if (remove.size === 0) return { files, rebuild: false, idempotencyKey }
   return {
     files: applySiteNavigation(files.filter(file => !remove.has(file.path))),
     rebuild: true,

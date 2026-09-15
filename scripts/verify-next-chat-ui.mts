@@ -7,7 +7,7 @@ import { dirname, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 import { acceptedPreviewableRoutes, canSendWithNextProfile, isNextBuildActive, nextSourceDownloadHref, parseNextProjectRead, parseNextProjectState, previewContentUrl, reconcileNextPreview } from "../lib/siteagent/next-preview-client.ts"
 import { publicToolStartedLabelV1 } from "../lib/siteagent/server/agent-session-controller.ts"
-import { buildPreviewRouteTree, draftRouteUnderParent, nextPreviewRouteAfterChange, normalizeManualPageRouteInput, pendingPreviewRouteFromPrompt, previewChromeRoute, previewRouteFromFrameMessage, previewRouteFromPathname, previewRouteLabel, SAJTAGENT_PREVIEW_ROUTE_MESSAGE_TYPE } from "../lib/siteagent/preview-route-tree.ts"
+import { buildPreviewRouteTree, draftRouteUnderParent, isPageRouteInSubtree, nextPreviewRouteAfterChange, normalizeManualPageRouteInput, pendingPreviewRouteFromPrompt, previewChromeRoute, previewRouteFromFrameMessage, previewRouteFromPathname, previewRouteLabel, SAJTAGENT_PREVIEW_ROUTE_MESSAGE_TYPE } from "../lib/siteagent/preview-route-tree.ts"
 
 const sessionId = "session:abcdefghijklmnopqrstuvwxyzABCDEF"
 assert.equal(canSendWithNextProfile("loading", false), false, "a delayed profile must not expose an HTML send that the server routes to React")
@@ -171,6 +171,9 @@ assert.equal(previewRouteFromPathname("/"), "/")
 assert.equal(previewRouteFromFrameMessage({ type: SAJTAGENT_PREVIEW_ROUTE_MESSAGE_TYPE, route: "/om/" }, ["/", "/om"]), "/om")
 assert.equal(previewRouteFromFrameMessage({ type: SAJTAGENT_PREVIEW_ROUTE_MESSAGE_TYPE, route: "/hemlig" }, ["/", "/om"]), null)
 assert.equal(previewRouteFromFrameMessage({ type: "other", route: "/om" }, ["/", "/om"]), null)
+assert.equal(isPageRouteInSubtree("/om/team", "/om"), true)
+assert.equal(isPageRouteInSubtree("/oma", "/om"), false)
+assert.equal(isPageRouteInSubtree("/om", "/"), false)
 assert.equal(previewChromeRoute(["/"], "/om"), "/")
 assert.equal(previewChromeRoute(["/", "/om"], "/om"), "/om")
 assert.equal(previewChromeRoute([], "/om"), "/")

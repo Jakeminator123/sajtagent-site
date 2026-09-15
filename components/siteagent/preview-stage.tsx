@@ -11,7 +11,7 @@ import { previewAddressLabel, previewStatusChip } from "./card-states"
 import { useBuilder } from "./builder-store"
 import { NextPageRemoveButton, NextPagesAddForm } from "./next-pages-controls"
 import { NextPreviewFrame } from "./next-preview-frame"
-import { previewChromeRoute } from "@/lib/siteagent/preview-route-tree"
+import { isPageRouteInSubtree, previewChromeRoute } from "@/lib/siteagent/preview-route-tree"
 
 function PreviewFrame({ className }: { className?: string }) {
   const { previewUrl } = useBuilder()
@@ -32,6 +32,7 @@ export function PreviewStage() {
     previewUrl,
     previewKind,
     previewableRoutes,
+    previewRoutes,
     previewRoute,
     setPreviewRoute,
     nextState,
@@ -171,6 +172,7 @@ export function PreviewStage() {
                 {previewRoute !== "/" ? (
                   <NextPageRemoveButton
                     route={previewRoute}
+                    hasSubtree={previewRoutes.some((route) => route !== previewRoute && isPageRouteInSubtree(route, previewRoute))}
                     disabled={!canMutateNextPages}
                     onRemove={route => mutateNextPages("remove", route)}
                   />

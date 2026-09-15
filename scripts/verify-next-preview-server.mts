@@ -4,7 +4,7 @@ import { dirname, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 import { shouldIdleNextPreviewPoll } from "../lib/siteagent/next-preview-poll.ts"
 import { NEXT_SOURCE_FILE_CONTENT_MAX, NEXT_SOURCE_FILE_COUNT_MAX, NEXT_SOURCE_FILE_COUNT_MIN, NEXT_SOURCE_PATH_ALPHABET, NEXT_SOURCE_PATH_MAX, PREVIEW_ROUTE_LIMIT, assertPreviewSiteOrigin, canFinishJob, deriveAcceptedPreviewRoutes, gatewayHost, isNextPreviewUnavailableError, nextPreviewConfig, nextPreviewFailureStatus, outputDigest, previewBasePath, safeFilePath, sourceRevisionId, validateSourceFiles, validateStaticFiles, type NextAccepted, type NextJob, type NextState } from "../lib/siteagent/server/next-preview-model.ts"
-import { applyPageOnlyMutations, applySiteNavigation, classifyExplicitPageAdds, classifyExplicitPageRemoves, classifyPageOnlyMutations, composeNextPageStub, composeSajtagentNav, executeNextPageMutation, isControllerOwnedSourcePath, isPageOnlyPrompt, listedPageRoutes, mergeGeneratedSourceFiles, modelVisibleBaseFiles, pagePathForRoute, parseManualPageRoute, planNextPageMutation, planPageOnlyMutations, SAJTAGENT_NAV_PATH } from "../lib/siteagent/server/next-preview-pages.ts"
+import { applyPageOnlyMutations, applySiteNavigation, classifyExplicitPageAdds, classifyExplicitPageRemoves, classifyPageOnlyMutations, composeNextPageStub, composeSajtagentNav, executeNextPageMutation, isControllerOwnedSourcePath, isPageOnlyPrompt, listedPageRoutes, mergeGeneratedSourceFiles, modelVisibleBaseFiles, pagePathForRoute, pagePathsInSubtree, parseManualPageRoute, planNextPageMutation, planPageOnlyMutations, SAJTAGENT_NAV_PATH } from "../lib/siteagent/server/next-preview-pages.ts"
 import { GENERATE_CONTEXT_BUDGET_V1, packGenerateBaseFiles } from "../lib/siteagent/server/next-preview-generate-context.ts"
 import {
   applyAcceptedPackageManifest,
@@ -210,6 +210,22 @@ check(() => {
   assert.ok(merged.some(file => file.path === "app/page.tsx"))
 })
 check(() => assert.deepEqual(classifyExplicitPageRemoves("ta bort /om", basePages), ["app/om/page.tsx"]))
+check(() => {
+  const nested = [...basePages, { path: "app/om/team/page.tsx", content: "export default function Team(){return <h1>Team</h1>}" }]
+  assert.deepEqual(pagePathsInSubtree(nested, "/om"), ["app/om/page.tsx", "app/om/team/page.tsx"])
+  assert.deepEqual(pagePathsInSubtree(nested, "/om/team"), ["app/om/team/page.tsx"])
+  assert.deepEqual(pagePathsInSubtree(nested, "/oma"), [])
+  assert.deepEqual(classifyExplicitPageRemoves("ta bort /om", nested), ["app/om/page.tsx", "app/om/team/page.tsx"])
+  assert.deepEqual(classifyExplicitPageRemoves("ta bort /om/team", nested), ["app/om/team/page.tsx"])
+  const removed = applyPageOnlyMutations(nested, [{ op: "remove", route: "/om" }])
+  assert.equal(removed.some(file => file.path === "app/om/page.tsx"), false)
+  assert.equal(removed.some(file => file.path === "app/om/team/page.tsx"), false)
+  assert.ok(removed.some(file => file.path === "app/page.tsx"))
+})
+check(() => {
+  const groupOnly = [...basePages.filter(file => file.path !== "app/om/page.tsx"), { path: "app/om/team/page.tsx", content: "export default function Team(){return <h1>Team</h1>}" }]
+  assert.deepEqual(classifyExplicitPageRemoves("ta bort /om", groupOnly), ["app/om/team/page.tsx"])
+})
 check(() => assert.deepEqual(classifyExplicitPageRemoves("ta bort kontaktsidan", [...basePages, { path: "app/kontakt/page.tsx", content: "x" }]), ["app/kontakt/page.tsx"]))
 check(() => assert.deepEqual(classifyExplicitPageRemoves("uppdatera kontaktsidan", [...basePages, { path: "app/kontakt/page.tsx", content: "x" }]), []))
 check(() => assert.deepEqual(classifyExplicitPageRemoves("ta bort startsidan", basePages), []))

@@ -111,10 +111,12 @@ export function NextPageAddUnderButton({
 
 export function NextPageRemoveButton({
   route,
+  hasSubtree,
   disabled,
   onRemove,
 }: {
   route: string
+  hasSubtree?: boolean
   disabled: boolean
   onRemove: (route: string) => Promise<void>
 }) {
@@ -141,7 +143,7 @@ export function NextPageRemoveButton({
         onClick={() => void remove()}
         disabled={disabled || busy}
         className="rounded px-1.5 py-0.5 font-mono text-[10px] text-workflow-text-muted hover:text-workflow-text disabled:opacity-50"
-        aria-label={`Ta bort ${route}`}
+        aria-label={hasSubtree ? `Ta bort ${route} och undersidor` : `Ta bort ${route}`}
       >
         {busy ? "Tar bort…" : "Ta bort"}
       </button>

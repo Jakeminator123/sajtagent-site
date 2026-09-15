@@ -117,6 +117,12 @@ export function pendingPreviewRouteFromPrompt(message: string): string | null {
   return route && route !== "/" ? route : null
 }
 
+/** `/om` contains `/om` and `/om/team`, never `/oma`. `/` is not a removable subtree. */
+export function isPageRouteInSubtree(route: string, ancestor: string): boolean {
+  if (!ancestor || ancestor === "/") return false
+  return route === ancestor || route.startsWith(`${ancestor}/`)
+}
+
 /** Address-bar path. Iframe and chrome may only open export-backed routes. */
 export function previewChromeRoute(
   previewableRoutes: readonly string[],

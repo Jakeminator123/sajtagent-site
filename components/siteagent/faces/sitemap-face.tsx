@@ -81,8 +81,13 @@ function SitemapBranch({
               disabled={pagesDisabled}
               onAddUnder={onAddUnder}
             />
-            {node.route !== "/" && !node.virtual ? (
-              <NextPageRemoveButton route={node.route} disabled={pagesDisabled} onRemove={onRemove} />
+            {node.route !== "/" && (!node.virtual || node.children.length > 0) ? (
+              <NextPageRemoveButton
+                route={node.route}
+                hasSubtree={node.children.length > 0}
+                disabled={pagesDisabled}
+                onRemove={onRemove}
+              />
             ) : null}
           </div>
           {node.children.length > 0 ? (

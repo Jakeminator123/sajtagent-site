@@ -610,6 +610,16 @@ assert.match(
   /sitemapRowNote/,
   "Map must show group and not-yet-preview notes in the row, not only a title tooltip",
 )
+assert.match(
+  sitemapFaceSource,
+  /!node\.virtual \|\| node\.children\.length > 0/,
+  "Map must let the user remove a group node that still has pages under it",
+)
+assert.match(
+  nextPagesControlsSource,
+  /Ta bort \$\{route\} och undersidor/,
+  "Removing a branch must name the subtree in the control",
+)
 assert.doesNotMatch(
   sitemapFaceSource,
   /canSelect = previewKind === "next" && previewableRoutes\.length > 1/,

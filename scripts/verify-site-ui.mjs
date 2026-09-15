@@ -249,6 +249,26 @@ assert.match(
   /layout=\{false\}/,
   "the draggable card node must not run layout projection during drag",
 )
+assert.match(
+  cubeStageSource,
+  /React\.memo\(function FaceCard/,
+  "open cards must not rerender because a sibling subscribed to the conversation",
+)
+assert.match(
+  cubeStageSource,
+  /function AutoFlipChoicesOnBuild/,
+  "build auto-flip must subscribe without rerendering the drag stage",
+)
+assert.match(
+  cubeStageSource,
+  /function ChoicesLockOverlay/,
+  "choices lock must subscribe on the overlay, not the drag stage",
+)
+assert.doesNotMatch(
+  cubeStageSource,
+  /export function CubeStage\([\s\S]*const \{ versions, previewStatus \} = useBuilder/,
+  "CubeStage must not rerender every conversation token while a card is dragged",
+)
 assert.doesNotMatch(
   cubeStageSource,
   /style=\{\{ width: size\.w, height: size\.h, x, y, perspective/,

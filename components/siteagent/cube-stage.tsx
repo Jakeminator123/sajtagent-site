@@ -7,7 +7,7 @@
 //   aldrig av en vanlig konversationsturn.
 // Layouten (dock, storlek, position) sparas i localStorage.
 
-import React, { useCallback, useEffect, useRef, useState } from "react"
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { motion, useDragControls, useMotionValue } from "motion/react"
 import { FlipHorizontal2, GripVertical, Lock, Maximize2, Minimize2, Minus, Plus, RotateCcw, X } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -16,6 +16,40 @@ import { PreviewStage } from "./preview-stage"
 import { StatusDot } from "./card-states"
 import { useBuilder } from "./builder-store"
 import type { FaceOffset, FaceSize } from "./use-layout-prefs"
+
+function AutoFlipChoicesOnBuild({ onFlip }: { onFlip: () => void }) {
+  const { previewStatus } = useBuilder()
+  const autoFlippedRef = useRef(false)
+  useEffect(() => {
+    if (previewStatus === "building" && !autoFlippedRef.current) {
+      autoFlippedRef.current = true
+      onFlip()
+    }
+  }, [onFlip, previewStatus])
+  return null
+}
+
+function useChoicesLocked(): boolean {
+  const { versions, previewStatus } = useBuilder()
+  return versions.length > 0 || previewStatus === "building"
+}
+
+function ChoicesLockIcon() {
+  if (!useChoicesLocked()) return null
+  return <Lock className="w-3 h-3 text-workflow-text-subtle" />
+}
+
+function ChoicesLockOverlay() {
+  if (!useChoicesLocked()) return null
+  return (
+    <div className="absolute inset-0 bg-workflow-node-bg/70 backdrop-blur-[1px] flex flex-col items-center justify-center gap-2 z-10">
+      <Lock className="w-4 h-4 text-workflow-text-muted" />
+      <p className="font-mono text-[10px] text-workflow-text-muted text-center px-4 leading-relaxed">
+        Byggvalen låstes när ett verifierat bygge startade.
+      </p>
+    </div>
+  )
+}
 
 function FaceLiveStatus({ id }: { id: FaceId }) {
   const { agentProjection, isStreaming, sessionStatus, previewStatus } = useBuilder()
@@ -90,14 +124,13 @@ function stackedCardHome(
 }
 
 /** Ett öppet kort: dragbart i headern, resize-kanter, ev. flippbart. */
-function FaceCard({
+const FaceCard = React.memo(function FaceCard({
   face,
   size,
   offset,
   home,
   column,
   flipped,
-  locked,
   stageRef,
   onFlip,
   onToggle,
@@ -112,7 +145,6 @@ function FaceCard({
   home: { left?: number; right?: number; top: number }
   column: "left" | "right"
   flipped: boolean
-  locked: boolean
   stageRef: React.RefObject<HTMLDivElement | null>
   onFlip: (id: FaceId) => void
   onToggle: (id: FaceId) => void
@@ -250,7 +282,7 @@ function FaceCard({
       <face.icon className="w-4 h-4" />
       <span className="font-mono text-sm font-medium text-workflow-text">{headerLabel}</span>
       <FaceLiveStatus id={face.id} />
-      {face.id === "choices" && locked && <Lock className="w-3 h-3 text-workflow-text-subtle" />}
+      {face.id === "choices" ? <ChoicesLockIcon /> : null}
       <div
         className="ml-auto flex items-center gap-0.5"
         onPointerDown={(e) => e.stopPropagation()}
@@ -364,14 +396,7 @@ function FaceCard({
           <div className="flex-1 min-h-0 relative">
             <face.Component />
             {/* Byggval låses efter ett faktiskt bygge eller en verifierad version. */}
-            {face.id === "choices" && locked && (
-              <div className="absolute inset-0 bg-workflow-node-bg/70 backdrop-blur-[1px] flex flex-col items-center justify-center gap-2 z-10">
-                <Lock className="w-4 h-4 text-workflow-text-muted" />
-                <p className="font-mono text-[10px] text-workflow-text-muted text-center px-4 leading-relaxed">
-                  Byggvalen låstes när ett verifierat bygge startade.
-                </p>
-              </div>
-            )}
+            {face.id === "choices" ? <ChoicesLockOverlay /> : null}
           </div>
         </div>
 
@@ -423,8 +448,9 @@ function FaceCard({
       />
     </motion.div>
   )
-}
+})
 
+/** Scenen prenumererar inte på Builder-store. Samtalstokens får inte rita om draglagret. */
 export function CubeStage({
   docked,
   onToggle,
@@ -441,7 +467,6 @@ export function CubeStage({
 }: CubeStageProps) {
   const [fanned, setFanned] = useState(false)
   const [flipped, setFlipped] = useState<Partial<Record<FaceId, boolean>>>({})
-  const { versions, previewStatus } = useBuilder()
   const stageRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -461,25 +486,40 @@ export function CubeStage({
     return () => observer.disconnect()
   }, [setStageSize])
 
-  // En vanlig chatt-turn får inte se ut som ett bygge. Endast ett faktiskt
-  // build-event auto-flippar kortet; en verifierad version låser det också.
-  const buildStarted = previewStatus === "building"
-  const choicesLocked = versions.length > 0 || buildStarted
-  const autoFlippedRef = useRef(false)
-  useEffect(() => {
-    if (buildStarted && !autoFlippedRef.current) {
-      autoFlippedRef.current = true
-      setFlipped((prev) => ({ ...prev, choices: true }))
-    }
-  }, [buildStarted])
-
   const toggleFlip = useCallback((id: FaceId) => {
     setFlipped((prev) => ({ ...prev, [id]: !prev[id] }))
   }, [])
+  const flipChoices = useCallback(() => {
+    setFlipped((prev) => ({ ...prev, choices: true }))
+  }, [])
 
-  const openLeft = FACES.filter((f) => f.column === "left" && !docked.has(f.id))
-  const openRight = FACES.filter((f) => f.column === "right" && !docked.has(f.id))
-  const dockedFaces = FACES.filter((f) => docked.has(f.id))
+  const openLeft = useMemo(
+    () => FACES.filter((f) => f.column === "left" && !docked.has(f.id)),
+    [docked],
+  )
+  const openRight = useMemo(
+    () => FACES.filter((f) => f.column === "right" && !docked.has(f.id)),
+    [docked],
+  )
+  const dockedFaces = useMemo(
+    () => FACES.filter((f) => docked.has(f.id)),
+    [docked],
+  )
+  const openCards = useMemo(
+    () => [
+      ...openLeft.map((face, index) => ({
+        face,
+        column: "left" as const,
+        home: stackedCardHome("left", openLeft, index, sizes),
+      })),
+      ...openRight.map((face, index) => ({
+        face,
+        column: "right" as const,
+        home: stackedCardHome("right", openRight, index, sizes),
+      })),
+    ],
+    [openLeft, openRight, sizes],
+  )
 
   const cardProps = {
     onToggle,
@@ -497,21 +537,11 @@ export function CubeStage({
       className="relative flex-1 overflow-hidden data-[card-dragging]:[&_iframe]:pointer-events-none"
     >
       <PreviewStage />
+      <AutoFlipChoicesOnBuild onFlip={flipChoices} />
 
       {/* Öppna kort sitter på scenen. Kolumnen är bara hemposition, inte en flex-wrapper
           som gör att dragConstraints mäts mot fel offset-parent. */}
-      {[
-        ...openLeft.map((face, index) => ({
-          face,
-          column: "left" as const,
-          home: stackedCardHome("left", openLeft, index, sizes),
-        })),
-        ...openRight.map((face, index) => ({
-          face,
-          column: "right" as const,
-          home: stackedCardHome("right", openRight, index, sizes),
-        })),
-      ].map(({ face, column, home }) => (
+      {openCards.map(({ face, column, home }) => (
         <FaceCard
           key={face.id}
           face={face}
@@ -520,7 +550,6 @@ export function CubeStage({
           home={home}
           column={column}
           flipped={Boolean(flipped[face.id])}
-          locked={face.id === "choices" && choicesLocked}
           stageRef={stageRef}
           {...cardProps}
         />

@@ -79,6 +79,10 @@ export type NextAccessFailureBody = {
   error: "next_preview_unavailable" | "preview_access_denied" | "invalid_access_binding" | "payload_too_large" | "preview_access_unavailable"
 }
 
+export type NextProfileFailureBody = {
+  error: "next_preview_unavailable" | "invalid_profile_preference" | "payload_too_large" | "project_not_found" | "next_profile_failed"
+}
+
 function namedSourceZodConstraint(error: z.ZodError): NextBuildFailureBody["error"] | null {
   for (const issue of error.issues) {
     if (issue.path.includes("content") && issue.code === "too_big") return "invalid_source_file_size"
@@ -128,6 +132,21 @@ export function isRetryableNextFailure(mapped: { status: number; body: NextBuild
   return mapped.body.reason === "runtime_transport_5xx" ||
     mapped.body.reason === "runtime_transport_failed" ||
     (mapped.status === 503 && mapped.body.error === "next_build_failed" && mapped.body.reason === undefined)
+}
+
+/** Safe profile-preference body. Never echoes `error.message` or stored state. */
+export function nextProfileFailureResponse(error: unknown): { status: number; body: NextProfileFailureBody } {
+  if (isNextPreviewUnavailableError(error)) {
+    return { status: 404, body: { error: "next_preview_unavailable" } }
+  }
+  if (error instanceof z.ZodError) {
+    return { status: 400, body: { error: "invalid_profile_preference" } }
+  }
+  const code = error instanceof Error ? error.message : ""
+  if (code === "payload_too_large") return { status: 413, body: { error: "payload_too_large" } }
+  if (code === "invalid_json") return { status: 400, body: { error: "invalid_profile_preference" } }
+  if (code === "project_not_found") return { status: 404, body: { error: "project_not_found" } }
+  return { status: 503, body: { error: "next_profile_failed" } }
 }
 
 /** Safe access-route body. Never echoes `error.message`, grants, hostnames or tokens. */

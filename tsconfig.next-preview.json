@@ -11,6 +11,7 @@
   },
   "include": [
     "lib/siteagent/next-preview-poll.ts",
+    "lib/siteagent/server/agent-build-profile.ts",
     "lib/siteagent/server/next-preview-*.ts",
     "app/api/siteagent/projects/[projectId]/next/**/*.ts",
     "app/api/siteagent/next-gateway/**/*.ts",
@@ -19,6 +20,7 @@
     "scripts/verify-next-preview-failure.mts",
     "scripts/verify-next-preview-runtime.mts",
     "scripts/verify-next-preview-access.mts",
+    "scripts/verify-next-preview-profile.mts",
     "scripts/verify-next-source-export.mts"
   ]
 }

@@ -9,6 +9,9 @@ repon är fortsatt
 **Live V2 är fortfarande inte påslagen för kunder.** `SITEAGENT_NEXT_ENABLED=false`
 i Production efter testfönstret.
 
+Tillfällig Builder-switch för HTML-skiss vs React (Next) är en per-projektpreferens,
+inte en formatmigrering; default när Next är tillgängligt förblir `next`.
+
 ## Resultat
 
 | Vad | Bevis |

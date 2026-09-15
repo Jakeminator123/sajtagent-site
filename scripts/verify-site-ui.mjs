@@ -21,6 +21,7 @@ const previewStageSource = readFileSync(resolve(root, "components/siteagent/prev
 const cubeStageSource = readFileSync(resolve(root, "components/siteagent/cube-stage.tsx"), "utf8")
 const engineBackSource = readFileSync(resolve(root, "components/siteagent/faces/back-faces.tsx"), "utf8")
 const builderHeaderSource = readFileSync(resolve(root, "components/siteagent/builder-header.tsx"), "utf8")
+const buildProfileSwitchSource = readFileSync(resolve(root, "components/siteagent/build-profile-switch.tsx"), "utf8")
 const newDraftMenuSource = readFileSync(resolve(root, "components/siteagent/new-draft-menu.tsx"), "utf8")
 const newDraftCopySource = readFileSync(resolve(root, "components/siteagent/new-draft-intents.ts"), "utf8")
 const builderPageSource = readFileSync(resolve(root, "app/builder/page.tsx"), "utf8")
@@ -419,6 +420,28 @@ assert.match(
   builderStoreSource,
   /canSendTurn/,
   "Chat and Blocks must share one turn-send gate",
+)
+assert.match(
+  builderHeaderSource,
+  /BuildProfileSwitch/,
+  "the temporary HTML-sketch / React switch lives in the existing Builder header",
+)
+assert.match(buildProfileSwitchSource, /HTML-skiss/)
+assert.match(buildProfileSwitchSource, /React \(Next\)/)
+assert.match(
+  buildProfileSwitchSource,
+  /Temporary sketch-mode switch/,
+  "the control must stay marked as the temporary doctrine switch",
+)
+assert.match(
+  buildProfileSwitchSource,
+  /availability !== "available"/,
+  "the switch is hidden when Next is not a deployment capability",
+)
+assert.match(
+  builderHeaderSource,
+  /HTML-skiss kan inte publiceras/,
+  "HTML sketch cannot publish; existing Next publication is unchanged",
 )
 assert.match(heroSource, /beta/, "the hero must label the current product state as beta")
 assert.doesNotMatch(heroSource, /färdig webbplats|bygger sidan|tio sekunder/, "the hero must not claim unavailable build automation")

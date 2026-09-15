@@ -35,7 +35,7 @@ import { createRuntimeClientFromEnvV1 } from "./runtime-client.ts"
 import { PostgresSiteVersionRepositoryV1 } from "./version-repository.ts"
 import type { NextJob } from "./next-preview-model.ts"
 import { PostgresNextPreviewRepository } from "./next-preview-repository.ts"
-import { agentBuildProfile } from "./agent-build-profile.ts"
+import { agentBuildProfile, readBuildProfilePreference } from "./agent-build-profile.ts"
 import { isRetryableNextFailure, nextBuildFailureResponse } from "./next-preview-failure.ts"
 
 export type AgentTurnBuildPlanV1 = {
@@ -143,7 +143,7 @@ export class PostgresAgentTurnBuildCoordinatorV1
     }
     const nextState = await this.nextPreviews.getState(input.principal, input.session.projectId)
     if (!nextState) throw new Error("project_not_found")
-    const profile = agentBuildProfile(this.env, nextState)
+    const profile = agentBuildProfile(this.env, nextState, readBuildProfilePreference(nextState))
     const intentType = BuilderIntentTypeV1Schema.parse(
       (profile === "next" ? nextState.accepted : project.activeVersion) ? "site.change" : "site.create",
     )

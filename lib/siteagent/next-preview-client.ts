@@ -6,15 +6,24 @@ const binding = z.object({
   projectId: z.string().min(1), jobId: z.string().min(1),
   sourceRevisionId: SourceRevisionIdV2Schema, previewRef: PreviewRefV2Schema,
 })
+const profileSchema = z.object({
+  available: z.array(z.enum(["html", "next"])).min(1),
+  preference: z.enum(["html", "next"]).nullable(),
+  effective: z.enum(["html", "next"]),
+}).strict()
+
 const stateSchema = z.object({
   schemaVersion: z.literal(2),
   state: z.object({
     current: binding.extend({status: z.enum(["building", "accepted", "failed"]), expiresAt: z.string().datetime({offset: true}), failureCode: z.string().optional()}).nullable(),
     accepted: binding.extend({acceptedAt: z.string().datetime({offset: true})}).nullable(),
   }),
+  profile: profileSchema.optional(),
 })
 
 export type NextProjectState = z.infer<typeof stateSchema>["state"]
+export type NextBuildProfile = z.infer<typeof profileSchema>
+export type NextProjectRead = { state: NextProjectState; profile: NextBuildProfile | null }
 export type AcceptedNextPreview = NonNullable<NextProjectState["accepted"]>
 export type NextAvailability = "loading" | "available" | "unavailable" | "error"
 export function canSendWithNextProfile(availability: NextAvailability, hasNext: boolean): boolean {
@@ -24,14 +33,18 @@ export function isNextBuildActive(current: NextProjectState["current"], now = Da
   return current?.status === "building" && Date.parse(current.expiresAt) > now
 }
 
-export function parseNextProjectState(value: unknown, projectId: string): NextProjectState {
+export function parseNextProjectRead(value: unknown, projectId: string): NextProjectRead {
   const parsed = stateSchema.safeParse(value)
   if (!parsed.success) throw new Error("Projektets React-status kunde inte verifieras.")
-  const {state} = parsed.data
+  const {state, profile} = parsed.data
   if ([state.current, state.accepted].some(item => item && item.projectId !== projectId)) {
     throw new Error("Next-svaret tillhörde ett annat projekt.")
   }
-  return state
+  return { state, profile: profile ?? null }
+}
+
+export function parseNextProjectState(value: unknown, projectId: string): NextProjectState {
+  return parseNextProjectRead(value, projectId).state
 }
 
 export function reconcileNextPreview(candidate: AgentNextPreviewProjection, state: NextProjectState, projectId: string): boolean {

@@ -26,7 +26,12 @@ export type StaticFile = { path: string; content: string; encoding: "base64" }
 export type NextBinding = { tenantId: string; projectId: string; jobId: string; sourceRevisionId: string; previewRef: string }
 export type NextAccepted = NextBinding & { deploymentId: string; deploymentUrl: string; acceptedAt: string; outputSha256: string; files: StaticFile[] }
 export type NextJob = NextBinding & { status: "building" | "accepted" | "failed"; expiresAt: string; failureCode?: string }
-export type NextState = { current: NextJob | null; accepted: NextAccepted | null }
+/** `profilePreference` is optional and owner-bound; absence means unset (effective next when Next is available). */
+export type NextState = {
+  current: NextJob | null
+  accepted: NextAccepted | null
+  profilePreference?: "html" | "next"
+}
 
 /** The deployer and operator preflight must accept exactly the same protection. */
 export function supportedArtifactProtection(mode: unknown): boolean {

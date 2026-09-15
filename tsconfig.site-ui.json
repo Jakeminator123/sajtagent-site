@@ -24,6 +24,7 @@
     "components/landing-header.tsx",
     "components/home-prompt.tsx",
     "components/siteagent/builder-header.tsx",
+    "components/siteagent/build-profile-switch.tsx",
     "components/siteagent/builder-store.tsx",
     "components/siteagent/new-draft-intents.ts",
     "components/siteagent/new-draft-menu.tsx",

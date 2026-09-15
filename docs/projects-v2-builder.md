@@ -22,6 +22,29 @@ This establishes code/deployment status, not the two-account browser result.
   when the personal starter is selected. Its destructive confirmation states
   exactly what will be removed; other projects are not reset.
 
+## Temporary build-profile switch (HTML-skiss / React)
+
+This is the temporary sketch-mode control the platform doctrine anticipates a
+fuller decision for. It is **not** a format migration. Switching does not
+convert HTML to React, delete artifacts, or change the published revision.
+
+- **Availability** is only `nextPreviewConfig` (`SITEAGENT_NEXT_ENABLED` plus
+  the rest of the Next env). The preference cannot open that gate.
+- **Preference** is the project owner's `html` | `next` choice, stored as
+  optional `profilePreference` on the owner-bound `next_preview_states.state`
+  JSON. Absence means unset.
+- **Effective profile:** Next unavailable → `html`, unless the project already
+  has accepted Next state (stays `next`). Next available + `html` → `html`.
+  Next available + `next` or unset → `next` (unchanged default).
+- The Builder header shows `HTML-skiss` / `React (Next)` only when Next is
+  available. When Next is off the switch is hidden. HTML-skiss still cannot
+  publish.
+- `previewSelection` / `previewKind` remain display-only. They do not choose
+  the build profile.
+- Mutation: owner-only `POST /api/siteagent/projects/:id/next/profile`
+  `{preference:"html"|"next"}`. The route lives under `/next/` so Next-off is
+  404 `next_preview_unavailable` (Site #37).
+
 ## Verification / release checklist
 
 - [x] `check:projects`: existing server ownership/repository assertions plus

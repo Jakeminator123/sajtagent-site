@@ -14,7 +14,51 @@ export class PostgresNextPreviewRepository {
     const result = await this.pool.query<{ state: NextState | null }>(
       `select n.state from public.site_projects p left join public.next_preview_states n on n.project_id=p.id
        where p.id=$1 and p.tenant_id=$2 and p.owner_user_id=$3::uuid`, [projectId, principal.tenantId, principal.userId])
-    return result.rows.length ? result.rows[0].state ?? { current: null, accepted: null } : null
+    return result.rows.length ? this.normalizeState(result.rows[0].state) : null
+  }
+
+  private normalizeState(state: NextState | null): NextState {
+    const preference = state?.profilePreference
+    return {
+      current: state?.current ?? null,
+      accepted: state?.accepted ?? null,
+      ...(preference === "html" || preference === "next" ? { profilePreference: preference } : {}),
+    }
+  }
+
+  /**
+   * Upsert only `state.profilePreference`. Never touches accepted/current artifacts,
+   * source files, or `next_publications_v2`. Creates a lazy owner-bound row when needed.
+   */
+  async setProfilePreference(
+    principal: BuildPrincipalV1,
+    projectId: string,
+    preference: "html" | "next",
+  ): Promise<NextState> {
+    return this.transaction(async client => {
+      const project = await client.query(
+        `select id from public.site_projects where id=$1 and tenant_id=$2 and owner_user_id=$3::uuid for update`,
+        [projectId, principal.tenantId, principal.userId],
+      )
+      if (!project.rowCount) throw new Error("project_not_found")
+      const record = await client.query<Row>(
+        `select state from public.next_preview_states where project_id=$1 and tenant_id=$2 and owner_user_id=$3::uuid for update`,
+        [projectId, principal.tenantId, principal.userId],
+      )
+      const state = this.normalizeState(record.rows[0]?.state ?? null)
+      state.profilePreference = preference
+      const saved = await client.query(
+        `insert into public.next_preview_states(project_id,tenant_id,owner_user_id,state)
+         values($1,$2,$3::uuid,$4::jsonb)
+         on conflict(project_id) do update
+           set state=excluded.state, updated_at=now()
+           where next_preview_states.tenant_id=excluded.tenant_id
+             and next_preview_states.owner_user_id=excluded.owner_user_id`,
+        [projectId, principal.tenantId, principal.userId, JSON.stringify(state)],
+      )
+      if (!saved.rowCount) throw new Error("project_not_found")
+      return state
+    })
   }
 
   async getAccepted(principal: BuildPrincipalV1, projectId: string): Promise<NextAccepted | null> {
@@ -38,7 +82,7 @@ export class PostgresNextPreviewRepository {
       const project = await client.query(`select id from public.site_projects where id=$1 and tenant_id=$2 and owner_user_id=$3::uuid for update`, [job.projectId, principal.tenantId, principal.userId])
       if (!project.rowCount || job.tenantId !== principal.tenantId) throw new Error("project_not_found")
       const record = await client.query<Row>(`select state from public.next_preview_states where project_id=$1 for update`, [job.projectId])
-      const state = record.rows[0]?.state ?? { current: null, accepted: null }
+      const state = this.normalizeState(record.rows[0]?.state ?? null)
       if (expectedAcceptedJobId !== undefined && (state.accepted?.jobId ?? null) !== expectedAcceptedJobId) throw new Error("stale_source_generation")
       if (state.current?.status === "building" && Date.parse(state.current.expiresAt) > Date.now()) throw new Error("project_busy")
       // Only this server-initiated method may replace current.jobId. Finish never does.

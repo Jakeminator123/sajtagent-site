@@ -64,6 +64,13 @@ check(
 )
 check(
   publicTurnFailedMessageV1({
+    code: "source_context_too_large",
+    message: "source_context_too_large https://internal.example/secret",
+  }) === "Sidan är för stor för att ändras i ett steg. Dela upp beställningen eller korta den nämnda sidan.",
+  "oversized generate context stays a short Swedish failure",
+)
+check(
+  publicTurnFailedMessageV1({
     code: "unsupported_package",
     message: "whatever",
   }) === "Det paketet är inte tillåtet. Sajtagent kan använda Next, React, TypeScript, clsx och lucide-react.",

@@ -56,6 +56,8 @@ const SAFE_TURN_FAILED_BY_CODE_V1: Record<string, string> = {
     "Sajtagent fick ingen användbar React-källa. Försök igen.",
   invalid_generated_source:
     "Källan gick inte att använda. Beskriv sidan tydligare eller försök igen.",
+  source_context_too_large:
+    "Sidan är för stor för att ändras i ett steg. Dela upp beställningen eller korta den nämnda sidan.",
   unsupported_package:
     "Det paketet är inte tillåtet. Sajtagent kan använda Next, React, TypeScript, clsx och lucide-react.",
   invalid_package:

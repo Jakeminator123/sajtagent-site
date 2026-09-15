@@ -14,6 +14,10 @@ async function stage(name, fn) {
   try { const result = await fn(); record(name, "passed"); return result }
   catch (error) {
     record(name, "failed", error instanceof SmokeFailure ? error.message : "redacted_execution_error")
+    // Opt-in local diagnostics only: error class and a short message, never bodies, cookies or grants.
+    if (process.env.V2_E2E_DEBUG === "1" && !(error instanceof SmokeFailure)) {
+      console.error(JSON.stringify({ stage: name, error: error?.constructor?.name ?? typeof error, message: String(error?.message ?? error).slice(0, 240) }))
+    }
     throw error
   }
 }
@@ -27,10 +31,19 @@ function acceptedIdentity(state) {
 
 async function signIn(context, origin, credentials) {
   const page = await context.newPage()
-  await page.goto(`${origin}/login`, { waitUntil: "domcontentloaded" })
-  await page.locator("#email").fill(credentials.email)
-  await page.locator("#password").fill(credentials.password)
-  await page.getByRole("button", { name: "Logga in", exact: true }).click()
+  // Wait for hydration: the form is React-controlled, so input typed before hydration is discarded
+  // and the submit button stays disabled.
+  await page.goto(`${origin}/login`, { waitUntil: "networkidle" })
+  const submit = page.getByRole("button", { name: "Logga in", exact: true })
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    await page.locator("#email").fill("")
+    await page.locator("#email").pressSequentially(credentials.email, { delay: 10 })
+    await page.locator("#password").fill("")
+    await page.locator("#password").pressSequentially(credentials.password, { delay: 10 })
+    if (await submit.isEnabled()) break
+    await page.waitForTimeout(1_000)
+  }
+  await submit.click()
   await page.waitForURL((url) => url.origin === origin && url.pathname === "/builder", { timeout: 60_000 })
   await page.close()
 }
@@ -45,7 +58,7 @@ async function runLive() {
   requireThat(Number.isSafeInteger(timeout) && timeout >= 10_000 && timeout <= 1_800_000,
     "invalid_build_wait_ceiling")
   const chromium = await loadPlaywright()
-  const browser = await chromium.launch({ headless: true })
+  const browser = await chromium.launch({ headless: true, channel: "chrome" })
   try {
     const owner = await browser.newContext()
     const other = await browser.newContext()
@@ -175,15 +188,21 @@ async function runLive() {
       try {
         await builder.goto(`${config.origin}/builder?project=${encodeURIComponent(project.projectId)}`,
           { waitUntil: "domcontentloaded" })
-        const iframe = builder.locator('iframe[title="Interaktiv Next.js-preview"]')
+        const iframe = builder.locator('iframe[name="sajtagent-next-preview"]')
         await iframe.waitFor()
         const sandbox = (await iframe.getAttribute("sandbox") ?? "").split(/\s+/).sort()
         requireThat(JSON.stringify(sandbox) === JSON.stringify(["allow-same-origin", "allow-scripts"]),
           "builder_iframe_sandbox_policy_changed")
-        const frame = builder.frameLocator('iframe[title="Interaktiv Next.js-preview"]')
+        const frame = builder.frameLocator('iframe[name="sajtagent-next-preview"]')
         await frame.getByTestId("revision").filter({ hasText: "revision ONE" }).waitFor()
-        await frame.getByTestId("counter").click()
-        await frame.getByTestId("counter").filter({ hasText: "Count: 1" }).waitFor()
+        // Clicks that land before React hydrates inside the iframe are dropped; retry until one registers.
+        let counted = false
+        for (let attempt = 0; attempt < 8 && !counted; attempt += 1) {
+          await frame.getByTestId("counter").click()
+          counted = await frame.getByTestId("counter").filter({ hasText: /Count: [1-9]/ }).waitFor({ timeout: 1_500 })
+            .then(() => true, () => false)
+        }
+        requireThat(counted, "builder_iframe_counter_not_interactive")
       } finally { await builder.close() }
     })
     const publishPath = `${path}/publish`
@@ -213,8 +232,14 @@ async function runLive() {
         await page.getByTestId("revision").filter({ hasText: `revision ${marker}` }).waitFor()
         const counter = page.getByTestId("counter")
         requireThat((await counter.textContent())?.trim() === "Count: 0", "public_counter_initial_state_wrong")
-        await counter.click()
-        await page.waitForFunction(() => document.querySelector('[data-testid="counter"]')?.textContent?.trim() === "Count: 1")
+        // Clicks before hydration are dropped by React; retry until exactly one registers.
+        let counted = false
+        for (let attempt = 0; attempt < 8 && !counted; attempt += 1) {
+          await counter.click()
+          counted = await page.waitForFunction(() => document.querySelector('[data-testid="counter"]')?.textContent?.trim() === "Count: 1", null, { timeout: 1_500 })
+            .then(() => true, () => false)
+        }
+        requireThat(counted, "public_counter_not_interactive")
         const scripts = await page.locator("script[src]").evaluateAll(nodes => nodes.map(node => node.src))
         const asset = scripts.find(url => url.includes("/_next/") && url.endsWith(".js"))
         requireThat(asset && new URL(asset).origin === origin, "public_next_asset_missing_or_wrong_origin")

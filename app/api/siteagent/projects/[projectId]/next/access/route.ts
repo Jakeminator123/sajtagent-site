@@ -13,7 +13,9 @@ export async function POST(request:Request,{params}:{params:Promise<{projectId:s
   if (!principal) return Response.json({error:"unauthenticated"},{status:401,headers})
   try {
     const config = nextPreviewConfig(), projectId = (await params).projectId
-    const expected = request.body ? NextPreviewAccessBindingSchema.parse(await readBoundedJsonV1(request,2048)) : undefined
+    // On Vercel a body-less POST still exposes an empty stream, so `request.body` alone cannot mean "binding supplied".
+    const hasBody = Number(request.headers.get("content-length") ?? 0) > 0 || (request.headers.get("transfer-encoding") ?? "").includes("chunked")
+    const expected = hasBody ? NextPreviewAccessBindingSchema.parse(await readBoundedJsonV1(request,2048)) : undefined
     const supabase = await createSupabaseServerClient()
     const claims = await supabase?.auth.getClaims()
     const sessionId = claims?.data?.claims.session_id

@@ -21,7 +21,8 @@ const publication = {
 }
 const request = new Request("https://public.example.test/")
 const base = publicationBasePath(publication.previewRef)
-assert.equal(publishedResponse(request, publication, "/").headers.get("location"), `${base}/`)
+// Absolute same-origin redirect: relative Location headers crash the Next proxy adapter in production.
+assert.equal(publishedResponse(request, publication, "/").headers.get("location"), `https://public.example.test${base}/`)
 const response = publishedResponse(request, publication, `${base}/`)
 assert.equal(response.status, 200)
 assert.equal(await response.text(), "<h1>Accepted revision</h1>")

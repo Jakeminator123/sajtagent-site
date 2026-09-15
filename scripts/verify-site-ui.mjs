@@ -220,6 +220,16 @@ assert.match(
   "the draggable card node must not run layout projection during drag",
 )
 assert.doesNotMatch(
+  cubeStageSource,
+  /LayoutGroup/,
+  "open cards must not share a LayoutGroup with the dock",
+)
+assert.doesNotMatch(
+  cubeStageSource,
+  /layoutId=/,
+  "docked cards must not project into open cards via layoutId",
+)
+assert.doesNotMatch(
   layoutSource,
   /clamp\([^;]*-1200,\s*1200\)/,
   "face offsets must not use a hardcoded ±1200 clamp",

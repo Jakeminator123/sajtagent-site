@@ -8,7 +8,7 @@
 // Layouten (dock, storlek, position) sparas i localStorage.
 
 import React, { useCallback, useEffect, useRef, useState } from "react"
-import { LayoutGroup, motion, useDragControls, useMotionValue } from "motion/react"
+import { motion, useDragControls, useMotionValue } from "motion/react"
 import { FlipHorizontal2, GripVertical, Lock, Maximize2, Minimize2, Minus, Plus, RotateCcw, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { FACES, type FaceDef, type FaceId } from "./faces/face-defs"
@@ -439,9 +439,8 @@ export function CubeStage({
     >
       <PreviewStage />
 
-      <LayoutGroup>
-        {/* Öppna kort — vänster kolumn */}
-        <div className="absolute left-4 top-4 bottom-4 flex flex-col items-start gap-3 pointer-events-none z-10">
+      {/* Öppna kort — vänster kolumn */}
+      <div className="absolute left-4 top-4 bottom-4 flex flex-col items-start gap-3 pointer-events-none z-10">
           {openLeft.map((face) => (
             <FaceCard
               key={face.id}
@@ -513,8 +512,6 @@ export function CubeStage({
                 return (
                   <motion.button
                     key={face.id}
-                    layoutId={`face-${face.id}`}
-                    transition={spring}
                     type="button"
                     onClick={() => {
                       if (!fanned && dockedFaces.length > 1) {
@@ -552,7 +549,6 @@ export function CubeStage({
             </div>
           </div>
         )}
-      </LayoutGroup>
     </div>
   )
 }

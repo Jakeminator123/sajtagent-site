@@ -443,6 +443,16 @@ assert.match(
   /NextPageRemoveButton/,
   "Map must expose remove on child pages",
 )
+assert.match(
+  sitemapFaceSource,
+  /buildPreviewRouteTree/,
+  "Map must nest accepted routes as a page tree",
+)
+assert.doesNotMatch(
+  sitemapFaceSource,
+  /paddingLeft|routeDepth/,
+  "Map must nest children instead of padding a flat list",
+)
 assert.match(nextPagesControlsSource, /Lägg till/)
 assert.match(nextPagesControlsSource, /Ta bort/)
 assert.match(

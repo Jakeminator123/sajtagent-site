@@ -6,6 +6,7 @@ import { readFileSync } from "node:fs"
 import { dirname, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 import { canSendWithNextProfile, isNextBuildActive, nextSourceDownloadHref, parseNextProjectRead, parseNextProjectState, previewContentUrl, reconcileNextPreview } from "../lib/siteagent/next-preview-client.ts"
+import { buildPreviewRouteTree, previewRouteLabel } from "../lib/siteagent/preview-route-tree.ts"
 
 const sessionId = "session:abcdefghijklmnopqrstuvwxyzABCDEF"
 assert.equal(canSendWithNextProfile("loading", false), false, "a delayed profile must not expose an HTML send that the server routes to React")
@@ -109,4 +110,23 @@ assert.match(nextHook, /mutatePages/)
 assert.match(nextHook, /\/next\/pages/)
 assert.match(nextHook, /availability: "available"/)
 assert.doesNotMatch(nextHook, /setSnapshot\([^\)]*availability: "loading"/)
+assert.deepEqual(buildPreviewRouteTree(["/", "/om", "/om/team", "/kontakt"]), [
+  {
+    route: "/",
+    children: [
+      { route: "/kontakt", children: [] },
+      { route: "/om", children: [{ route: "/om/team", children: [] }] },
+    ],
+  },
+])
+assert.deepEqual(buildPreviewRouteTree(["/om/team", "/kontakt"]), [
+  { route: "/kontakt", children: [] },
+  { route: "/om/team", children: [] },
+])
+assert.equal(previewRouteLabel("/"), "/")
+assert.equal(previewRouteLabel("/om/team"), "team")
+const sitemapFace = readFileSync(resolve(here, "../components/siteagent/faces/sitemap-face.tsx"), "utf8")
+assert.match(sitemapFace, /buildPreviewRouteTree/)
+assert.match(sitemapFace, /SitemapBranch/)
+assert.doesNotMatch(sitemapFace, /paddingLeft/)
 console.log("PASS shared Next chat projection: lifecycle, replay, exact owner/job/revision binding, retained accepted output, source export")

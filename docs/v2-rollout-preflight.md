@@ -3,7 +3,9 @@
 This CLI completes the repeatable configuration/permission audit without enabling
 V2, creating deployments, running a build, writing SQL data or changing DNS.
 It is an operator script, never a public admin endpoint. It complements
-[live rollout](v2-live-rollout-2026-09-14.md) and [two-account E2E](v2-e2e-smoke.md).
+[live rollout](v2-live-rollout-2026-09-14.md), the
+[2026-09-15 live E2E findings](v2-live-rollout-2026-09-15.md) and
+[two-account E2E](v2-e2e-smoke.md).
 
 ## Approved resources and configuration
 

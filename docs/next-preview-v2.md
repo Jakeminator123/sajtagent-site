@@ -101,6 +101,10 @@ Required Site/gateway server configuration (never NEXT_PUBLIC):
 - `SITEAGENT_NEXT_VERCEL_TOKEN`, `SITEAGENT_NEXT_VERCEL_TEAM_ID`
 - `SITEAGENT_NEXT_VERCEL_PROJECT_ID` dedicated static-artifact project, NOT Site
 - `SITEAGENT_NEXT_VERCEL_BYPASS` only for protected static-byte verification
+- On the **artifact project** itself: `VERCEL_PREVIEW_FEEDBACK_ENABLED=0` for all
+  targets. Otherwise Vercel injects its Toolbar script into the exported
+  `turbopack-*.js`, the exact-byte verification fails with
+  `deployment_bytes_mismatch`, and Site reports 503 `next_build_failed`.
 - Applied migration `20260913203600_next_preview_v2.sql`
 - Server DB role can read `auth.sessions(id,user_id,not_after)`. Do not grant this
   to browser/anonymous/authenticated Data API roles. Missing permission denies.

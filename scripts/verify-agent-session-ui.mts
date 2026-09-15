@@ -35,9 +35,13 @@ import {
   type CanonicalProjectReadModelV1,
 } from "../lib/siteagent/read-model.ts"
 import {
+  FACE_OFFSET_MIN_LIMIT,
+  FACE_OFFSET_PADDING,
   LAYOUT_DEFAULTS_REVISION,
   LEGACY_SPLIT_CONVERSATION_AGENT_SIZE,
   LEGACY_UNCUSTOMIZED_AGENT_SIZE,
+  clampFaceOffset,
+  faceOffsetLimit,
   migrateAgentDefaultSize,
   migrateDockedFaces,
 } from "../components/siteagent/layout-prefs.ts"
@@ -926,6 +930,28 @@ assert.deepEqual(
   ),
   ["choices", "versions", "blocks", "map", "agent"],
   "after revision 6 a docked Sajtagent is a real user choice",
+)
+assert.equal(FACE_OFFSET_MIN_LIMIT, 1200)
+assert.equal(FACE_OFFSET_PADDING, 32)
+assert.equal(
+  faceOffsetLimit(1920, 380),
+  1508,
+  "a 380px card on a 1920px stage must travel past the old ±1200 cap",
+)
+assert.equal(
+  faceOffsetLimit(800, 380),
+  FACE_OFFSET_MIN_LIMIT,
+  "narrow stages keep the historical ±1200 floor",
+)
+assert.deepEqual(
+  clampFaceOffset(-1500, 10, { width: 1920, height: 900 }, { w: 380, h: 560 }),
+  { x: -1500, y: 10 },
+  "a saved leftward Sajtagent offset must survive hydration on a wide stage",
+)
+assert.deepEqual(
+  clampFaceOffset(-2000, 0, { width: 1920, height: 900 }, { w: 380, h: 560 }),
+  { x: -1508, y: 0 },
+  "moveFace and hydration must share the same geometry cap",
 )
 assert.equal(
   CONVERSATION_STATUS_STREAMING,

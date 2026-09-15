@@ -202,6 +202,36 @@ assert.match(
   /role="region"/,
   "open Builder cards must be named regions",
 )
+assert.match(
+  cubeStageSource,
+  /setPointerCapture/,
+  "open cards must capture the pointer so preview iframes cannot swallow drag",
+)
+assert.match(
+  cubeStageSource,
+  /dragElastic=\{0\}/,
+  "open-card drag must not rubber-band",
+)
+assert.match(
+  cubeStageSource,
+  /layout=\{false\}/,
+  "the draggable card node must not run layout projection during drag",
+)
+assert.doesNotMatch(
+  layoutSource,
+  /clamp\([^;]*-1200,\s*1200\)/,
+  "face offsets must not use a hardcoded ±1200 clamp",
+)
+assert.match(
+  layoutPrefsSource,
+  /export function clampFaceOffset/,
+  "offset clamp must be a shared geometry helper",
+)
+assert.equal(
+  [...layoutSource.matchAll(/clampFaceOffset/g)].length >= 2,
+  true,
+  "hydration and moveFace must share clampFaceOffset",
+)
 assert.doesNotMatch(
   layoutSource,
   /chatDisplayHeight|COMPACT_CHAT_HEIGHT|isChatComposerCompact/,

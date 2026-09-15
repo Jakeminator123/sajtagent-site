@@ -65,6 +65,7 @@ interface CubeStageProps {
   moveFace: (id: FaceId, x: number, y: number) => void
   dockScale: number
   setDockScale: (fn: (s: number) => number) => void
+  setStageSize: (width: number, height: number) => void
   resetLayout: () => void
 }
 
@@ -98,7 +99,8 @@ function FaceCard({
 }) {
   const { isStreaming } = useBuilder()
   const dragRef = useRef<{ x: number; y: number } | null>(null)
-  const [resizing, setResizing] = useState(false)
+  const dragNodeRef = useRef<HTMLDivElement | null>(null)
+  const capturedPointerRef = useRef<number | null>(null)
   const dragControls = useDragControls()
   const x = useMotionValue(offset.x)
   const y = useMotionValue(offset.y)
@@ -117,7 +119,6 @@ function FaceCard({
       const target = e.currentTarget as HTMLElement
       target.setPointerCapture(e.pointerId)
       dragRef.current = { x: e.clientX, y: e.clientY }
-      setResizing(true)
 
       const onMove = (ev: PointerEvent) => {
         if (!dragRef.current) return
@@ -129,7 +130,6 @@ function FaceCard({
       }
       const onUp = () => {
         dragRef.current = null
-        setResizing(false)
         target.releasePointerCapture?.(e.pointerId)
         window.removeEventListener("pointermove", onMove)
         window.removeEventListener("pointerup", onUp)
@@ -143,27 +143,62 @@ function FaceCard({
   const canFlip = Boolean(face.Back)
   const headerLabel = flipped && face.backLabel ? face.backLabel : face.label
 
+  const setStageDragging = (active: boolean) => {
+    dragNodeRef.current
+      ?.closest("[data-cube-stage]")
+      ?.toggleAttribute("data-card-dragging", active)
+  }
+
+  const endDrag = useCallback(() => {
+    const node = dragNodeRef.current
+    const pointerId = capturedPointerRef.current
+    capturedPointerRef.current = null
+    if (node && pointerId != null && node.hasPointerCapture?.(pointerId)) {
+      node.releasePointerCapture(pointerId)
+    }
+    setStageDragging(false)
+  }, [])
+
+  const beginDrag = useCallback(
+    (e: React.PointerEvent) => {
+      const node = dragNodeRef.current
+      // Preview-iframen är ett syskon bakom korten. Utan capture försvinner
+      // pointermove in i iframen och draget fryser mitt över previewn.
+      if (node) {
+        try {
+          node.setPointerCapture(e.pointerId)
+          capturedPointerRef.current = e.pointerId
+        } catch {
+          capturedPointerRef.current = null
+        }
+      }
+      setStageDragging(true)
+      dragControls.start(e)
+    },
+    [dragControls],
+  )
+
   // Dra från vilken "tom" yta som helst på kortet — men aldrig från
-  // interaktiva element (knappar, textfält, länkar, resize-handtag).
+  // interaktiva element (knappar, textfält, länkar, resize-handtag, header).
   const startBodyDrag = useCallback(
     (e: React.PointerEvent) => {
       const target = e.target as HTMLElement
       if (
         target.closest(
-          "button, textarea, input, select, a, iframe, [role='separator'], [data-no-drag]"
+          "button, textarea, input, select, a, iframe, [role='separator'], [data-no-drag], [data-face-header]",
         )
       ) {
         return
       }
-      dragControls.start(e)
+      beginDrag(e)
     },
-    [dragControls]
+    [beginDrag],
   )
 
   const header = (
     <div
       data-face-header={flipped ? `${face.id}-back` : face.id}
-      onPointerDown={(e) => dragControls.start(e)}
+      onPointerDown={beginDrag}
       className={cn(
         "flex items-center gap-2 px-3 py-2 border-b border-workflow-border-subtle shrink-0 cursor-grab active:cursor-grabbing select-none touch-none",
         face.accent
@@ -231,14 +266,20 @@ function FaceCard({
 
   return (
     <motion.div
-      layoutId={`face-${face.id}`}
-      transition={resizing ? { duration: 0 } : spring}
+      ref={dragNodeRef}
+      layout={false}
+      transition={{ duration: 0 }}
       drag
       dragListener={false}
       dragControls={dragControls}
       dragMomentum={false}
-      dragElastic={0.08}
-      onDragEnd={() => moveFace(face.id, x.get(), y.get())}
+      dragElastic={0}
+      onDragEnd={() => {
+        endDrag()
+        moveFace(face.id, x.get(), y.get())
+      }}
+      onPointerUp={endDrag}
+      onPointerCancel={endDrag}
       onPointerDown={startBodyDrag}
       role="region"
       aria-label={headerLabel}
@@ -336,11 +377,30 @@ export function CubeStage({
   moveFace,
   dockScale,
   setDockScale,
+  setStageSize,
   resetLayout,
 }: CubeStageProps) {
   const [fanned, setFanned] = useState(false)
   const [flipped, setFlipped] = useState<Partial<Record<FaceId, boolean>>>({})
   const { versions, previewStatus } = useBuilder()
+  const stageRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const node = stageRef.current
+    if (!node) return
+    const report = (width: number, height: number) => {
+      setStageSize(width, height)
+    }
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0]
+      if (!entry) return
+      report(entry.contentRect.width, entry.contentRect.height)
+    })
+    observer.observe(node)
+    const rect = node.getBoundingClientRect()
+    report(rect.width, rect.height)
+    return () => observer.disconnect()
+  }, [setStageSize])
 
   // En vanlig chatt-turn får inte se ut som ett bygge. Endast ett faktiskt
   // build-event auto-flippar kortet; en verifierad version låser det också.
@@ -372,7 +432,11 @@ export function CubeStage({
   }
 
   return (
-    <div className="relative flex-1 overflow-hidden">
+    <div
+      ref={stageRef}
+      data-cube-stage=""
+      className="relative flex-1 overflow-hidden data-[card-dragging]:[&_iframe]:pointer-events-none"
+    >
       <PreviewStage />
 
       <LayoutGroup>

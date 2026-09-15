@@ -457,6 +457,16 @@ assert.match(nextPagesControlsSource, /Lägg till/)
 assert.match(nextPagesControlsSource, /Ta bort/)
 assert.match(
   previewStageSource,
+  /w-\[min\(80vw,100%\)\]/,
+  "Preview window must occupy about 80% of the viewport, not a 1100px cap",
+)
+assert.doesNotMatch(
+  previewStageSource,
+  /max-w-\[1100px\]/,
+  "Preview must not keep the old 1100px width cap",
+)
+assert.match(
+  previewStageSource,
   /NextPagesAddForm/,
   "Preview chrome can add a Next page",
 )

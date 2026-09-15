@@ -1,11 +1,11 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState } from "react"
-import { acceptedPreviewableRoutes, previewContentUrl, type AcceptedNextPreview } from "@/lib/siteagent/next-preview-client"
+import React, { useEffect, useMemo, useRef, useState } from "react"
+import { acceptedPreviewableRoutes, nextPreviewFramePropsEqual, previewContentUrl, type AcceptedNextPreview } from "@/lib/siteagent/next-preview-client"
 import { previewRouteFromFrameMessage } from "@/lib/siteagent/preview-route-tree"
 
 /** Customer code only runs on the owner-bound, separate-origin gateway. */
-export function NextPreviewFrame({
+export const NextPreviewFrame = React.memo(function NextPreviewFrame({
   accepted,
   refresh,
   route,
@@ -109,4 +109,4 @@ export function NextPreviewFrame({
       }}
     />
   </div>
-}
+}, nextPreviewFramePropsEqual)

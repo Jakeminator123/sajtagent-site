@@ -13,9 +13,13 @@ import { NextPageRemoveButton, NextPagesAddForm } from "./next-pages-controls"
 import { NextPreviewFrame } from "./next-preview-frame"
 import { isPageRouteInSubtree, previewChromeRoute } from "@/lib/siteagent/preview-route-tree"
 
-function PreviewFrame({ className }: { className?: string }) {
-  const { previewUrl } = useBuilder()
-  if (!previewUrl) return null
+const HtmlPreviewFrame = React.memo(function HtmlPreviewFrame({
+  previewUrl,
+  className,
+}: {
+  previewUrl: string
+  className?: string
+}) {
   return (
     <iframe
       src={previewUrl}
@@ -24,7 +28,7 @@ function PreviewFrame({ className }: { className?: string }) {
       className={cn("w-full h-full border-0 bg-white", className)}
     />
   )
-}
+})
 
 export function PreviewStage() {
   const {
@@ -224,9 +228,9 @@ export function PreviewStage() {
                     route={previewRoute}
                     onRoute={setPreviewRoute}
                   />
-                ) : (
-                  <PreviewFrame />
-                )}
+                ) : previewUrl ? (
+                  <HtmlPreviewFrame previewUrl={previewUrl} />
+                ) : null}
                 {previewStatus === "building" && (
                   <div className="absolute inset-x-0 top-0 flex items-center justify-center gap-2 bg-white/80 py-2">
                     <Loader2 className="w-4 h-4 animate-spin text-zinc-400" />

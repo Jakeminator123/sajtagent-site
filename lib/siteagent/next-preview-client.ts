@@ -73,6 +73,22 @@ export function acceptedPreviewableRoutes(accepted: Pick<AcceptedNextPreview, "r
   return accepted.previewableRoutes ?? accepted.routes
 }
 
+/** Conversation tokens must not reconcile the live preview iframe. */
+export function nextPreviewFramePropsEqual(
+  left: { accepted: AcceptedNextPreview; refresh: number; route: string; onRoute?: (route: string) => void },
+  right: { accepted: AcceptedNextPreview; refresh: number; route: string; onRoute?: (route: string) => void },
+): boolean {
+  return (
+    left.refresh === right.refresh &&
+    left.route === right.route &&
+    left.onRoute === right.onRoute &&
+    left.accepted.projectId === right.accepted.projectId &&
+    left.accepted.jobId === right.accepted.jobId &&
+    left.accepted.sourceRevisionId === right.accepted.sourceRevisionId &&
+    left.accepted.previewRef === right.accepted.previewRef
+  )
+}
+
 export function previewContentUrl(origin: string, previewRef: string, route: string): string {
   const prefix = `/api/siteagent/next-previews/${encodeURIComponent(previewRef)}/content/`
   const suffix = route === "/" ? "" : `${route.slice(1).split("/").map(encodeURIComponent).join("/")}/`

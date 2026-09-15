@@ -269,6 +269,26 @@ assert.doesNotMatch(
   /export function CubeStage\([\s\S]*const \{ versions, previewStatus \} = useBuilder/,
   "CubeStage must not rerender every conversation token while a card is dragged",
 )
+assert.match(
+  nextPreviewFrameSource,
+  /React\.memo\(function NextPreviewFrame/,
+  "the live Next iframe must not reconcile on every conversation token",
+)
+assert.match(
+  nextPreviewFrameSource,
+  /nextPreviewFramePropsEqual/,
+  "poll snapshots of the same accepted preview must not remount the iframe",
+)
+assert.match(
+  previewStageSource,
+  /React\.memo\(function HtmlPreviewFrame/,
+  "the HTML iframe must not reconcile on every conversation token",
+)
+assert.doesNotMatch(
+  previewStageSource,
+  /function PreviewFrame\([\s\S]*useBuilder/,
+  "HTML preview must not subscribe to the conversation store inside the iframe",
+)
 assert.doesNotMatch(
   cubeStageSource,
   /style=\{\{ width: size\.w, height: size\.h, x, y, perspective/,

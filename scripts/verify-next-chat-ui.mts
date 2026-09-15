@@ -5,7 +5,7 @@ import { applyExpectedTurnStreamEventV1 } from "../lib/siteagent/agent-event-str
 import { readFileSync } from "node:fs"
 import { dirname, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
-import { acceptedPreviewableRoutes, canSendWithNextProfile, isNextBuildActive, nextSourceDownloadHref, parseNextProjectRead, parseNextProjectState, previewContentUrl, reconcileNextPreview } from "../lib/siteagent/next-preview-client.ts"
+import { acceptedPreviewableRoutes, canSendWithNextProfile, isNextBuildActive, nextPreviewFramePropsEqual, nextSourceDownloadHref, parseNextProjectRead, parseNextProjectState, previewContentUrl, reconcileNextPreview } from "../lib/siteagent/next-preview-client.ts"
 import { publicToolStartedLabelV1 } from "../lib/siteagent/server/agent-session-controller.ts"
 import { buildPreviewRouteTree, draftRouteUnderParent, isPageRouteInSubtree, nextPreviewRouteAfterChange, normalizeManualPageRouteInput, pendingPreviewRouteFromPrompt, previewChromeRoute, previewRouteFromFrameMessage, previewRouteFromPathname, previewRouteLabel, SAJTAGENT_PREVIEW_ROUTE_MESSAGE_TYPE } from "../lib/siteagent/preview-route-tree.ts"
 
@@ -208,4 +208,11 @@ assert.equal(publicToolStartedLabelV1({ capability: "project.read", safeLabel: "
 assert.equal(publicToolStartedLabelV1({ capability: "project.read", safeLabel: "Läser page.tsx…" }), "Läser page.tsx…")
 assert.equal(publicToolStartedLabelV1({ capability: "project.read", safeLabel: "/tmp/secret/app/page.tsx" }), "Sajtagent läser projektet…")
 assert.equal(publicToolStartedLabelV1({ capability: "build.request", safeLabel: "internal" }), "Sajtagent förbereder bygget…")
+const onRoute = () => undefined
+const frameAccepted = { ...accepted, routes: ["/"] }
+const frameLeft = { accepted: frameAccepted, refresh: 0, route: "/", onRoute }
+assert.equal(nextPreviewFramePropsEqual(frameLeft, { accepted: { ...frameAccepted, routes: ["/", "/om"] }, refresh: 0, route: "/", onRoute }), true)
+assert.equal(nextPreviewFramePropsEqual(frameLeft, { accepted: frameAccepted, refresh: 1, route: "/", onRoute }), false)
+assert.equal(nextPreviewFramePropsEqual(frameLeft, { accepted: frameAccepted, refresh: 0, route: "/om", onRoute }), false)
+assert.equal(nextPreviewFramePropsEqual(frameLeft, { accepted: frameAccepted, refresh: 0, route: "/", onRoute: () => undefined }), false)
 console.log("PASS shared Next chat projection: lifecycle, replay, exact owner/job/revision binding, retained accepted output, source export")

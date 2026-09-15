@@ -184,15 +184,21 @@ async function runLive() {
       try {
         await builder.goto(`${config.origin}/builder?project=${encodeURIComponent(project.projectId)}`,
           { waitUntil: "domcontentloaded" })
-        const iframe = builder.locator('iframe[title="Interaktiv Next.js-preview"]')
+        const iframe = builder.locator('iframe[name="sajtagent-next-preview"]')
         await iframe.waitFor()
         const sandbox = (await iframe.getAttribute("sandbox") ?? "").split(/\s+/).sort()
         requireThat(JSON.stringify(sandbox) === JSON.stringify(["allow-same-origin", "allow-scripts"]),
           "builder_iframe_sandbox_policy_changed")
-        const frame = builder.frameLocator('iframe[title="Interaktiv Next.js-preview"]')
+        const frame = builder.frameLocator('iframe[name="sajtagent-next-preview"]')
         await frame.getByTestId("revision").filter({ hasText: "revision ONE" }).waitFor()
-        await frame.getByTestId("counter").click()
-        await frame.getByTestId("counter").filter({ hasText: "Count: 1" }).waitFor()
+        // Clicks that land before React hydrates inside the iframe are dropped; retry until one registers.
+        let counted = false
+        for (let attempt = 0; attempt < 8 && !counted; attempt += 1) {
+          await frame.getByTestId("counter").click()
+          counted = await frame.getByTestId("counter").filter({ hasText: /Count: [1-9]/ }).waitFor({ timeout: 1_500 })
+            .then(() => true, () => false)
+        }
+        requireThat(counted, "builder_iframe_counter_not_interactive")
       } finally { await builder.close() }
     })
     const publishPath = `${path}/publish`

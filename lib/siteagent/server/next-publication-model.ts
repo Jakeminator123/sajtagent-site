@@ -86,7 +86,8 @@ export function publishedResponse(request: Request, publication: PublishedNext, 
   if (!["GET", "HEAD"].includes(request.method)) return new Response(null, { status: 405, headers: { ...headers, allow: "GET, HEAD" } })
   if (request.headers.get("service-worker") === "script") return new Response(null, { status: 403, headers })
   const base = publicationBasePath(publication.previewRef)
-  if (rawPath === "/") return new Response(null, { status: 307, headers: { ...headers, location: `${base}/` } })
+  // Absolute same-origin location: the Next proxy adapter rejects relative Location headers with ERR_INVALID_URL.
+  if (rawPath === "/") return new Response(null, { status: 307, headers: { ...headers, location: new URL(`${base}/`, request.url).href } })
   if (rawPath !== base && !rawPath.startsWith(`${base}/`)) return new Response(null, { status: 404, headers })
   const path = publicationPath(rawPath.slice(base.length) || "/")
   if (path === null) return new Response(null, { status: 404, headers })

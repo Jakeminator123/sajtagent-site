@@ -26,7 +26,8 @@ export async function proxy(request: NextRequest) {
   // "strip trailing slash" redirect for the Site host so /login/ still lands on /login.
   const { pathname } = request.nextUrl
   if (pathname.length > 1 && pathname.endsWith("/")) {
-    const url = request.nextUrl.clone()
+    // Plain URL on purpose: NextURL re-adds the slash when skipTrailingSlashRedirect is on.
+    const url = new URL(request.url)
     url.pathname = pathname.replace(/\/+$/, "")
     return NextResponse.redirect(url, 308)
   }

@@ -27,6 +27,15 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
   worktree path. If several repositories were touched, report each one.
 - Never remove dirty, locked, unpushed, active-PR, or unique worktrees.
 
+## Sister repositories
+
+- This checkout is often nested at `sajtagent-platform/sajtagent-site`.
+  Sister Sprites is `../sajtagent-sprites`. The map is
+  `../docs/repository-map.md`.
+- Read freely. Write Sprites or platform files only when that repo owns the
+  change, and commit there separately.
+- Cursor rule: `.cursor/rules/07-repository-map.mdc`.
+
 ## Relation to Sajtmaskin
 
 - Sajtagent is a new, thinner version of ideas proven in Sajtmaskin, not a

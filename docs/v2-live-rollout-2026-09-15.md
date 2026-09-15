@@ -172,15 +172,24 @@ npm run check:next-preview; npm run check:next-publication
 Publicerade testsajter från körningarna ligger kvar (`V2 smoke …`-projekt på
 testkontona) och kan användas som `<hash>`.
 
+## Eftermiddag 2026-09-15: vanligt Next-chattfel
+
+Gateway skrev giltig `{"files":[…]}` men join-path visade «Ingen preview
+accepterades». Site [#49](https://github.com/Jakeminator123/sajtagent-site/pull/49)
+(`f79f7fd`, Production READY) visar namngivet `turn.failed`. Runtime-fixen
+ligger i Sprites #39. En operator-turn på **Surf live** accepterade Next;
+zip `sajtagent-next-52f91a36de04.zip` är React (`app/page.tsx`). Inte
+publicerad. Inte kundpåslag. Karta:
+plattformens `docs/handover-2026-09-15-next-builder.md`.
+
 ## Kvar innan kundpåslag
 
-- Runtime-processbevis för de tre `blocked`-stegen (ägs av `sajtagent-sprites`).
 - Automatisk wildcard-certförnyelse är obevisad (se plattformens checklista).
-- Testkontona är riktiga brevlådor, inte fixtures. Byt till dedikerade konton
-  innan drivern körs regelbundet.
-- Preflight `--live-vercel` kräver nu `VERCEL_PREVIEW_FEEDBACK_ENABLED=0` på
+- `SITEAGENT_NEXT_ENABLED` är av för kunder. En operator-turn är inte påslag.
+- Testkontona `test*@sajtagent.se` finns och är riktiga brevlådor, inte fixtures.
+- Preflight `--live-vercel` kräver `VERCEL_PREVIEW_FEEDBACK_ENABLED=0` på
   artefaktprojektet för production, preview och development.
-- Samma familj som nattens Production-buggar: access-routen får inte längre
-  mappa Next-av till 403, Site-källgränser speglar controllerns
-  `NextBuildRequestV2Schema`, och `failureCode` persisterar den klassade
-  reason-koden i stället för alltid `build_or_verification_failed`.
+
+Stängt 2026-09-15 (inte öppna luckor): runtime-bevis för de tre
+`blocked`-stegen; access-klassning (#45); namngiven `failureCode` / join-path
+(#48, #49). Kartan ligger i plattformens `docs/repository-map.md`.

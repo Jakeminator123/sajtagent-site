@@ -23,6 +23,10 @@ runtime dependency.
 
 ## Hitta rätt
 
+Systerrepon (när den här mappen ligger under plattformen): Sprites
+`../sajtagent-sprites`, karta `../docs/repository-map.md`. Cursor-regel:
+`.cursor/rules/07-repository-map.mdc`. Läs fritt. Skriv i ägarrepot.
+
 | Mapp | Ansvar |
 | --- | --- |
 | `app/`, `components/`, `hooks/` | Produktsidor, Builder och dess API-rutter/UI. |

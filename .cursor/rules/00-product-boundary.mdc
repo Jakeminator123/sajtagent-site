@@ -10,3 +10,4 @@ alwaysApply: true
 - Keep privileged OpenClaw and Sprite runtime code out of this repository.
 - Never expose Sprite, OpenClaw, model, or signing secrets to browser code.
 - Preserve unrelated working-tree changes and verify real routes and builds.
+- Sister repos and movement: `.cursor/rules/07-repository-map.mdc`.

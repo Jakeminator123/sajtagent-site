@@ -1,0 +1,23 @@
+---
+description: How Cursor agents move between Site, Sprites, and platform
+alwaysApply: true
+---
+
+# Move between repositories
+
+This workspace is often `sajtagent-site` only. That is normal. Crossing into
+sister repos is allowed. Do not put OpenClaw or Sprite runtime code here.
+
+- Read freely. Write in the owning Git root. One commit per repo.
+- Before edit, stage, or commit: `git rev-parse --show-toplevel`.
+- Sister Sprites: `../sajtagent-sprites`. Platform map:
+  `../docs/repository-map.md`.
+- If this repo was cloned standalone, do not invent sisters. Ask Jakob.
+- Same agent may edit Sprites or platform in the same session if that repo
+  owns the change and nobody else is writing it.
+- `site_worker` / `sprites_worker` are for parallel `/goal` spawn, not a ban
+  on one agent crossing folders.
+- Report `Branch:` and `Worktree:` for every root touched.
+
+Full map (when nested): `../docs/repository-map.md`.
+GitHub: `sajtagent-platform` → `docs/repository-map.md`.

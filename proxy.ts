@@ -22,6 +22,14 @@ export async function proxy(request: NextRequest) {
     // Never refresh/forward Site Supabase cookies on untrusted customer origins.
     return NextResponse.next()
   }
+  // skipTrailingSlashRedirect is on for the gateways above; keep Next's default
+  // "strip trailing slash" redirect for the Site host so /login/ still lands on /login.
+  const { pathname } = request.nextUrl
+  if (pathname.length > 1 && pathname.endsWith("/")) {
+    const url = request.nextUrl.clone()
+    url.pathname = pathname.replace(/\/+$/, "")
+    return NextResponse.redirect(url, 308)
+  }
   return refreshSupabaseSession(request)
 }
 

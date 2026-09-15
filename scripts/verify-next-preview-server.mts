@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs"
 import { dirname, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 import { shouldIdleNextPreviewPoll } from "../lib/siteagent/next-preview-poll.ts"
-import { NEXT_SOURCE_FILE_CONTENT_MAX, NEXT_SOURCE_FILE_COUNT_MAX, NEXT_SOURCE_FILE_COUNT_MIN, NEXT_SOURCE_PATH_ALPHABET, NEXT_SOURCE_PATH_MAX, assertPreviewSiteOrigin, canFinishJob, gatewayHost, isNextPreviewUnavailableError, nextPreviewConfig, nextPreviewFailureStatus, outputDigest, previewBasePath, safeFilePath, sourceRevisionId, validateSourceFiles, validateStaticFiles, type NextAccepted, type NextJob, type NextState } from "../lib/siteagent/server/next-preview-model.ts"
+import { NEXT_SOURCE_FILE_CONTENT_MAX, NEXT_SOURCE_FILE_COUNT_MAX, NEXT_SOURCE_FILE_COUNT_MIN, NEXT_SOURCE_PATH_ALPHABET, NEXT_SOURCE_PATH_MAX, PREVIEW_ROUTE_LIMIT, assertPreviewSiteOrigin, canFinishJob, deriveAcceptedPreviewRoutes, gatewayHost, isNextPreviewUnavailableError, nextPreviewConfig, nextPreviewFailureStatus, outputDigest, previewBasePath, safeFilePath, sourceRevisionId, validateSourceFiles, validateStaticFiles, type NextAccepted, type NextJob, type NextState } from "../lib/siteagent/server/next-preview-model.ts"
 import { serveAcceptedStatic, gatewayHostnameAllowed } from "../lib/siteagent/server/next-preview-gateway.ts"
 
 let checks=0
@@ -62,6 +62,14 @@ check(()=>assert.ok(nextExport.some(file=>file.path===exportAccentPath)))
 const acceptedExport:NextAccepted={...job,deploymentId:"dpl_export",deploymentUrl:"https://real.vercel.app",acceptedAt:new Date().toISOString(),outputSha256:outputDigest(nextExport),files:nextExport}
 check(()=>assert.equal(serveAcceptedStatic(acceptedExport,["om-oss","café.html"],new Request("https://preview.example.com/"),"https://site.example.com").status,200))
 check(()=>assert.equal(serveAcceptedStatic(acceptedExport,["_next","static","media","logo+2x.woff2"],new Request("https://preview.example.com/"),"https://site.example.com").status,200))
+check(()=>assert.equal(serveAcceptedStatic(acceptedExport,["about"],new Request("https://preview.example.com/"),"https://site.example.com").status,200))
+const aboutPages = nextExport.filter(file => file.path === "index.html" || file.path === "about/index.html" || file.path.startsWith("_next/") || file.path === "404.html")
+check(()=>assert.deepEqual(deriveAcceptedPreviewRoutes(aboutPages),["/","/about"]))
+check(()=>assert.deepEqual(deriveAcceptedPreviewRoutes(nextExport),["/","/about","/om-oss/café"]))
+check(()=>assert.equal(deriveAcceptedPreviewRoutes([{path:"om.html"},{path:"om/index.html"},{path:"index.html"}]).join(","),"/,/om"))
+check(()=>assert.equal(deriveAcceptedPreviewRoutes([{path:"om/team/index.html"},{path:"index.html"}]).join(","),"/,/om/team"))
+check(()=>assert.equal(deriveAcceptedPreviewRoutes(Array.from({length:PREVIEW_ROUTE_LIMIT+2},(_,i)=>({path:i===0?"index.html":`p${i}.html`}))).length,PREVIEW_ROUTE_LIMIT))
+check(()=>assert.equal(deriveAcceptedPreviewRoutes(aboutPages)[0],"/"))
 const host=gatewayHost("tenant:a","project:a","preview.example.com")
 check(()=>assert.equal(gatewayHostnameAllowed(host,"preview.example.com"),true))
 check(()=>assert.equal(gatewayHostnameAllowed("preview.example.com.evil.test","preview.example.com"),false))

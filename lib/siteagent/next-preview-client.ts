@@ -11,12 +11,19 @@ const profileSchema = z.object({
   preference: z.enum(["html", "next"]).nullable(),
   effective: z.enum(["html", "next"]),
 }).strict()
+const previewRouteSchema = z.string().min(1).max(241).regex(/^\/(?:[^/\s]+(?:\/[^/\s]+)*)?$/).refine(
+  (route) => route === "/" || route.slice(1).split("/").every((part) => part !== "." && part !== ".."),
+  { message: "invalid_preview_route" },
+)
 
 const stateSchema = z.object({
   schemaVersion: z.literal(2),
   state: z.object({
     current: binding.extend({status: z.enum(["building", "accepted", "failed"]), expiresAt: z.string().datetime({offset: true}), failureCode: z.string().optional()}).nullable(),
-    accepted: binding.extend({acceptedAt: z.string().datetime({offset: true})}).nullable(),
+    accepted: binding.extend({
+      acceptedAt: z.string().datetime({offset: true}),
+      routes: z.array(previewRouteSchema).max(200).default([]),
+    }).nullable(),
   }),
   profile: profileSchema.optional(),
 })
@@ -58,4 +65,10 @@ export function reconcileNextPreview(candidate: AgentNextPreviewProjection, stat
 export function nextSourceDownloadHref(accepted: AcceptedNextPreview): string {
   const query = new URLSearchParams({sourceRevisionId: accepted.sourceRevisionId, jobId: accepted.jobId})
   return `/api/siteagent/projects/${encodeURIComponent(accepted.projectId)}/next/download?${query}`
+}
+
+export function previewContentUrl(origin: string, previewRef: string, route: string): string {
+  const prefix = `/api/siteagent/next-previews/${encodeURIComponent(previewRef)}/content/`
+  const suffix = route === "/" ? "" : `${route.slice(1).split("/").map(encodeURIComponent).join("/")}/`
+  return `${origin}${prefix}${suffix}`
 }

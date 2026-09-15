@@ -28,17 +28,17 @@ flowchart BT
     n_product_controller["SiteAgent controller<br/>sajtagent-site · implemented"]
     n_product_version["Canonical version och preview<br/>sajtagent-site · implemented"]
     n_product_controller -->|"BuildResultV1 or NextPreviewResultV2"| n_product_version
-    n_product_sitemap["Canonical sitemap-projektion<br/>sajtagent-site · prototype"]
-    n_product_controller -->|"BuildResultV1.sitemapRevision"| n_product_sitemap
+    n_product_sitemap["Canonical sitemap-projektion<br/>sajtagent-site · implemented"]
+    n_product_controller -->|"accepted Next routes or HTML sitemapRevision"| n_product_sitemap
     n_ui_event_reducer["Sekvensordnad kort-reducer<br/>builder-ui · implemented"]
     n_product_controller -->|"AgentEventV1 SSE + resume"| n_ui_event_reducer
     n_product_version -->|"canonical HTML refs or owner-bound accepted Next binding"| n_ui_event_reducer
-    n_product_sitemap -->|"canonical sitemap ref"| n_ui_event_reducer
+    n_product_sitemap -->|"accepted preview routes"| n_ui_event_reducer
     n_card_agent["Sajtagent<br/>builder-ui · implemented"]
     n_ui_event_reducer -->|"assistant response, progress and failure state"| n_card_agent
     n_card_versions["Versioner<br/>builder-ui · implemented"]
     n_ui_event_reducer -->|"terminal version state"| n_card_versions
-    n_card_map["Karta<br/>builder-ui · prototype"]
+    n_card_map["Karta<br/>builder-ui · implemented"]
     n_ui_event_reducer -->|"verified sitemap state"| n_card_map
 ```
 
@@ -50,7 +50,7 @@ flowchart BT
 | Sajtagent | Sajtagent conversation: user input, response, question and verified runtime status | Sajtagent user input, response, question and verified runtime status | `AgentTurnRequestV1`<br/>`AgentTurnRequestV1.replyToQuestionId`<br/>`AgentTurnRequestV1.answerSelections` | `agent.status`<br/>`message.delta`<br/>`question.requested`<br/>`tool.started`<br/>`build.started`<br/>`tool.completed`<br/>`preview.ready`<br/>`next.preview.ready`<br/>`turn.completed`<br/>`turn.failed` | `card.agent-unavailable` |
 | Blocks | free-text follow-up prototype | typed block context in an agent turn | `AgentTurnRequestV1` | `turn.failed` | `card.blocks-stale-ref` |
 | Versioner | HTML history and latest accepted Next source | verified read model | - | `preview.ready`<br/>`next.preview.ready`<br/>`turn.failed` | `card.versions-gap` |
-| Karta | preview-pages prototype | verified sitemap read model | - | `preview.ready`<br/>`next.preview.ready` | `card.map-missing` |
+| Karta | accepted static-export page tree | verified sitemap read model | - | `preview.ready`<br/>`next.preview.ready` | `card.map-missing` |
 
 ## Beslut som tester låser
 

@@ -5,7 +5,7 @@ import { applyExpectedTurnStreamEventV1 } from "../lib/siteagent/agent-event-str
 import { readFileSync } from "node:fs"
 import { dirname, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
-import { canSendWithNextProfile, isNextBuildActive, nextSourceDownloadHref, parseNextProjectRead, parseNextProjectState, reconcileNextPreview } from "../lib/siteagent/next-preview-client.ts"
+import { canSendWithNextProfile, isNextBuildActive, nextSourceDownloadHref, parseNextProjectRead, parseNextProjectState, previewContentUrl, reconcileNextPreview } from "../lib/siteagent/next-preview-client.ts"
 
 const sessionId = "session:abcdefghijklmnopqrstuvwxyzABCDEF"
 assert.equal(canSendWithNextProfile("loading", false), false, "a delayed profile must not expose an HTML send that the server routes to React")
@@ -53,9 +53,24 @@ assert.equal(reduceAgentEventV1(withNext, event(6, "preview.ready", {jobId: resu
 const accepted = {...result, acceptedAt: occurredAt}
 const body = {schemaVersion: 2, state: {current: {...result, status: "accepted", expiresAt}, accepted}, profile: {available: ["html", "next"] as const, preference: "html" as const, effective: "html" as const}}
 const state = parseNextProjectState(body, result.projectId)
+assert.deepEqual(state.accepted?.routes, [])
 assert.deepEqual(parseNextProjectRead(body, result.projectId).profile, body.profile)
 assert.equal(parseNextProjectRead({schemaVersion: 2, state: {current: null, accepted: null}}, result.projectId).profile, null)
 assert.equal(reconcileNextPreview(result, state, result.projectId), true)
+assert.deepEqual(parseNextProjectState({
+  ...body,
+  state: {current: null, accepted: {...accepted, routes: ["/", "/about"]}},
+}, result.projectId).accepted?.routes, ["/", "/about"])
+assert.throws(() => parseNextProjectState({
+  ...body,
+  state: {current: null, accepted: {...accepted, routes: ["about"]}},
+}, result.projectId))
+assert.throws(() => parseNextProjectState({
+  ...body,
+  state: {current: null, accepted: {...accepted, routes: ["/../secret"]}},
+}, result.projectId))
+assert.equal(previewContentUrl("https://abcd.preview.example.com", result.previewRef, "/"), `https://abcd.preview.example.com/api/siteagent/next-previews/${encodeURIComponent(result.previewRef)}/content/`)
+assert.equal(previewContentUrl("https://abcd.preview.example.com", result.previewRef, "/about"), `https://abcd.preview.example.com/api/siteagent/next-previews/${encodeURIComponent(result.previewRef)}/content/about/`)
 assert.throws(() => parseNextProjectState(body, "project:other"), /annat projekt/)
 assert.throws(() => parseNextProjectState({...body, state: {...body.state, current: {...body.state.current, projectId: "project:other"}}}, result.projectId))
 for (const [key, value] of Object.entries({jobId: "job:old", sourceRevisionId: `revision:sha256:${"c".repeat(64)}`, previewRef: `preview:${"d".repeat(32)}`})) {

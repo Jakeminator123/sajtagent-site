@@ -28,6 +28,7 @@ const builderPageSource = readFileSync(resolve(root, "app/builder/page.tsx"), "u
 const layoutPrefsSource = readFileSync(resolve(root, "components/siteagent/layout-prefs.ts"), "utf8")
 const versionListSource = readFileSync(resolve(root, "components/siteagent/version-list.tsx"), "utf8")
 const sitemapFaceSource = readFileSync(resolve(root, "components/siteagent/faces/sitemap-face.tsx"), "utf8")
+const nextPreviewFrameSource = readFileSync(resolve(root, "components/siteagent/next-preview-frame.tsx"), "utf8")
 const conversationHandoffSource = readFileSync(
   resolve(root, "components/siteagent/conversation-handoff.ts"),
   "utf8",
@@ -408,8 +409,53 @@ assert.match(
 )
 assert.doesNotMatch(
   sitemapFaceSource,
-  /canonical revision|read-modellen/,
-  "Map stub copy must not expose internal read-model wording",
+  /canonical revision|read-modellen|Sidträdet kopplas i nästa steg|Sidträdet för React är inte anslutet/,
+  "Map copy must not expose internal read-model wording or the old stub",
+)
+assert.doesNotMatch(
+  sitemapFaceSource,
+  /accepted_source_files|app\/page\.tsx/,
+  "Map must not guess routes from source paths",
+)
+assert.match(
+  sitemapFaceSource,
+  /Sidor i den accepterade exporten/,
+  "Map must describe Next routes as accepted export pages",
+)
+assert.match(
+  sitemapFaceSource,
+  /HTML-skissen är en sida/,
+  "HTML map must stay a single honest page node",
+)
+assert.match(
+  sitemapFaceSource,
+  /previewKind === "next"/,
+  "Map must not show the HTML sketch as the current Next tree",
+)
+assert.match(
+  previewStageSource,
+  /previewRoutes\.length > 1/,
+  "Preview chrome only shows a page switcher when several accepted routes exist",
+)
+assert.match(
+  nextPreviewFrameSource,
+  /previewOrigin\.current = action\.origin/,
+  "Next preview must keep the bootstrap origin before navigating pages",
+)
+assert.match(
+  nextPreviewFrameSource,
+  /if \(!bootstrapped \|\| !frame \|\| !origin\) return/,
+  "Next preview must not navigate content routes before bootstrap",
+)
+assert.match(
+  nextPreviewFrameSource,
+  /previewContentUrl/,
+  "Next preview page URLs must use the gateway content path",
+)
+assert.doesNotMatch(
+  nextPreviewFrameSource,
+  /src=\{/,
+  "Next preview iframe must not request a content URL before the bootstrap POST",
 )
 assert.doesNotMatch(
   builderStoreSource,

@@ -1,4 +1,4 @@
-import { nextPreviewConfig, type NextState } from "./next-preview-model.ts"
+import { deriveAcceptedPreviewRoutes, nextPreviewConfig, type NextState } from "./next-preview-model.ts"
 
 export const BUILD_PROFILE_IDS = ["html", "next"] as const
 export type BuildProfileId = (typeof BUILD_PROFILE_IDS)[number]
@@ -64,6 +64,7 @@ export function nextPreviewOwnerReadModel(env: NodeJS.ProcessEnv, state: NextSta
         deploymentId: state.accepted.deploymentId,
         acceptedAt: state.accepted.acceptedAt,
         outputSha256: state.accepted.outputSha256,
+        routes: deriveAcceptedPreviewRoutes(state.accepted.files),
       }
     : null
   return {

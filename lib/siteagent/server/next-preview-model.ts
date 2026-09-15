@@ -44,6 +44,44 @@ export function safeFilePath(path: string): boolean {
     path.split("/").every((part) => part !== "" && part !== "." && part !== "..")
 }
 
+export const PREVIEW_ROUTE_LIMIT = 200
+
+function isNextAssetPath(path: string): boolean {
+  return path === "_next" || path.startsWith("_next/") || path.split("/").includes("_next")
+}
+
+/** Inverse of `serveAcceptedStatic` file lookup: HTML the gateway can serve as a page. */
+export function filePathToPreviewRoute(path: string): string | null {
+  if (!path.endsWith(".html") || isNextAssetPath(path) || !safeFilePath(path)) return null
+  // Next export fallbacks, not pages in the site tree.
+  if (path === "404.html" || path === "500.html") return null
+  const route = path === "index.html"
+    ? "/"
+    : path.endsWith("/index.html")
+      ? `/${path.slice(0, -"/index.html".length)}`
+      : `/${path.slice(0, -".html".length)}`
+  if (route !== "/" && (route.endsWith("/") || route.includes("//") ||
+    route.slice(1).split("/").some((part) => part === "" || part === "." || part === ".."))) {
+    return null
+  }
+  return route
+}
+
+export function deriveAcceptedPreviewRoutes(files: readonly { path: string }[]): string[] {
+  const routes = new Set<string>()
+  for (const file of files) {
+    const route = filePathToPreviewRoute(file.path)
+    if (route) routes.add(route)
+  }
+  return [...routes]
+    .sort((left, right) => {
+      if (left === "/") return -1
+      if (right === "/") return 1
+      return left < right ? -1 : left > right ? 1 : 0
+    })
+    .slice(0, PREVIEW_ROUTE_LIMIT)
+}
+
 export function validateSourceFiles(files: SourceFile[]): SourceFile[] {
   if (files.length < NEXT_SOURCE_FILE_COUNT_MIN || files.length > NEXT_SOURCE_FILE_COUNT_MAX) throw new Error("invalid_source_count")
   for (const file of files) {

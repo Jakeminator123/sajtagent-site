@@ -74,6 +74,9 @@ interface BuilderStore {
   previewStatus: PreviewStatus
   previewUrl: string | null
   sitemapRevision: string | null
+  previewRoutes: string[]
+  previewRoute: string
+  setPreviewRoute: (route: string) => void
   previewKind: "html" | "next"
   nextState: NextProjectState | null
   nextAvailability: NextAvailability
@@ -180,6 +183,7 @@ export function BuilderProvider({ children, initialProjectId = null, initialDraf
   const [logs, setLogs] = useState<string[]>([])
   const nextProject = useNextProject(projectId)
   const [previewSelection, setPreviewSelection] = useState<"auto" | "html" | "next">("auto")
+  const [previewRoute, setPreviewRouteState] = useState("/")
   const nextBuildActive = isNextBuildActive(nextProject.state?.current ?? null)
   const nextCurrent = nextProject.state?.current ?? null
   const buildProfileReady = canSendWithNextProfile(nextProject.availability, nextProject.hasNext)
@@ -244,6 +248,23 @@ export function BuilderProvider({ children, initialProjectId = null, initialDraf
   )
   const previewUrl = previewKind === "html" ? activeVersion?.previewUrl ?? null : null
   const sitemapRevision = previewKind === "html" ? activeVersion?.sitemapRevision ?? null : null
+  const previewRoutes = useMemo(() => {
+    if (previewKind === "next") return nextProject.state?.accepted?.routes ?? []
+    return previewKind === "html" && activeVersion ? ["/"] : []
+  }, [previewKind, nextProject.state?.accepted?.routes, activeVersion])
+
+  useEffect(() => {
+    if (previewRoutes.length === 0) {
+      if (previewRoute !== "/") setPreviewRouteState("/")
+      return
+    }
+    if (!previewRoutes.includes(previewRoute)) setPreviewRouteState(previewRoutes[0] ?? "/")
+  }, [previewRoutes, previewRoute])
+
+  const setPreviewRoute = useCallback((route: string) => {
+    setPreviewRouteState((current) => (previewRoutes.includes(route) ? route : current))
+  }, [previewRoutes])
+
   const activeTurn = agentProjection.activeTurnId
     ? agentProjection.turns[agentProjection.activeTurnId]
     : null
@@ -987,6 +1008,9 @@ export function BuilderProvider({ children, initialProjectId = null, initialDraf
       previewStatus,
       previewUrl,
       sitemapRevision,
+      previewRoutes,
+      previewRoute,
+      setPreviewRoute,
       previewKind,
       nextState: nextProject.state,
       nextAvailability: nextProject.availability,
@@ -1030,6 +1054,9 @@ export function BuilderProvider({ children, initialProjectId = null, initialDraf
       previewStatus,
       previewUrl,
       sitemapRevision,
+      previewRoutes,
+      previewRoute,
+      setPreviewRoute,
       previewKind,
       nextProject.state,
       nextProject.availability,

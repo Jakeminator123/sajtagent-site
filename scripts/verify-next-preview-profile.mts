@@ -80,7 +80,25 @@ assert.equal(ownerRead.schemaVersion, 2)
 assert.equal(ownerRead.state.accepted?.jobId, "job:accepted")
 assert.equal("files" in (ownerRead.state.accepted ?? {}), false)
 assert.equal("deploymentUrl" in (ownerRead.state.accepted ?? {}), false)
+assert.deepEqual(ownerRead.state.accepted?.routes, [])
 assert.deepEqual(ownerRead.profile, { available: ["html", "next"], preference: "html", effective: "html" })
+
+const pagedRead = nextPreviewOwnerReadModel(completeNextEnv, {
+  current: null,
+  accepted: {
+    ...accepted,
+    files: [
+      { path: "index.html", content: "SECRET_HTML", encoding: "base64" },
+      { path: "about/index.html", content: "SECRET_ABOUT", encoding: "base64" },
+      { path: "_next/static/x.js", content: "SECRET_JS", encoding: "base64" },
+      { path: "404.html", content: "SECRET_404", encoding: "base64" },
+    ],
+  },
+})
+assert.deepEqual(pagedRead.state.accepted?.routes, ["/", "/about"])
+assert.equal("files" in (pagedRead.state.accepted ?? {}), false)
+assert.equal(JSON.stringify(pagedRead).includes("SECRET_HTML"), false)
+assert.equal(JSON.stringify(pagedRead).includes("SECRET_ABOUT"), false)
 
 assert.deepEqual(nextProfileFailureResponse(new Error("next_preview_unavailable")), { status: 404, body: { error: "next_preview_unavailable" } })
 assert.deepEqual(nextProfileFailureResponse(new Error("project_not_found")), { status: 404, body: { error: "project_not_found" } })
@@ -161,6 +179,9 @@ const here = dirname(fileURLToPath(import.meta.url))
 const profileRoute = readFileSync(resolve(here, "../app/api/siteagent/projects/[projectId]/next/profile/route.ts"), "utf8")
 const nextRoute = readFileSync(resolve(here, "../app/api/siteagent/projects/[projectId]/next/route.ts"), "utf8")
 const repository = readFileSync(resolve(here, "../lib/siteagent/server/next-preview-repository.ts"), "utf8")
+const ownerModel = readFileSync(resolve(here, "../lib/siteagent/server/agent-build-profile.ts"), "utf8")
+assert.match(ownerModel, /deriveAcceptedPreviewRoutes\(state\.accepted\.files\)/)
+assert.doesNotMatch(ownerModel, /accepted_source_files/)
 assert.match(profileRoute, /Lives under `\/next\/`/)
 assert.match(profileRoute, /Site #37/)
 assert.match(profileRoute, /SITEAGENT_SITE_ORIGIN/)

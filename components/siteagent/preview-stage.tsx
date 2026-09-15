@@ -25,13 +25,26 @@ function PreviewFrame({ className }: { className?: string }) {
 }
 
 export function PreviewStage() {
-  const { previewStatus, previewUrl, previewKind, nextState, nextAvailability, nextError, refreshNextPreview, cancelNextBuild } = useBuilder()
+  const {
+    previewStatus,
+    previewUrl,
+    previewKind,
+    previewRoutes,
+    previewRoute,
+    setPreviewRoute,
+    nextState,
+    nextAvailability,
+    nextError,
+    refreshNextPreview,
+    cancelNextBuild,
+  } = useBuilder()
   const [refresh, setRefresh] = useState(0)
   const [actionError, setActionError] = useState("")
   const isNext = previewKind === "next"
   const accepted = isNext ? nextState?.accepted : null
   const hasContent = nextAvailability !== "loading" && Boolean(previewUrl || accepted)
   const chip = previewStatusChip(previewStatus, hasContent)
+  const canSwitchRoutes = Boolean(accepted) && previewRoutes.length > 1
   const address = accepted ? "Privat · din verifierade React-sajt" : previewAddressLabel(previewStatus, previewUrl)
 
   async function refreshPreview() {
@@ -80,9 +93,24 @@ export function PreviewStage() {
             <div className="flex-1 flex items-center justify-center">
               <div className="flex items-center gap-2 bg-white dark:bg-zinc-50 border border-zinc-200 rounded-full px-3 py-1 max-w-[480px] w-full">
                 <Globe className="w-3 h-3 shrink-0 text-zinc-400" />
-                <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-zinc-500">
-                  {address}
-                </span>
+                {canSwitchRoutes ? (
+                  <select
+                    aria-label="Sida"
+                    value={previewRoutes.includes(previewRoute) ? previewRoute : (previewRoutes[0] ?? "/")}
+                    onChange={(event) => setPreviewRoute(event.target.value)}
+                    className="min-w-0 flex-1 truncate bg-transparent font-mono text-[11px] text-zinc-600 outline-none"
+                  >
+                    {previewRoutes.map((route) => (
+                      <option key={route} value={route}>
+                        {route}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-zinc-500">
+                    {address}
+                  </span>
+                )}
                 <span
                   role="status"
                   aria-live="polite"
@@ -155,7 +183,16 @@ export function PreviewStage() {
             )}
             {hasContent && (
               <div className="relative w-full h-full">
-                {accepted ? <NextPreviewFrame key={`${accepted.projectId}:${accepted.previewRef}`} accepted={accepted} refresh={refresh} /> : <PreviewFrame />}
+                {accepted ? (
+                  <NextPreviewFrame
+                    key={`${accepted.projectId}:${accepted.previewRef}`}
+                    accepted={accepted}
+                    refresh={refresh}
+                    route={previewRoute}
+                  />
+                ) : (
+                  <PreviewFrame />
+                )}
                 {previewStatus === "building" && (
                   <div className="absolute inset-x-0 top-0 flex items-center justify-center gap-2 bg-white/80 py-2">
                     <Loader2 className="w-4 h-4 animate-spin text-zinc-400" />

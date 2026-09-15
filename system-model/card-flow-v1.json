@@ -71,8 +71,8 @@
       "kind": "projection",
       "layer": 0,
       "owner": "sajtagent-site",
-      "status": "prototype",
-      "summary": "Sitemap härleds från den verifierade versionen, aldrig från ett pågående modellutkast.",
+      "status": "implemented",
+      "summary": "Next-sidträdet härleds från den accepterade statiska exporten, samma HTML-filer gatewayn kan serva. HTML-skissen är en enda sida. Aldrig från ett pågående modellutkast.",
       "failure": {
         "code": "cards.sitemap-stale",
         "symptom": "Karta visar väntläge eller markerad stale state.",
@@ -197,11 +197,11 @@
       "kind": "card",
       "layer": 2,
       "owner": "builder-ui",
-      "status": "prototype",
-      "summary": "Visar verifierad HTML-sitemap; Next saknar ännu motsvarande sitemap-projektion och får inte visa gammal HTML-karta som aktuell.",
+      "status": "implemented",
+      "summary": "Visar ett litet sidträd för accepterad Next-export och en enda nod för HTML-skissen. Next-rutter kommer från serverns owner-read, inte från gissad källkod.",
       "card": {
         "registryId": "map",
-        "current": "preview-pages prototype",
+        "current": "accepted static-export page tree",
         "target": "verified sitemap read model",
         "produces": [],
         "consumes": ["preview.ready", "next.preview.ready"]
@@ -234,10 +234,10 @@
     { "id": "intent.blocks-to-adapter", "from": "card.blocks", "to": "ui.intent-adapter", "channel": "intent", "contract": "AgentTurnRequestV1" },
     { "id": "intent.adapter-to-controller", "from": "ui.intent-adapter", "to": "product.controller", "channel": "intent", "contract": "AgentTurnRequestV1" },
     { "id": "projection.controller-to-version", "from": "product.controller", "to": "product.version", "channel": "projection", "contract": "BuildResultV1 or NextPreviewResultV2" },
-    { "id": "projection.controller-to-sitemap", "from": "product.controller", "to": "product.sitemap", "channel": "projection", "contract": "BuildResultV1.sitemapRevision" },
+    { "id": "projection.controller-to-sitemap", "from": "product.controller", "to": "product.sitemap", "channel": "projection", "contract": "accepted Next routes or HTML sitemapRevision" },
     { "id": "projection.controller-to-reducer", "from": "product.controller", "to": "ui.event-reducer", "channel": "projection", "contract": "AgentEventV1 SSE + resume" },
     { "id": "projection.version-to-reducer", "from": "product.version", "to": "ui.event-reducer", "channel": "projection", "contract": "canonical HTML refs or owner-bound accepted Next binding" },
-    { "id": "projection.sitemap-to-reducer", "from": "product.sitemap", "to": "ui.event-reducer", "channel": "projection", "contract": "canonical sitemap ref" },
+    { "id": "projection.sitemap-to-reducer", "from": "product.sitemap", "to": "ui.event-reducer", "channel": "projection", "contract": "accepted preview routes" },
     { "id": "projection.reducer-to-agent", "from": "ui.event-reducer", "to": "card.agent", "channel": "projection", "contract": "assistant response, progress and failure state" },
     { "id": "projection.reducer-to-versions", "from": "ui.event-reducer", "to": "card.versions", "channel": "projection", "contract": "terminal version state" },
     { "id": "projection.reducer-to-map", "from": "ui.event-reducer", "to": "card.map", "channel": "projection", "contract": "verified sitemap state" }

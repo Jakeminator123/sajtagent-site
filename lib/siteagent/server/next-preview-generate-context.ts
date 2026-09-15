@@ -8,12 +8,21 @@ export function routeFromGenerateSourcePath(path: string): string | null {
   return match[1] ? `/${match[1]}` : "/"
 }
 
+function escapeRouteSlug(slug: string): string {
+  return slug.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+}
+
 export function generateSourceFileMentionedInPrompt(prompt: string, path: string): boolean {
   const hay = prompt.toLowerCase()
   if (hay.includes(path.toLowerCase())) return true
   const route = routeFromGenerateSourcePath(path)
-  if (route && route !== "/" && hay.includes(route)) return true
-  return false
+  if (!route || route === "/") return false
+  if (hay.includes(route)) return true
+  const slug = route.slice(route.lastIndexOf("/") + 1)
+  if (!slug) return false
+  const safe = escapeRouteSlug(slug)
+  return new RegExp(`\\b${safe}-?sidan?\\b`, "i").test(hay) ||
+    new RegExp(`\\bsidan\\s+\\/?${safe}\\b`, "i").test(hay)
 }
 
 function layoutRank(path: string): number | null {

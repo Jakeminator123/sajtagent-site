@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url"
 import { shouldIdleNextPreviewPoll } from "../lib/siteagent/next-preview-poll.ts"
 import { NEXT_SOURCE_FILE_CONTENT_MAX, NEXT_SOURCE_FILE_COUNT_MAX, NEXT_SOURCE_FILE_COUNT_MIN, NEXT_SOURCE_PATH_ALPHABET, NEXT_SOURCE_PATH_MAX, PREVIEW_ROUTE_LIMIT, assertPreviewSiteOrigin, canFinishJob, deriveAcceptedPreviewRoutes, gatewayHost, isNextPreviewUnavailableError, nextPreviewConfig, nextPreviewFailureStatus, outputDigest, previewBasePath, safeFilePath, sourceRevisionId, validateSourceFiles, validateStaticFiles, type NextAccepted, type NextJob, type NextState } from "../lib/siteagent/server/next-preview-model.ts"
 import { applyPageOnlyMutations, applySiteNavigation, classifyExplicitPageAdds, classifyExplicitPageRemoves, classifyPageOnlyMutations, composeNextPageStub, composeSajtagentNav, executeNextPageMutation, isControllerOwnedSourcePath, isPageOnlyPrompt, listedPageRoutes, mergeGeneratedSourceFiles, modelVisibleBaseFiles, pagePathForRoute, pagePathsInSubtree, parseManualPageRoute, planNextPageMutation, planPageOnlyMutations, SAJTAGENT_NAV_PATH } from "../lib/siteagent/server/next-preview-pages.ts"
-import { GENERATE_CONTEXT_BUDGET_V1, packGenerateBaseFiles } from "../lib/siteagent/server/next-preview-generate-context.ts"
+import { GENERATE_CONTEXT_BUDGET_V1, generateSourceFileMentionedInPrompt, packGenerateBaseFiles } from "../lib/siteagent/server/next-preview-generate-context.ts"
 import {
   applyAcceptedPackageManifest,
   NEXT_OPTIONAL_PACKAGES,
@@ -571,6 +571,29 @@ check(() => {
 check(() => {
   const packed = packGenerateBaseFiles("gör /om blå", [
     { path: "app/om/page.tsx", content: "x".repeat(20_000) },
+    { path: "app/page.tsx", content: "home" },
+  ])
+  assert.equal(packed.tooLarge, true)
+  assert.deepEqual(packed.files, [])
+})
+check(() => {
+  assert.equal(generateSourceFileMentionedInPrompt("gör kontaktsidan blå", "app/kontakt/page.tsx"), true)
+  assert.equal(generateSourceFileMentionedInPrompt("gör kontaktsidan blå", "app/page.tsx"), false)
+  assert.equal(generateSourceFileMentionedInPrompt("uppdatera sidan om", "app/om/page.tsx"), true)
+  const pages = [
+    { path: "app/layout.tsx", content: "layout" },
+    { path: "app/page.tsx", content: "home" },
+    { path: "app/kontakt/page.tsx", content: "kontakt" },
+    { path: "app/extra/page.tsx", content: "x".repeat(20_000) },
+  ]
+  const packed = packGenerateBaseFiles("gör kontaktsidan blå", pages)
+  assert.ok(packed.files.some(file => file.path === "app/kontakt/page.tsx"))
+  assert.equal(packed.files.some(file => file.path === "app/extra/page.tsx"), false)
+  assert.equal(packed.tooLarge, false)
+})
+check(() => {
+  const packed = packGenerateBaseFiles("gör kontaktsidan blå", [
+    { path: "app/kontakt/page.tsx", content: "x".repeat(20_000) },
     { path: "app/page.tsx", content: "home" },
   ])
   assert.equal(packed.tooLarge, true)

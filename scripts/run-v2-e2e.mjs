@@ -27,10 +27,19 @@ function acceptedIdentity(state) {
 
 async function signIn(context, origin, credentials) {
   const page = await context.newPage()
-  await page.goto(`${origin}/login`, { waitUntil: "domcontentloaded" })
-  await page.locator("#email").fill(credentials.email)
-  await page.locator("#password").fill(credentials.password)
-  await page.getByRole("button", { name: "Logga in", exact: true }).click()
+  // Wait for hydration: the form is React-controlled, so input typed before hydration is discarded
+  // and the submit button stays disabled.
+  await page.goto(`${origin}/login`, { waitUntil: "networkidle" })
+  const submit = page.getByRole("button", { name: "Logga in", exact: true })
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    await page.locator("#email").fill("")
+    await page.locator("#email").pressSequentially(credentials.email, { delay: 10 })
+    await page.locator("#password").fill("")
+    await page.locator("#password").pressSequentially(credentials.password, { delay: 10 })
+    if (await submit.isEnabled()) break
+    await page.waitForTimeout(1_000)
+  }
+  await submit.click()
   await page.waitForURL((url) => url.origin === origin && url.pathname === "/builder", { timeout: 60_000 })
   await page.close()
 }
@@ -45,7 +54,7 @@ async function runLive() {
   requireThat(Number.isSafeInteger(timeout) && timeout >= 10_000 && timeout <= 1_800_000,
     "invalid_build_wait_ceiling")
   const chromium = await loadPlaywright()
-  const browser = await chromium.launch({ headless: true })
+  const browser = await chromium.launch({ headless: true, channel: "chrome" })
   try {
     const owner = await browser.newContext()
     const other = await browser.newContext()

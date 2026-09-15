@@ -9,6 +9,7 @@ import { ExternalLink, Globe, Loader2, Monitor, TriangleAlert } from "lucide-rea
 import { cn } from "@/lib/utils"
 import { previewAddressLabel, previewStatusChip } from "./card-states"
 import { useBuilder } from "./builder-store"
+import { NextPageRemoveButton, NextPagesAddForm } from "./next-pages-controls"
 import { NextPreviewFrame } from "./next-preview-frame"
 
 function PreviewFrame({ className }: { className?: string }) {
@@ -37,6 +38,8 @@ export function PreviewStage() {
     nextError,
     refreshNextPreview,
     cancelNextBuild,
+    mutateNextPages,
+    canMutateNextPages,
   } = useBuilder()
   const [refresh, setRefresh] = useState(0)
   const [actionError, setActionError] = useState("")
@@ -151,6 +154,29 @@ export function PreviewStage() {
                 : nextAvailability === "available" ? "Visar HTML-historik. Nya byggbeställningar i Sajtagent använder React."
                   : "HTML-läge. React aktiveras när projektets byggmiljö är redo."}
           </p>
+          {accepted ? (
+            <div className="shrink-0 border-b border-zinc-200 bg-zinc-50 px-3 py-1.5">
+              <div className="flex flex-wrap items-center gap-2">
+                <NextPagesAddForm
+                  compact
+                  disabled={!canMutateNextPages}
+                  disabledReason={previewStatus === "building" ? "Ett bygge kör. Vänta tills det är klart innan du ändrar sidor." : undefined}
+                  onAdd={route => mutateNextPages("add", route)}
+                />
+                {previewRoute !== "/" ? (
+                  <NextPageRemoveButton
+                    route={previewRoute}
+                    disabled={!canMutateNextPages}
+                    onRemove={route => mutateNextPages("remove", route)}
+                  />
+                ) : null}
+              </div>
+            </div>
+          ) : !isNext && previewStatus === "ready" ? (
+            <p className="shrink-0 border-b border-zinc-200 bg-zinc-50 px-3 py-1 text-[11px] text-zinc-500">
+              HTML-skissen är en sida. Lägg till och ta bort sidor i React-läget.
+            </p>
+          ) : null}
           {(nextError || actionError) && <p role="alert" className="shrink-0 bg-amber-50 px-3 py-2 text-xs text-amber-900">{actionError || nextError}</p>}
 
           {/* Innehåll */}

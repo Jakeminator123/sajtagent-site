@@ -42,6 +42,7 @@
     "scripts/verify-entry-ux.mts",
     "lib/siteagent/next-preview-client.ts",
     "components/siteagent/use-next-project.ts",
+    "components/siteagent/next-pages-controls.tsx",
     "components/siteagent/next-preview-frame.tsx",
     "scripts/verify-next-chat-ui.mts"
   ]

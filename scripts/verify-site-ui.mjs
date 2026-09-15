@@ -28,6 +28,7 @@ const builderPageSource = readFileSync(resolve(root, "app/builder/page.tsx"), "u
 const layoutPrefsSource = readFileSync(resolve(root, "components/siteagent/layout-prefs.ts"), "utf8")
 const versionListSource = readFileSync(resolve(root, "components/siteagent/version-list.tsx"), "utf8")
 const sitemapFaceSource = readFileSync(resolve(root, "components/siteagent/faces/sitemap-face.tsx"), "utf8")
+const nextPagesControlsSource = readFileSync(resolve(root, "components/siteagent/next-pages-controls.tsx"), "utf8")
 const nextPreviewFrameSource = readFileSync(resolve(root, "components/siteagent/next-preview-frame.tsx"), "utf8")
 const conversationHandoffSource = readFileSync(
   resolve(root, "components/siteagent/conversation-handoff.ts"),
@@ -426,6 +427,33 @@ assert.match(
   sitemapFaceSource,
   /HTML-skissen är en sida/,
   "HTML map must stay a single honest page node",
+)
+assert.match(
+  sitemapFaceSource,
+  /Lägg till och ta bort sidor i React-läget/,
+  "HTML map must not offer active add\/remove",
+)
+assert.match(
+  sitemapFaceSource,
+  /NextPagesAddForm/,
+  "Map must expose the Next add-page form",
+)
+assert.match(
+  sitemapFaceSource,
+  /NextPageRemoveButton/,
+  "Map must expose remove on child pages",
+)
+assert.match(nextPagesControlsSource, /Lägg till/)
+assert.match(nextPagesControlsSource, /Ta bort/)
+assert.match(
+  previewStageSource,
+  /NextPagesAddForm/,
+  "Preview chrome can add a Next page",
+)
+assert.match(
+  previewStageSource,
+  /HTML-skissen är en sida\. Lägg till och ta bort sidor i React-läget/,
+  "HTML preview must not present an active page editor",
 )
 assert.match(
   sitemapFaceSource,

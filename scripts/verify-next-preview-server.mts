@@ -4,6 +4,7 @@ import { dirname, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 import { shouldIdleNextPreviewPoll } from "../lib/siteagent/next-preview-poll.ts"
 import { NEXT_SOURCE_FILE_CONTENT_MAX, NEXT_SOURCE_FILE_COUNT_MAX, NEXT_SOURCE_FILE_COUNT_MIN, NEXT_SOURCE_PATH_ALPHABET, NEXT_SOURCE_PATH_MAX, PREVIEW_ROUTE_LIMIT, assertPreviewSiteOrigin, canFinishJob, deriveAcceptedPreviewRoutes, gatewayHost, isNextPreviewUnavailableError, nextPreviewConfig, nextPreviewFailureStatus, outputDigest, previewBasePath, safeFilePath, sourceRevisionId, validateSourceFiles, validateStaticFiles, type NextAccepted, type NextJob, type NextState } from "../lib/siteagent/server/next-preview-model.ts"
+import { classifyExplicitPageRemoves, composeNextPageStub, executeNextPageMutation, isControllerOwnedSourcePath, mergeGeneratedSourceFiles, pagePathForRoute, parseManualPageRoute, planNextPageMutation } from "../lib/siteagent/server/next-preview-pages.ts"
 import { serveAcceptedStatic, gatewayHostnameAllowed } from "../lib/siteagent/server/next-preview-gateway.ts"
 
 let checks=0
@@ -127,6 +128,8 @@ check(() => assert.equal(shouldIdleNextPreviewPoll(200), false))
 const here = dirname(fileURLToPath(import.meta.url))
 const nextRoute = readFileSync(resolve(here, "../app/api/siteagent/projects/[projectId]/next/route.ts"), "utf8")
 const profileRoute = readFileSync(resolve(here, "../app/api/siteagent/projects/[projectId]/next/profile/route.ts"), "utf8")
+const pagesRoute = readFileSync(resolve(here, "../app/api/siteagent/projects/[projectId]/next/pages/route.ts"), "utf8")
+const serviceSource = readFileSync(resolve(here, "../lib/siteagent/server/next-preview-service.ts"), "utf8")
 const accessRoute = readFileSync(resolve(here, "../app/api/siteagent/projects/[projectId]/next/access/route.ts"), "utf8")
 const sourceRoute = readFileSync(resolve(here, "../app/api/siteagent/projects/[projectId]/next/source/route.ts"), "utf8")
 const nextProject = readFileSync(resolve(here, "../components/siteagent/use-next-project.ts"), "utf8")
@@ -145,5 +148,152 @@ check(() => assert.match(profileRoute, /nextPreviewConfig\(\)/))
 check(() => assert.match(profileRoute, /setProfilePreference/))
 check(() => assert.match(nextProject, /setProfilePreference/))
 check(() => assert.match(nextProject, /\/next\/profile/))
+
+const basePages = [
+  { path: "package.json", content: '{"dependencies":{"next":"16.3.3"}}' },
+  { path: "app/layout.tsx", content: "export default function Layout({children}:{children:React.ReactNode}){return <html><body>{children}</body></html>}" },
+  { path: "app/page.tsx", content: "export default function Home(){return <h1>Hem</h1>}" },
+  { path: "app/om/page.tsx", content: "export default function Om(){return <h1>Om</h1>}" },
+]
+const generatedOnlyKontakt = [
+  { path: "package.json", content: '{"dependencies":{"next":"16.3.3"}}' },
+  { path: "app/layout.tsx", content: "export default function Layout({children}:{children:React.ReactNode}){return <html><body>{children}</body></html>}" },
+  { path: "app/kontakt/page.tsx", content: "export default function Kontakt(){return <h1>Kontakt</h1>}" },
+]
+check(() => {
+  const merged = mergeGeneratedSourceFiles({
+    baseFiles: basePages,
+    generatedFiles: generatedOnlyKontakt,
+    omittedBasePaths: ["app/page.tsx", "app/om/page.tsx"],
+    prompt: "Lägg till en kontaktsida",
+  })
+  assert.ok(merged.some(file => file.path === "app/page.tsx" && file.content.includes("Hem")))
+  assert.ok(merged.some(file => file.path === "app/om/page.tsx"))
+  assert.ok(merged.some(file => file.path === "app/kontakt/page.tsx"))
+})
+check(() => {
+  const merged = mergeGeneratedSourceFiles({
+    baseFiles: basePages,
+    generatedFiles: generatedOnlyKontakt,
+    omittedBasePaths: ["app/page.tsx", "app/om/page.tsx"],
+    prompt: "Lägg till kontakt och ta bort /om",
+  })
+  assert.ok(merged.some(file => file.path === "app/page.tsx"))
+  assert.equal(merged.some(file => file.path === "app/om/page.tsx"), false)
+  assert.ok(merged.some(file => file.path === "app/kontakt/page.tsx"))
+})
+check(() => {
+  const merged = mergeGeneratedSourceFiles({
+    baseFiles: basePages,
+    generatedFiles: generatedOnlyKontakt,
+    prompt: "Lägg till en kontaktsida",
+  })
+  assert.ok(merged.some(file => file.path === "app/page.tsx"), "dropped home is restored even without omittedBasePaths")
+})
+check(() => {
+  const merged = mergeGeneratedSourceFiles({
+    baseFiles: basePages,
+    generatedFiles: generatedOnlyKontakt,
+    omittedBasePaths: ["app/page.tsx", "package.json", "next.config.mjs"],
+    prompt: "Ny kontaktsida",
+  })
+  assert.equal(merged.find(file => file.path === "package.json")?.content, generatedOnlyKontakt[0].content)
+  assert.ok(merged.some(file => file.path === "app/page.tsx"))
+})
+check(() => assert.deepEqual(classifyExplicitPageRemoves("ta bort /om", basePages), ["app/om/page.tsx"]))
+check(() => assert.deepEqual(classifyExplicitPageRemoves("ta bort kontaktsidan", [...basePages, { path: "app/kontakt/page.tsx", content: "x" }]), ["app/kontakt/page.tsx"]))
+check(() => assert.deepEqual(classifyExplicitPageRemoves("uppdatera kontaktsidan", [...basePages, { path: "app/kontakt/page.tsx", content: "x" }]), []))
+check(() => assert.deepEqual(classifyExplicitPageRemoves("ta bort startsidan", basePages), []))
+check(() => assert.deepEqual(classifyExplicitPageRemoves("ta bort sidan", basePages), []))
+check(() => assert.equal(isControllerOwnedSourcePath("package.json"), true))
+check(() => assert.equal(isControllerOwnedSourcePath("app/page.tsx"), false))
+check(() => assert.equal(pagePathForRoute("/kontakt"), "app/kontakt/page.tsx"))
+check(() => assert.equal(parseManualPageRoute("/kontakt"), "/kontakt"))
+check(() => assert.equal(parseManualPageRoute("/"), "/"))
+for (const route of ["/Om", "/foo_bar", "/_next", "kontakt", "//om", "/om/"]) {
+  check(() => assert.throws(() => parseManualPageRoute(route), /invalid_page_route/))
+}
+check(() => assert.match(composeNextPageStub("/kontakt"), /<h1>Kontakt<\/h1>/))
+
+const acceptedPages: NextAccepted = {
+  ...job,
+  jobId: "job:accepted",
+  sourceRevisionId: sourceRevisionId("tenant:a", "project:a", basePages),
+  deploymentId: "dpl_pages",
+  deploymentUrl: "https://real.vercel.app",
+  acceptedAt: new Date().toISOString(),
+  outputSha256: "c".repeat(64),
+  files: [],
+}
+const acceptedState: NextState = { current: null, accepted: acceptedPages }
+check(() => {
+  const planned = planNextPageMutation({
+    state: acceptedState,
+    sourceFiles: basePages,
+    op: "add",
+    route: "/kontakt",
+    jobId: acceptedPages.jobId,
+    sourceRevisionId: acceptedPages.sourceRevisionId,
+  })
+  assert.equal(planned.rebuild, true)
+  assert.ok(planned.files.some(file => file.path === "app/kontakt/page.tsx" && file.content.includes("use client")))
+})
+check(() => assert.throws(() => planNextPageMutation({
+  state: acceptedState,
+  sourceFiles: basePages,
+  op: "remove",
+  route: "/",
+  jobId: acceptedPages.jobId,
+  sourceRevisionId: acceptedPages.sourceRevisionId,
+}), /home_page_reserved/))
+check(() => assert.throws(() => planNextPageMutation({
+  state: acceptedState,
+  sourceFiles: basePages,
+  op: "add",
+  route: "/_next",
+  jobId: acceptedPages.jobId,
+  sourceRevisionId: acceptedPages.sourceRevisionId,
+}), /invalid_page_route/))
+check(() => assert.throws(() => planNextPageMutation({
+  state: acceptedState,
+  sourceFiles: basePages,
+  op: "add",
+  route: "/kontakt",
+  jobId: "job:stale",
+  sourceRevisionId: acceptedPages.sourceRevisionId,
+}), /accepted_revision_changed/))
+check(() => assert.throws(() => planNextPageMutation({
+  state: acceptedState,
+  sourceFiles: basePages,
+  op: "add",
+  route: "/kontakt",
+  jobId: acceptedPages.jobId,
+  sourceRevisionId: `revision:sha256:${"d".repeat(64)}`,
+}), /accepted_revision_changed/))
+
+let builtFiles: { path: string }[] | null = null
+const afterAdd = await executeNextPageMutation({
+  state: acceptedState,
+  sourceFiles: basePages,
+  request: { op: "add", route: "/kontakt", jobId: acceptedPages.jobId, sourceRevisionId: acceptedPages.sourceRevisionId },
+  build: async files => {
+    builtFiles = files
+    return { current: null, accepted: { ...acceptedPages, jobId: "job:built" } }
+  },
+})
+check(() => assert.ok(builtFiles?.some(file => file.path === "app/kontakt/page.tsx")))
+check(() => assert.equal(afterAdd?.accepted?.jobId, "job:built"))
+check(() => assert.match(pagesRoute, /origin_denied/))
+check(() => assert.match(pagesRoute, /resolveBuildPrincipalV1/))
+check(() => assert.match(pagesRoute, /mutateNextPreviewPages/))
+check(() => assert.match(pagesRoute, /nextPreviewOwnerReadModel/))
+check(() => assert.doesNotMatch(pagesRoute, /body\.files/))
+check(() => assert.match(serviceSource, /mergeGeneratedSourceFiles/))
+check(() => assert.match(serviceSource, /mutateNextPreviewPages/))
+check(() => assert.match(serviceSource, /buildNextPreview\(principal, projectId, files, abort, expectedAcceptedJobId/))
+check(() => assert.match(serviceSource, /const generated=await runtime.generate/))
+check(() => assert.match(readFileSync(resolve(here, "../lib/siteagent/server/next-preview-runtime.ts"), "utf8"), /18_000/))
+check(() => assert.match(nextProject, /\/next\/pages/))
+check(() => assert.match(nextProject, /mutatePages/))
 
 console.log(`Next preview server: ${checks} assertions passed (local, not live E2E).`)

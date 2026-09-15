@@ -10,6 +10,7 @@ import {
   isRetryableNextFailure,
   nextAccessFailureResponse,
   nextBuildFailureResponse,
+  nextPagesFailureResponse,
   nextProfileFailureResponse,
   persistedNextFailureCode,
 } from "../lib/siteagent/server/next-preview-failure.ts"
@@ -124,13 +125,29 @@ const profileLeak = nextProfileFailureResponse(new Error("Bearer tok_live https:
 assert.deepEqual(profileLeak, { status: 503, body: { error: "next_profile_failed" } })
 assert.equal(JSON.stringify(profileLeak).includes("Bearer"), false)
 
+assert.deepEqual(nextPagesFailureResponse(new Error("next_preview_unavailable")), { status: 404, body: { error: "next_preview_unavailable" } })
+assert.deepEqual(nextPagesFailureResponse(new Error("invalid_page_route")), { status: 400, body: { error: "invalid_page_route" } })
+assert.deepEqual(nextPagesFailureResponse(new Error("home_page_reserved")), { status: 400, body: { error: "home_page_reserved" } })
+assert.deepEqual(nextPagesFailureResponse(new Error("accepted_revision_changed")), { status: 409, body: { error: "accepted_revision_changed" } })
+assert.deepEqual(nextPagesFailureResponse(new Error("accepted_source_not_found")), { status: 404, body: { error: "accepted_source_not_found" } })
+assert.deepEqual(nextPagesFailureResponse(new Error("project_busy")), { status: 409, body: { error: "project_busy" } })
+assert.deepEqual(nextPagesFailureResponse(new ZodError([])), { status: 400, body: { error: "invalid_page_mutation" } })
+assert.deepEqual(nextPagesFailureResponse(new Error("invalid_source_bundle")), { status: 400, body: { error: "invalid_source_bundle" } })
+assert.deepEqual(nextPagesFailureResponse(new Error("source_generation_failed")), { status: 502, body: { error: "next_build_failed", reason: "source_generation_failed" } })
+const pagesLeak = nextPagesFailureResponse(new Error("Bearer tok_live https://secret.example"))
+assert.deepEqual(pagesLeak, { status: 503, body: { error: "next_pages_failed" } })
+assert.equal(JSON.stringify(pagesLeak).includes("Bearer"), false)
+
 const here = dirname(fileURLToPath(import.meta.url))
 const route = readFileSync(resolve(here, "../app/api/siteagent/projects/[projectId]/next/route.ts"), "utf8")
 const profileRoute = readFileSync(resolve(here, "../app/api/siteagent/projects/[projectId]/next/profile/route.ts"), "utf8")
+const pagesRoute = readFileSync(resolve(here, "../app/api/siteagent/projects/[projectId]/next/pages/route.ts"), "utf8")
 assert.match(route, /nextBuildFailureResponse\(error\)/)
 assert.doesNotMatch(route, /json\([^)]*error\.message/)
 assert.match(route, /isNextPreviewUnavailableError\(error\)\) return json\(404,\{error:"next_preview_unavailable"\}\)/)
 assert.match(profileRoute, /nextProfileFailureResponse\(error\)/)
 assert.doesNotMatch(profileRoute, /error\.message/)
+assert.match(pagesRoute, /nextPagesFailureResponse\(error\)/)
+assert.doesNotMatch(pagesRoute, /error\.message/)
 
 console.log("Next build failure mapping: classified reasons, HTTP statuses and no-leak fallback passed (local, not live E2E).")

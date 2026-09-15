@@ -6,6 +6,7 @@ import { NextRuntimeClient } from "./next-preview-runtime.ts"
 import { StaticNextDeployer } from "./next-preview-deployer.ts"
 import { nextPreviewConfig, sourceRevisionId, validateSourceFiles, type NextJob, type NextState, type SourceFile } from "./next-preview-model.ts"
 import { persistedNextFailureCode } from "./next-preview-failure.ts"
+import { executeNextPageMutation, mergeGeneratedSourceFiles, type NextPageMutationRequest } from "./next-preview-pages.ts"
 
 export { nextPreviewConfig } from "./next-preview-model.ts"
 
@@ -64,7 +65,28 @@ export async function generateNextPreview(principal: BuildPrincipalV1, projectId
   const baseFiles=await repo.getAcceptedSource(principal,projectId)??[]
   const runtime=new NextRuntimeClient(config.SITEAGENT_RUNTIME_URL,config.SITEAGENT_RUNTIME_SIGNING_KEY)
   if (observer?.latestStartAt && Date.now() > Date.parse(observer.latestStartAt)) throw new Error("turn_policy_expired")
-  const files=await runtime.generate({tenantId:principal.tenantId,projectId,prompt,baseFiles},abort)
+  const generated=await runtime.generate({tenantId:principal.tenantId,projectId,prompt,baseFiles},abort)
   abort?.throwIfAborted()
+  // Runtime replaces the whole file set. Site restores omitted base pages unless the prompt bound a remove.
+  const files=mergeGeneratedSourceFiles({baseFiles,generatedFiles:generated.files,omittedBasePaths:generated.omittedBasePaths,prompt})
   return buildNextPreview(principal,projectId,files,abort,state.accepted?.jobId??null,observer)
+}
+
+export async function mutateNextPreviewPages(
+  principal: BuildPrincipalV1,
+  projectId: string,
+  request: NextPageMutationRequest,
+  abort?: AbortSignal,
+  observer?: NextPreviewBuildObserver,
+): Promise<NextState | null> {
+  const repo = await nextPreviewRepository()
+  const state = await repo.getState(principal, projectId)
+  if (!state) throw new Error("project_not_found")
+  const sourceFiles = await repo.getAcceptedSource(principal, projectId)
+  return executeNextPageMutation({
+    state,
+    sourceFiles,
+    request,
+    build: (files, expectedAcceptedJobId) => buildNextPreview(principal, projectId, files, abort, expectedAcceptedJobId, observer),
+  })
 }

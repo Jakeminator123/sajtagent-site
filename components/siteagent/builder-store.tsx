@@ -87,6 +87,8 @@ interface BuilderStore {
   showNextPreview: () => void
   refreshNextPreview: () => Promise<void>
   cancelNextBuild: () => Promise<void>
+  mutateNextPages: (op: "add" | "remove", route: string) => Promise<void>
+  canMutateNextPages: boolean
 
   versions: SiteVersion[]
   activeVersionId: string | null
@@ -983,6 +985,12 @@ export function BuilderProvider({ children, initialProjectId = null, initialDraf
     if (!response.ok) throw new Error("Avbrottet kunde inte bekräftas. Den godkända versionen behålls.")
     await refreshNextState()
   }, [projectId, nextCurrent, refreshNextState])
+  const canMutateNextPages = Boolean(
+    previewKind === "next" && nextProject.state?.accepted && !nextBuildActive && !agentTurnActive && nextProject.availability === "available",
+  )
+  const mutateNextPages = useCallback(async (op: "add" | "remove", route: string) => {
+    await nextProject.mutatePages(op, route)
+  }, [nextProject.mutatePages])
 
   const value = useMemo<BuilderStore>(
     () => ({
@@ -1021,6 +1029,8 @@ export function BuilderProvider({ children, initialProjectId = null, initialDraf
       showNextPreview,
       refreshNextPreview,
       cancelNextBuild,
+      mutateNextPages,
+      canMutateNextPages,
       versions,
       activeVersionId,
       restoreVersion,
@@ -1069,6 +1079,8 @@ export function BuilderProvider({ children, initialProjectId = null, initialDraf
       showNextPreview,
       refreshNextPreview,
       cancelNextBuild,
+      mutateNextPages,
+      canMutateNextPages,
       versions,
       activeVersionId,
       restoreVersion,

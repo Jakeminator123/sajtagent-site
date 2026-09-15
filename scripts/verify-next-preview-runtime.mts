@@ -38,8 +38,13 @@ try {
     const body=JSON.parse(String(init?.body));assert.equal(body.baseFiles.length,0);assert.equal(body.prompt,"A real site");
     return Response.json({schemaVersion:2,tenantId:body.tenantId,projectId:body.projectId,jobId:body.jobId,sourceRevisionId:sourceRevisionId(body.tenantId,body.projectId,generatedFiles),files:generatedFiles})
   }
-  assert.equal((await client.generate({tenantId:job.tenantId,projectId:job.projectId,prompt:"A real site",baseFiles:[]})).length,2);checks++
-  assert.equal((await client.generate({tenantId:job.tenantId,projectId:job.projectId,prompt:"A real site",baseFiles:[]})).some(file=>file.path==="package.json"),false);checks++
+  assert.equal((await client.generate({tenantId:job.tenantId,projectId:job.projectId,prompt:"A real site",baseFiles:[]})).files.length,2);checks++
+  assert.equal((await client.generate({tenantId:job.tenantId,projectId:job.projectId,prompt:"A real site",baseFiles:[]})).files.some(file=>file.path==="package.json"),false);checks++
+  globalThis.fetch=async (_input,init)=>{
+    const body=JSON.parse(String(init?.body))
+    return Response.json({schemaVersion:2,tenantId:body.tenantId,projectId:body.projectId,jobId:body.jobId,sourceRevisionId:sourceRevisionId(body.tenantId,body.projectId,generatedFiles),files:generatedFiles,omittedBasePaths:["app/om/page.tsx"]})
+  }
+  assert.deepEqual((await client.generate({tenantId:job.tenantId,projectId:job.projectId,prompt:"A real site",baseFiles:[]})).omittedBasePaths,["app/om/page.tsx"]);checks++
   await assert.rejects(()=>client.generate({tenantId:job.tenantId,projectId:job.projectId,prompt:"x".repeat(19000),baseFiles:[]}),/source_context_too_large/);checks++
   globalThis.fetch=async (_input,init)=>{const body=JSON.parse(String(init?.body));return Response.json({schemaVersion:2,tenantId:body.tenantId,projectId:"project:other",jobId:body.jobId,sourceRevisionId:job.sourceRevisionId,files})}
   await assert.rejects(()=>client.generate({tenantId:job.tenantId,projectId:job.projectId,prompt:"A real site",baseFiles:[]}),/source_binding_mismatch/);checks++

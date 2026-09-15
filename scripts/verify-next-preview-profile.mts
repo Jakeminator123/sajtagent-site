@@ -81,6 +81,7 @@ assert.equal(ownerRead.state.accepted?.jobId, "job:accepted")
 assert.equal("files" in (ownerRead.state.accepted ?? {}), false)
 assert.equal("deploymentUrl" in (ownerRead.state.accepted ?? {}), false)
 assert.deepEqual(ownerRead.state.accepted?.routes, [])
+assert.deepEqual(ownerRead.state.accepted?.previewableRoutes, [])
 assert.deepEqual(ownerRead.profile, { available: ["html", "next"], preference: "html", effective: "html" })
 
 const pagedRead = nextPreviewOwnerReadModel(completeNextEnv, {
@@ -96,6 +97,27 @@ const pagedRead = nextPreviewOwnerReadModel(completeNextEnv, {
   },
 })
 assert.deepEqual(pagedRead.state.accepted?.routes, ["/", "/about"])
+assert.deepEqual(pagedRead.state.accepted?.previewableRoutes, ["/", "/about"])
+const sourcedRead = nextPreviewOwnerReadModel(
+  completeNextEnv,
+  {
+    current: null,
+    accepted: {
+      ...accepted,
+      files: [
+        { path: "index.html", content: "SECRET_HTML", encoding: "base64" },
+        { path: "about/index.html", content: "SECRET_ABOUT", encoding: "base64" },
+      ],
+    },
+  },
+  [
+    { path: "app/page.tsx", content: "export default function Home(){return null}" },
+    { path: "app/om/page.tsx", content: "export default function Om(){return null}" },
+    { path: "app/om/team/page.tsx", content: "export default function Team(){return null}" },
+  ],
+)
+assert.deepEqual(sourcedRead.state.accepted?.routes, ["/", "/om", "/om/team"])
+assert.deepEqual(sourcedRead.state.accepted?.previewableRoutes, ["/", "/about"])
 assert.equal("files" in (pagedRead.state.accepted ?? {}), false)
 assert.equal(JSON.stringify(pagedRead).includes("SECRET_HTML"), false)
 assert.equal(JSON.stringify(pagedRead).includes("SECRET_ABOUT"), false)
@@ -181,6 +203,7 @@ const nextRoute = readFileSync(resolve(here, "../app/api/siteagent/projects/[pro
 const repository = readFileSync(resolve(here, "../lib/siteagent/server/next-preview-repository.ts"), "utf8")
 const ownerModel = readFileSync(resolve(here, "../lib/siteagent/server/agent-build-profile.ts"), "utf8")
 assert.match(ownerModel, /ownerAcceptedPageRoutes\(state\.accepted\.files, sourceFiles\)/)
+assert.match(ownerModel, /previewableRoutes: deriveAcceptedPreviewRoutes\(state\.accepted\.files\)/)
 assert.match(ownerModel, /listedPageRoutes/)
 assert.match(nextRoute, /getAcceptedSource/)
 assert.match(profileRoute, /getAcceptedSource/)

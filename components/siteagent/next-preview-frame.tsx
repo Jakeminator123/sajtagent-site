@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
-import { previewContentUrl, type AcceptedNextPreview } from "@/lib/siteagent/next-preview-client"
+import { acceptedPreviewableRoutes, previewContentUrl, type AcceptedNextPreview } from "@/lib/siteagent/next-preview-client"
 
 /** Customer code only runs on the owner-bound, separate-origin gateway. */
 export function NextPreviewFrame({
@@ -19,7 +19,8 @@ export function NextPreviewFrame({
   const [error, setError] = useState("")
   const [bootstrapped, setBootstrapped] = useState(false)
   const {projectId, jobId, sourceRevisionId, previewRef} = accepted
-  const allowedRoute = accepted.routes.includes(route) ? route : "/"
+  const previewable = acceptedPreviewableRoutes(accepted)
+  const allowedRoute = previewable.includes(route) ? route : "/"
 
   useEffect(() => {
     const abort = new AbortController()

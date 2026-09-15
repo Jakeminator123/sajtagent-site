@@ -23,6 +23,7 @@ const stateSchema = z.object({
     accepted: binding.extend({
       acceptedAt: z.string().datetime({offset: true}),
       routes: z.array(previewRouteSchema).max(200).default([]),
+      previewableRoutes: z.array(previewRouteSchema).max(200).optional(),
     }).nullable(),
   }),
   profile: profileSchema.optional(),
@@ -65,6 +66,11 @@ export function reconcileNextPreview(candidate: AgentNextPreviewProjection, stat
 export function nextSourceDownloadHref(accepted: AcceptedNextPreview): string {
   const query = new URLSearchParams({sourceRevisionId: accepted.sourceRevisionId, jobId: accepted.jobId})
   return `/api/siteagent/projects/${encodeURIComponent(accepted.projectId)}/next/download?${query}`
+}
+
+/** Iframe and chrome may only open export-backed routes. */
+export function acceptedPreviewableRoutes(accepted: Pick<AcceptedNextPreview, "routes" | "previewableRoutes">): string[] {
+  return accepted.previewableRoutes ?? accepted.routes
 }
 
 export function previewContentUrl(origin: string, previewRef: string, route: string): string {

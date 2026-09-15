@@ -82,6 +82,7 @@ export function nextPreviewOwnerReadModel(
         acceptedAt: state.accepted.acceptedAt,
         outputSha256: state.accepted.outputSha256,
         routes: ownerAcceptedPageRoutes(state.accepted.files, sourceFiles),
+        previewableRoutes: deriveAcceptedPreviewRoutes(state.accepted.files),
       }
     : null
   return {

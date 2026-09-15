@@ -512,8 +512,18 @@ assert.match(
 )
 assert.match(
   previewStageSource,
-  /previewRoutes\.length > 1/,
-  "Preview chrome only shows a page switcher when several accepted routes exist",
+  /previewableRoutes\.length > 1/,
+  "Preview chrome only shows a page switcher when several export-backed routes exist",
+)
+assert.match(
+  nextPreviewFrameSource,
+  /acceptedPreviewableRoutes/,
+  "Next preview must not navigate source-only routes that the export cannot serve",
+)
+assert.match(
+  sitemapFaceSource,
+  /inte i previewn ännu/,
+  "Map must mark source pages that are not in the accepted export",
 )
 assert.match(
   nextPreviewFrameSource,

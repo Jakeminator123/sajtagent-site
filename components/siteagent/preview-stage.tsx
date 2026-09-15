@@ -30,7 +30,7 @@ export function PreviewStage() {
     previewStatus,
     previewUrl,
     previewKind,
-    previewRoutes,
+    previewableRoutes,
     previewRoute,
     setPreviewRoute,
     nextState,
@@ -47,7 +47,7 @@ export function PreviewStage() {
   const accepted = isNext ? nextState?.accepted : null
   const hasContent = nextAvailability !== "loading" && Boolean(previewUrl || accepted)
   const chip = previewStatusChip(previewStatus, hasContent)
-  const canSwitchRoutes = Boolean(accepted) && previewRoutes.length > 1
+  const canSwitchRoutes = Boolean(accepted) && previewableRoutes.length > 1
   const address = accepted ? "Privat · din verifierade React-sajt" : previewAddressLabel(previewStatus, previewUrl)
 
   async function refreshPreview() {
@@ -99,11 +99,11 @@ export function PreviewStage() {
                 {canSwitchRoutes ? (
                   <select
                     aria-label="Sida"
-                    value={previewRoutes.includes(previewRoute) ? previewRoute : (previewRoutes[0] ?? "/")}
+                    value={previewableRoutes.includes(previewRoute) ? previewRoute : (previewableRoutes[0] ?? "/")}
                     onChange={(event) => setPreviewRoute(event.target.value)}
                     className="min-w-0 flex-1 truncate bg-transparent font-mono text-[11px] text-zinc-600 outline-none"
                   >
-                    {previewRoutes.map((route) => (
+                    {previewableRoutes.map((route) => (
                       <option key={route} value={route}>
                         {route}
                       </option>

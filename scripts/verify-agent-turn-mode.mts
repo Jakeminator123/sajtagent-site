@@ -35,6 +35,16 @@ check(
   "a mutation of current-site chrome is a build instruction",
 )
 check(
+  classify("lägg till /kontakt"),
+  "build.request",
+  "an explicit page add is a generate/build turn, not a conversation-only read",
+)
+check(
+  classify("ta bort kontaktsidan"),
+  "build.request",
+  "an explicit page remove is a generate/build turn, not a conversation-only read",
+)
+check(
   classify("gör den mörk och modern"),
   "build.request",
   "gör den + theme language is a build instruction",

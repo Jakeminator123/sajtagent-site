@@ -45,7 +45,7 @@ import {
   type CanonicalProjectReadModelV1,
 } from "@/lib/siteagent/read-model"
 import type { ChatMessage, PreviewStatus, PublishState, SiteVersion } from "@/lib/siteagent/types"
-import { canSendWithNextProfile, isNextBuildActive, reconcileNextPreview, type NextAvailability, type NextBuildProfile, type NextProjectState } from "@/lib/siteagent/next-preview-client"
+import { acceptedPreviewableRoutes, canSendWithNextProfile, isNextBuildActive, reconcileNextPreview, type NextAvailability, type NextBuildProfile, type NextProjectState } from "@/lib/siteagent/next-preview-client"
 import { nextPreviewRouteAfterChange } from "@/lib/siteagent/preview-route-tree"
 import { useNextProject } from "./use-next-project"
 
@@ -76,6 +76,7 @@ interface BuilderStore {
   previewUrl: string | null
   sitemapRevision: string | null
   previewRoutes: string[]
+  previewableRoutes: string[]
   previewRoute: string
   setPreviewRoute: (route: string) => void
   previewKind: "html" | "next"
@@ -257,25 +258,34 @@ export function BuilderProvider({ children, initialProjectId = null, initialDraf
     if (previewKind === "next") return nextProject.state?.accepted?.routes ?? []
     return previewKind === "html" && activeVersion ? ["/"] : []
   }, [previewKind, nextProject.state?.accepted?.routes, activeVersion])
+  const previewableRoutes = useMemo(() => {
+    if (previewKind === "next" && nextProject.state?.accepted) {
+      return acceptedPreviewableRoutes(nextProject.state.accepted)
+    }
+    return previewRoutes
+  }, [previewKind, nextProject.state?.accepted, previewRoutes])
 
   useEffect(() => {
     const previousRoutes = previousPreviewRoutesRef.current
-    const nextRoute = nextPreviewRouteAfterChange({
+    const candidate = nextPreviewRouteAfterChange({
       previousRoutes,
       nextRoutes: previewRoutes,
       currentRoute: previewRoute,
       pendingRoute: pendingPreviewRouteRef.current,
     })
     previousPreviewRoutesRef.current = previewRoutes
-    if (pendingPreviewRouteRef.current && previewRoutes.includes(pendingPreviewRouteRef.current)) {
+    if (pendingPreviewRouteRef.current && previewableRoutes.includes(pendingPreviewRouteRef.current)) {
       pendingPreviewRouteRef.current = null
     }
+    const nextRoute = previewableRoutes.includes(candidate)
+      ? candidate
+      : (previewableRoutes[0] ?? "/")
     if (nextRoute !== previewRoute) setPreviewRouteState(nextRoute)
-  }, [previewRoutes, previewRoute])
+  }, [previewRoutes, previewableRoutes, previewRoute])
 
   const setPreviewRoute = useCallback((route: string) => {
-    setPreviewRouteState((current) => (previewRoutes.includes(route) ? route : current))
-  }, [previewRoutes])
+    setPreviewRouteState((current) => (previewableRoutes.includes(route) ? route : current))
+  }, [previewableRoutes])
 
   const activeTurn = agentProjection.activeTurnId
     ? agentProjection.turns[agentProjection.activeTurnId]
@@ -1033,6 +1043,7 @@ export function BuilderProvider({ children, initialProjectId = null, initialDraf
       previewUrl,
       sitemapRevision,
       previewRoutes,
+      previewableRoutes,
       previewRoute,
       setPreviewRoute,
       previewKind,
@@ -1081,6 +1092,7 @@ export function BuilderProvider({ children, initialProjectId = null, initialDraf
       previewUrl,
       sitemapRevision,
       previewRoutes,
+      previewableRoutes,
       previewRoute,
       setPreviewRoute,
       previewKind,

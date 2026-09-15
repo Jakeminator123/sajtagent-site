@@ -13,6 +13,7 @@ import { buildPreviewRouteTree, previewRouteLabel, type PreviewRouteNode } from 
 function SitemapBranch({
   nodes,
   canSelect,
+  previewableRoutes,
   previewRoute,
   pagesDisabled,
   onSelect,
@@ -20,6 +21,7 @@ function SitemapBranch({
 }: {
   nodes: PreviewRouteNode[]
   canSelect: boolean
+  previewableRoutes: readonly string[]
   previewRoute: string
   pagesDisabled: boolean
   onSelect: (route: string) => void
@@ -30,7 +32,7 @@ function SitemapBranch({
       {nodes.map((node) => (
         <li key={node.route}>
           <div className="flex items-center gap-1">
-            {canSelect && !node.virtual ? (
+            {canSelect && !node.virtual && previewableRoutes.includes(node.route) ? (
               <button
                 type="button"
                 onClick={() => onSelect(node.route)}
@@ -48,10 +50,18 @@ function SitemapBranch({
               </button>
             ) : (
               <div
-                title={node.virtual ? `${node.route} (grupp)` : node.route}
+                title={
+                  node.virtual
+                    ? `${node.route} (grupp)`
+                    : previewableRoutes.includes(node.route)
+                      ? node.route
+                      : `${node.route} (inte i previewn ännu)`
+                }
                 className={cn(
                   "min-w-0 flex-1 rounded-md border border-workflow-border-subtle bg-workflow-node-input px-2 py-1 font-mono text-[10px]",
-                  node.virtual ? "italic text-workflow-text-subtle" : "text-workflow-text",
+                  node.virtual || !previewableRoutes.includes(node.route)
+                    ? "italic text-workflow-text-subtle"
+                    : "text-workflow-text",
                 )}
               >
                 {previewRouteLabel(node.route)}
@@ -66,6 +76,7 @@ function SitemapBranch({
               <SitemapBranch
                 nodes={node.children}
                 canSelect={canSelect}
+                previewableRoutes={previewableRoutes}
                 previewRoute={previewRoute}
                 pagesDisabled={pagesDisabled}
                 onSelect={onSelect}
@@ -85,13 +96,14 @@ export function SitemapFace() {
     sitemapRevision,
     previewKind,
     previewRoutes,
+    previewableRoutes,
     previewRoute,
     setPreviewRoute,
     nextState,
     mutateNextPages,
     canMutateNextPages,
   } = useBuilder()
-  const canSelect = previewKind === "next" && previewRoutes.length > 1
+  const canSelect = previewKind === "next" && previewableRoutes.length > 1
   const building = previewStatus === "building"
   const pagesDisabled = !canMutateNextPages
   const pagesReason = building
@@ -132,6 +144,7 @@ export function SitemapFace() {
         <SitemapBranch
           nodes={buildPreviewRouteTree(previewRoutes)}
           canSelect={canSelect}
+          previewableRoutes={previewableRoutes}
           previewRoute={previewRoute}
           pagesDisabled={pagesDisabled}
           onSelect={setPreviewRoute}

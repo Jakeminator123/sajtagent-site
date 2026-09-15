@@ -5,7 +5,7 @@ import { applyExpectedTurnStreamEventV1 } from "../lib/siteagent/agent-event-str
 import { readFileSync } from "node:fs"
 import { dirname, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
-import { canSendWithNextProfile, isNextBuildActive, nextSourceDownloadHref, parseNextProjectRead, parseNextProjectState, previewContentUrl, reconcileNextPreview } from "../lib/siteagent/next-preview-client.ts"
+import { acceptedPreviewableRoutes, canSendWithNextProfile, isNextBuildActive, nextSourceDownloadHref, parseNextProjectRead, parseNextProjectState, previewContentUrl, reconcileNextPreview } from "../lib/siteagent/next-preview-client.ts"
 import { publicToolStartedLabelV1 } from "../lib/siteagent/server/agent-session-controller.ts"
 import { buildPreviewRouteTree, nextPreviewRouteAfterChange, normalizeManualPageRouteInput, previewRouteLabel } from "../lib/siteagent/preview-route-tree.ts"
 
@@ -63,6 +63,15 @@ assert.deepEqual(parseNextProjectState({
   ...body,
   state: {current: null, accepted: {...accepted, routes: ["/", "/about"]}},
 }, result.projectId).accepted?.routes, ["/", "/about"])
+assert.deepEqual(
+  parseNextProjectState({
+    ...body,
+    state: {current: null, accepted: {...accepted, routes: ["/", "/om", "/om/team"], previewableRoutes: ["/", "/om"]}},
+  }, result.projectId).accepted?.previewableRoutes,
+  ["/", "/om"],
+)
+assert.deepEqual(acceptedPreviewableRoutes({ routes: ["/", "/om"], previewableRoutes: ["/"] }), ["/"])
+assert.deepEqual(acceptedPreviewableRoutes({ routes: ["/", "/om"] }), ["/", "/om"])
 assert.throws(() => parseNextProjectState({
   ...body,
   state: {current: null, accepted: {...accepted, routes: ["about"]}},
@@ -154,6 +163,7 @@ assert.equal(nextPreviewRouteAfterChange({
   currentRoute: "/om",
 }), "/")
 assert.match(store, /nextPreviewRouteAfterChange/)
+assert.match(store, /acceptedPreviewableRoutes/)
 assert.match(store, /pendingPreviewRouteRef/)
 assert.equal(normalizeManualPageRouteInput("Kontakt"), "/kontakt")
 assert.equal(normalizeManualPageRouteInput("/Om/"), "/om")

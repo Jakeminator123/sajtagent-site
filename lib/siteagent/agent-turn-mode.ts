@@ -18,7 +18,7 @@ const SITE_NOUN = new RegExp(
 )
 
 const BUILD_VERB = new RegExp(
-  `${WORD}(bygg(?:a|er)?|skapa(?:r)?|designa(?:r)?|ändra(?:r)?|uppdatera(?:r)?|ersätt(?:er)?|byt(?:er)?|fixa(?:r)?|implementera(?:r)?|lägg(?:er)?\\s+till|ta(?:r)?\\s+bort|gör(?:a)?\\s+(?:en|ett|den|det)|create|build|make|add|change|update|remove|redesign|replace)${WORD_END}`,
+  `${WORD}(bygg(?:a|er)?|skapa(?:r)?|designa(?:r)?|ändra(?:r)?|uppdatera(?:r)?|ersätt(?:er)?|byt(?:er)?|fixa(?:r)?|implementera(?:r)?|lägg(?:a|er)?\\s+till|ta(?:r)?\\s+bort|gör(?:a)?\\s+(?:en|ett|den|det)|create|build|make|add|change|update|remove|redesign|replace)${WORD_END}`,
   "iu",
 )
 
@@ -39,6 +39,17 @@ const CAPABILITY_QUESTION = new RegExp(
 
 const QUESTION_START =
   /^(vad|hur|varför|vilken|vilket|vilka|när|var|vem|förklara|berätta|what|why|how|which|who|when|where)(?![\p{L}\p{N}_])/iu
+
+const PAGE_ROUTE = /\/[a-z0-9-]{1,40}(?:\/[a-z0-9-]{1,40})*/i
+const NAMED_PAGE = /\b(?!sidan?\b|undersidan?\b)[a-z0-9-]{1,40}-?sidan?\b/i
+const SIDAN_NAME = /\bsidan\s+\/?[a-z0-9-]{1,40}\b/i
+const PAGE_ADD_VERB = /lägg(?:a|er)?\s+till|skapa|add/i
+const PAGE_REMOVE_VERB = /ta(?:r)?\s+bort|radera|släng|remove|delete/i
+
+function hasExplicitPageMutation(text: string): boolean {
+  if (!PAGE_ADD_VERB.test(text) && !PAGE_REMOVE_VERB.test(text)) return false
+  return PAGE_ROUTE.test(text) || NAMED_PAGE.test(text) || SIDAN_NAME.test(text)
+}
 
 function normalizedMessage(message: string): string {
   return message.normalize("NFC").trim().replace(/\s+/g, " ")
@@ -61,6 +72,8 @@ export function classifyAgentTurnModeV1(
   const capabilityQuestion = CAPABILITY_QUESTION.test(text)
   const asked = QUESTION_START.test(text) || /\?\s*$/.test(text)
 
+  // "Kan du lägga till /kontakt?" is a page mutation, not a how-to question.
+  if (hasExplicitPageMutation(text)) return "build.request"
   if (hasSite && (hasVerb || hasFeature || wants)) return "build.request"
   if (hasVerb && hasFeature) return "build.request"
   // "förklara vad som ändrats på sidan" is an explanation, not a mutation,

@@ -33,6 +33,7 @@ export function BuilderShell({ initialProjectId = null, initialDraft = null }: {
             moveFace={layout.moveFace}
             dockScale={layout.dockScale}
             setDockScale={layout.setDockScale}
+            setStageSize={layout.setStageSize}
             resetLayout={layout.resetLayout}
           />
         </main>

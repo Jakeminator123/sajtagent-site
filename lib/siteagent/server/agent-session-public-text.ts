@@ -1,4 +1,5 @@
 import type { AgentEventV1 } from "../../../contracts/agent-session-v1.ts"
+import { UNSUPPORTED_PACKAGE_PUBLIC_MESSAGE_V1 } from "./next-preview-packages.ts"
 
 export const RAW_REASONING_MARKER_V1 =
   /<\s*\/?\s*(?:analysis|thinking|reasoning|chain[-_ ]of[-_ ]thought)\b|(?:^|\n)\s*(?:analysis|reasoning|chain[- ]of[- ]thought)\s*:/i
@@ -27,6 +28,23 @@ export const CANNED_BUILD_SUCCESS_DELTA_V1 =
 export const SHORT_BUILD_SUCCESS_STATUS_DELTA_V1 =
   "Previewn är verifierad och redo."
 
+export const NEXT_BUILD_SUCCESS_DELTA_V1 =
+  "Klart — din React/Next-sida är byggd och verifierad. Previewn är redo."
+
+export function pageOnlyMutationAssistantDeltaV1(
+  mutations: readonly { op: "add" | "remove"; route: string }[],
+): string {
+  const added = mutations.filter((item) => item.op === "add").map((item) => item.route)
+  const removed = mutations.filter((item) => item.op === "remove").map((item) => item.route)
+  const parts: string[] = []
+  if (added.length === 1) parts.push(`lade till ${added[0]}`)
+  else if (added.length > 1) parts.push(`lade till ${added.join(", ")}`)
+  if (removed.length === 1) parts.push(`tog bort ${removed[0]}`)
+  else if (removed.length > 1) parts.push(`tog bort ${removed.join(", ")}`)
+  if (parts.length === 0) return NEXT_BUILD_SUCCESS_DELTA_V1
+  return `Jag ${parts.join(" och ")}. Previewn är uppdaterad.`
+}
+
 const SAFE_TURN_FAILED_BY_CODE_V1: Record<string, string> = {
   runtime_unavailable: RUNTIME_UNAVAILABLE_MESSAGE_V1,
   runtime_invalid: RUNTIME_INVALID_MESSAGE_V1,
@@ -39,6 +57,13 @@ const SAFE_TURN_FAILED_BY_CODE_V1: Record<string, string> = {
     "Sajtagent fick ingen användbar React-källa. Försök igen.",
   invalid_generated_source:
     "Källan gick inte att använda. Beskriv sidan tydligare eller försök igen.",
+  source_context_too_large:
+    "Sidan är för stor för att ändras i ett steg. Dela upp beställningen eller korta den nämnda sidan.",
+  unsupported_package: UNSUPPORTED_PACKAGE_PUBLIC_MESSAGE_V1,
+  invalid_package:
+    "package.json gick inte att använda. Sajtagent styr beroenden själv.",
+  workspace_revision_unavailable:
+    "Sajtagent kunde inte läsa projektfilerna för den här turen.",
   project_busy:
     "Ett annat bygge körs redan. Vänta och försök igen.",
   openclaw_empty_answer:

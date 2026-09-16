@@ -2,6 +2,9 @@
 
 import { useCallback, useEffect, useRef, useState } from "react"
 import { parseNextProjectRead, type NextAvailability, type NextBuildProfile, type NextProjectState } from "@/lib/siteagent/next-preview-client"
+import { UNSUPPORTED_PACKAGE_PUBLIC_MESSAGE_V1 } from "@/lib/siteagent/server/next-preview-packages"
+
+type NextPageOp = "add" | "remove"
 
 type NextProjectSnapshot = {
   projectId: string | null
@@ -10,6 +13,19 @@ type NextProjectSnapshot = {
   availability: NextAvailability
   hasNext: boolean
   error: string
+}
+
+function pagesMutationError(status: number, code: string): string {
+  if (status === 401) return "Logga in igen för att ändra sidor."
+  if (status === 404 && code === "next_preview_unavailable") return "React är avstängt. Sidan sparades inte."
+  if (code === "accepted_revision_changed") return "Sidträdet har ändrats. Läs om och försök igen."
+  if (code === "project_busy") return "Ett bygge kör redan. Vänta tills det är klart."
+  if (code === "home_page_reserved") return "Startsidan / kan inte tas bort."
+  if (code === "invalid_page_route") return "Ogiltig sidadress. Använd /namn med a-z, 0-9 och bindestreck."
+  if (code === "accepted_source_not_found") return "Ingen accepterad React-sajt att ändra ännu."
+  if (code === "unsupported_package") return UNSUPPORTED_PACKAGE_PUBLIC_MESSAGE_V1
+  if (code === "invalid_package") return "package.json gick inte att använda. Sajtagent styr beroenden själv."
+  return "Sidan kunde inte ändras. Den senaste verifierade versionen behålls."
 }
 
 /** One owner-bound read model shared by chat, preview, versions and publication. */
@@ -73,6 +89,34 @@ export function useNextProject(projectId: string | null) {
     }
   }, [projectId])
 
+  const mutatePages = useCallback(async (op: NextPageOp, route: string): Promise<void> => {
+    if (!projectId) return
+    const accepted = snapshot.state?.accepted
+    if (!accepted) throw new Error("Ingen accepterad React-sajt att ändra ännu.")
+    const startedGeneration = generation.current
+    const current = () => startedGeneration === generation.current
+    const response = await fetch(`/api/siteagent/projects/${encodeURIComponent(projectId)}/next/pages`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        op,
+        route,
+        jobId: accepted.jobId,
+        sourceRevisionId: accepted.sourceRevisionId,
+      }),
+    })
+    if (!response.ok) {
+      let code = ""
+      try { code = String((await response.json() as { error?: string }).error ?? "") } catch { /* named body optional */ }
+      throw new Error(pagesMutationError(response.status, code))
+    }
+    const parsed = parseNextProjectRead(await response.json(), projectId)
+    if (current()) {
+      disabledProject.current = null
+      setSnapshot({ projectId, state: parsed.state, profile: parsed.profile, availability: "available", hasNext: true, error: "" })
+    }
+  }, [projectId, snapshot.state?.accepted])
+
   useEffect(() => {
     if (!pollingEnabled) return
     const abort = new AbortController()
@@ -89,6 +133,6 @@ export function useNextProject(projectId: string | null) {
   }, [refresh, projectId, pollingEnabled])
 
   return snapshot.projectId === projectId
-    ? {...snapshot, refresh, setProfilePreference}
-    : {state: null, profile: null, availability: "loading" as const, hasNext: false, error: "", refresh, setProfilePreference}
+    ? {...snapshot, refresh, setProfilePreference, mutatePages}
+    : {state: null, profile: null, availability: "loading" as const, hasNext: false, error: "", refresh, setProfilePreference, mutatePages}
 }

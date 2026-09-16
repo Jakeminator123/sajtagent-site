@@ -7,8 +7,10 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { FACES, type FaceId } from "./faces/face-defs"
 import {
+  FACE_OFFSET_MIN_LIMIT,
   LAYOUT_DEFAULTS_REVISION,
   LAYOUT_STORAGE_KEY,
+  clampFaceOffset,
   migrateAgentDefaultSize,
   migrateDockedFaces,
 } from "./layout-prefs"
@@ -58,17 +60,44 @@ interface PersistedLayout {
 
 const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v))
 
+function resolveStageSize(measured: { width: number; height: number }): {
+  width: number
+  height: number
+} {
+  if (measured.width > 0 && measured.height > 0) return measured
+  if (typeof window !== "undefined") {
+    return { width: window.innerWidth, height: window.innerHeight }
+  }
+  return { width: FACE_OFFSET_MIN_LIMIT, height: FACE_OFFSET_MIN_LIMIT }
+}
+
 export function useLayoutPrefs() {
   const [docked, setDocked] = useState<Set<FaceId>>(() => new Set(DEFAULT_DOCKED))
   const [sizes, setSizes] = useState<Record<FaceId, FaceSize>>(defaultSizes)
   const [offsets, setOffsets] = useState<Record<FaceId, FaceOffset>>(defaultOffsets)
   const [dockScale, setDockScale] = useState(1)
   const hydratedRef = useRef(false)
+  const sizesRef = useRef(sizes)
+  const stageSizeRef = useRef({ width: 0, height: 0 })
+  const pendingResizeRef = useRef<Partial<Record<FaceId, { dw: number; dh: number }>>>({})
+  const resizeRafRef = useRef<number | null>(null)
+  sizesRef.current = sizes
+
+  const setStageSize = useCallback((width: number, height: number) => {
+    if (width <= 0 || height <= 0) return
+    stageSizeRef.current = { width, height }
+  }, [])
 
   // Läs sparad layout vid mount (endast klient)
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
       try {
+        if (stageSizeRef.current.width <= 0) {
+          stageSizeRef.current = {
+            width: window.innerWidth,
+            height: window.innerHeight,
+          }
+        }
         const raw = localStorage.getItem(STORAGE_KEY)
         if (raw) {
           const saved = JSON.parse(raw) as Partial<PersistedLayout>
@@ -81,31 +110,32 @@ export function useLayoutPrefs() {
               ),
             )
           }
+          const resolvedSizes = defaultSizes()
           if (saved.sizes) {
-            const base = defaultSizes()
             for (const f of FACES) {
               const s = saved.sizes[f.id]
               if (s && typeof s.w === "number" && typeof s.h === "number") {
-                base[f.id] = {
+                resolvedSizes[f.id] = {
                   w: clamp(s.w, SIZE_LIMITS.minW, SIZE_LIMITS.maxW),
                   h: clamp(s.h, SIZE_LIMITS.minH, SIZE_LIMITS.maxH),
                 }
               }
             }
-            base.agent = migrateAgentDefaultSize(
-              base.agent,
+            resolvedSizes.agent = migrateAgentDefaultSize(
+              resolvedSizes.agent,
               defaultSizes().agent,
               defaultsRevision,
             )
-            setSizes(base)
+            setSizes(resolvedSizes)
           }
           if (typeof saved.dockScale === "number") setDockScale(clamp(saved.dockScale, 0.6, 1.6))
           if (saved.offsets) {
             const base = defaultOffsets()
+            const stage = resolveStageSize(stageSizeRef.current)
             for (const f of FACES) {
               const o = saved.offsets[f.id]
               if (o && typeof o.x === "number" && typeof o.y === "number") {
-                base[f.id] = { x: clamp(o.x, -1200, 1200), y: clamp(o.y, -1200, 1200) }
+                base[f.id] = clampFaceOffset(o.x, o.y, stage, resolvedSizes[f.id])
               }
             }
             setOffsets(base)
@@ -117,6 +147,14 @@ export function useLayoutPrefs() {
       hydratedRef.current = true
     }, 0)
     return () => window.clearTimeout(timeoutId)
+  }, [])
+
+  useEffect(() => {
+    return () => {
+      if (resizeRafRef.current != null) {
+        window.cancelAnimationFrame(resizeRafRef.current)
+      }
+    }
   }, [])
 
   // Spara vid ändring (efter hydrering)
@@ -146,13 +184,28 @@ export function useLayoutPrefs() {
   }, [])
 
   const resizeFace = useCallback((id: FaceId, dw: number, dh: number) => {
-    setSizes((prev) => ({
-      ...prev,
-      [id]: {
-        w: clamp(prev[id].w + dw, SIZE_LIMITS.minW, SIZE_LIMITS.maxW),
-        h: clamp(prev[id].h + dh, SIZE_LIMITS.minH, SIZE_LIMITS.maxH),
-      },
-    }))
+    const pending = pendingResizeRef.current
+    const prev = pending[id] ?? { dw: 0, dh: 0 }
+    pending[id] = { dw: prev.dw + dw, dh: prev.dh + dh }
+    if (resizeRafRef.current != null) return
+    resizeRafRef.current = window.requestAnimationFrame(() => {
+      resizeRafRef.current = null
+      const batch = pendingResizeRef.current
+      pendingResizeRef.current = {}
+      setSizes((current) => {
+        let next = current
+        for (const face of FACES) {
+          const delta = batch[face.id]
+          if (!delta) continue
+          const w = clamp(current[face.id].w + delta.dw, SIZE_LIMITS.minW, SIZE_LIMITS.maxW)
+          const h = clamp(current[face.id].h + delta.dh, SIZE_LIMITS.minH, SIZE_LIMITS.maxH)
+          if (w === current[face.id].w && h === current[face.id].h) continue
+          if (next === current) next = { ...current }
+          next[face.id] = { w, h }
+        }
+        return next
+      })
+    })
   }, [])
 
   const scaleFace = useCallback((id: FaceId, factor: number) => {
@@ -171,10 +224,9 @@ export function useLayoutPrefs() {
   }, [])
 
   const moveFace = useCallback((id: FaceId, x: number, y: number) => {
-    setOffsets((prev) => ({
-      ...prev,
-      [id]: { x: clamp(x, -1200, 1200), y: clamp(y, -1200, 1200) },
-    }))
+    const card = sizesRef.current[id] ?? defaultSizes()[id]
+    const next = clampFaceOffset(x, y, resolveStageSize(stageSizeRef.current), card)
+    setOffsets((prev) => ({ ...prev, [id]: next }))
   }, [])
 
   const resetLayout = useCallback(() => {
@@ -200,6 +252,7 @@ export function useLayoutPrefs() {
     moveFace,
     dockScale,
     setDockScale,
+    setStageSize,
     resetLayout,
   }
 }

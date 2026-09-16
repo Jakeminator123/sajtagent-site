@@ -71,11 +71,14 @@ const NAMED_CLIENT = {
   worker_busy_or_recovery_required: { status: 409, error: "project_busy" },
   stale_source_generation: { status: 409, error: "stale_source_generation" },
   source_context_too_large: { status: 400, error: "source_context_too_large" },
+  unsupported_package: { status: 400, error: "unsupported_package" },
+  invalid_package: { status: 400, error: "invalid_package" },
 } as const
 
 export type NextBuildFailureBody = {
   error: "next_preview_unavailable" | "next_build_failed" | "project_busy" | "source_context_too_large" | "stale_source_generation" |
-    "invalid_source_path" | "invalid_source_file_size" | "invalid_source_bundle" | "invalid_source_count"
+    "invalid_source_path" | "invalid_source_file_size" | "invalid_source_bundle" | "invalid_source_count" |
+    "unsupported_package" | "invalid_package"
   reason?: NextBuildFailureReason
 }
 
@@ -92,6 +95,13 @@ export type NextAccessFailureBody = {
 
 export type NextProfileFailureBody = {
   error: "next_preview_unavailable" | "invalid_profile_preference" | "payload_too_large" | "project_not_found" | "next_profile_failed"
+}
+
+export type NextPagesFailureBody = {
+  error: "next_preview_unavailable" | "invalid_page_route" | "home_page_reserved" | "accepted_revision_changed" |
+    "accepted_source_not_found" | "project_not_found" | "project_busy" | "payload_too_large" | "invalid_page_mutation" |
+    "next_pages_failed" | NextBuildFailureBody["error"]
+  reason?: NextBuildFailureReason
 }
 
 function namedSourceZodConstraint(error: z.ZodError): NextBuildFailureBody["error"] | null {
@@ -158,6 +168,30 @@ export function nextProfileFailureResponse(error: unknown): { status: number; bo
   if (code === "invalid_json") return { status: 400, body: { error: "invalid_profile_preference" } }
   if (code === "project_not_found") return { status: 404, body: { error: "project_not_found" } }
   return { status: 503, body: { error: "next_profile_failed" } }
+}
+
+/** Safe page-mutation body. Page codes first; build faults reuse the closed POST /next map. */
+export function nextPagesFailureResponse(error: unknown): { status: number; body: NextPagesFailureBody } {
+  if (isNextPreviewUnavailableError(error)) {
+    return { status: 404, body: { error: "next_preview_unavailable" } }
+  }
+  if (error instanceof z.ZodError) {
+    return { status: 400, body: { error: "invalid_page_mutation" } }
+  }
+  const code = error instanceof Error ? error.message : ""
+  if (code === "payload_too_large") return { status: 413, body: { error: "payload_too_large" } }
+  if (code === "invalid_json") return { status: 400, body: { error: "invalid_page_mutation" } }
+  if (code === "invalid_page_route") return { status: 400, body: { error: "invalid_page_route" } }
+  if (code === "home_page_reserved") return { status: 400, body: { error: "home_page_reserved" } }
+  if (code === "accepted_revision_changed") return { status: 409, body: { error: "accepted_revision_changed" } }
+  if (code === "accepted_source_not_found") return { status: 404, body: { error: "accepted_source_not_found" } }
+  if (code === "project_not_found") return { status: 404, body: { error: "project_not_found" } }
+  if (code === "project_busy") return { status: 409, body: { error: "project_busy" } }
+  const build = nextBuildFailureResponse(error)
+  if (build.body.error !== "next_build_failed" || build.body.reason || build.status !== 503) {
+    return { status: build.status, body: build.body }
+  }
+  return { status: 503, body: { error: "next_pages_failed" } }
 }
 
 /** Safe access-route body. Never echoes `error.message`, grants, hostnames or tokens. */

@@ -1,25 +1,19 @@
-import { z } from "zod"
 import { nextPreviewOwnerReadModel } from "../../../../../../../lib/siteagent/server/agent-build-profile.ts"
-import { nextProfileFailureResponse } from "../../../../../../../lib/siteagent/server/next-preview-failure.ts"
+import { nextPagesFailureResponse } from "../../../../../../../lib/siteagent/server/next-preview-failure.ts"
 import { nextPreviewConfig, privateHeaders } from "../../../../../../../lib/siteagent/server/next-preview-model.ts"
-import { nextPreviewRepository } from "../../../../../../../lib/siteagent/server/next-preview-service.ts"
+import { NextPageMutationRequestSchema } from "../../../../../../../lib/siteagent/server/next-preview-pages.ts"
+import { mutateNextPreviewPages, nextPreviewRepository } from "../../../../../../../lib/siteagent/server/next-preview-service.ts"
 import { resolveBuildPrincipalV1 } from "../../../../../../../lib/siteagent/server/principal.ts"
 import { readBoundedJsonV1 } from "../../../../../../../lib/siteagent/server/request-security.ts"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
+export const maxDuration = 800
 
 /**
- * Temporary owner preference for the HTML-sketch vs Next build profile.
- * Lives under `/next/` so a Next-off deployment returns 404
- * `next_preview_unavailable` (Site #37). The switch is meaningless then, and
- * this path cannot store `preference: "next"` while the deployment gate is closed.
- * Does not migrate artifacts, touch `next_publications_v2`, or change the published revision.
+ * Owner-bound add/remove of a Next page. Browser sends only op + route + CAS.
+ * Source files stay server-side; the mutation rebuilds via `buildNextPreview`.
  */
-const NextProfilePreferenceRequestSchema = z.object({
-  preference: z.enum(["html", "next"]),
-}).strict()
-
 const json = (status: number, body: unknown) => Response.json(body, { status, headers: privateHeaders() })
 
 export async function POST(request: Request, { params }: { params: Promise<{ projectId: string }> }) {
@@ -28,14 +22,14 @@ export async function POST(request: Request, { params }: { params: Promise<{ pro
   if (!principal) return json(401, { error: "unauthenticated" })
   try {
     nextPreviewConfig()
-    const body = NextProfilePreferenceRequestSchema.parse(await readBoundedJsonV1(request, 1024))
-    const repo = await nextPreviewRepository()
+    const body = NextPageMutationRequestSchema.parse(await readBoundedJsonV1(request, 1024))
     const projectId = (await params).projectId
-    const state = await repo.setProfilePreference(principal, projectId, body.preference)
-    const source = state.accepted ? await repo.getAcceptedSource(principal, projectId) : null
+    const state = await mutateNextPreviewPages(principal, projectId, body, request.signal)
+    if (!state) return json(404, { error: "project_not_found" })
+    const source = state.accepted ? await (await nextPreviewRepository()).getAcceptedSource(principal, projectId) : null
     return json(200, nextPreviewOwnerReadModel(process.env, state, source))
   } catch (error) {
-    const failure = nextProfileFailureResponse(error)
+    const failure = nextPagesFailureResponse(error)
     return json(failure.status, failure.body)
   }
 }

@@ -1,4 +1,5 @@
-import { nextPreviewConfig, type NextState } from "./next-preview-model.ts"
+import { deriveAcceptedPreviewRoutes, nextPreviewConfig, type NextState, type SourceFile } from "./next-preview-model.ts"
+import { listedPageRoutes } from "./next-preview-pages.ts"
 
 export const BUILD_PROFILE_IDS = ["html", "next"] as const
 export type BuildProfileId = (typeof BUILD_PROFILE_IDS)[number]
@@ -52,8 +53,24 @@ export function projectBuildProfileView(
   }
 }
 
+/** Karta/preview routes: App Router source when present, otherwise export HTML. */
+export function ownerAcceptedPageRoutes(
+  exportFiles: readonly { path: string }[],
+  sourceFiles?: readonly SourceFile[] | null,
+): string[] {
+  if (sourceFiles && sourceFiles.length > 0) {
+    const fromSource = listedPageRoutes(sourceFiles)
+    if (fromSource.length > 0) return fromSource
+  }
+  return deriveAcceptedPreviewRoutes(exportFiles)
+}
+
 /** Owner GET/POST body: accepted artifacts stay server-side; preference is a sibling of state. */
-export function nextPreviewOwnerReadModel(env: NodeJS.ProcessEnv, state: NextState) {
+export function nextPreviewOwnerReadModel(
+  env: NodeJS.ProcessEnv,
+  state: NextState,
+  sourceFiles?: readonly SourceFile[] | null,
+) {
   const accepted = state.accepted
     ? {
         tenantId: state.accepted.tenantId,
@@ -64,6 +81,8 @@ export function nextPreviewOwnerReadModel(env: NodeJS.ProcessEnv, state: NextSta
         deploymentId: state.accepted.deploymentId,
         acceptedAt: state.accepted.acceptedAt,
         outputSha256: state.accepted.outputSha256,
+        routes: ownerAcceptedPageRoutes(state.accepted.files, sourceFiles),
+        previewableRoutes: deriveAcceptedPreviewRoutes(state.accepted.files),
       }
     : null
   return {

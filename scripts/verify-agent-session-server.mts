@@ -240,10 +240,12 @@ if (refreshed.kind !== "opened") throw new Error("session_refresh_failed")
 
 let answerRuntimeCalls = 0
 const observedAnswerPolicies: RuntimeAgentTurnIngressV1["policy"][] = []
+const observedAnswerReadRevisions: Array<string | undefined> = []
 const answerRuntime: AgentSessionRuntimeClientV1 = {
   async *streamTurn(input) {
     answerRuntimeCalls += 1
     observedAnswerPolicies.push(input.policy)
+    observedAnswerReadRevisions.push(input.projectReadRevisionId)
     yield {
       schemaVersion: 1,
       sessionId: input.session.sessionId,
@@ -313,9 +315,67 @@ check(
 )
 check(
   answerRuntimeCalls === 1 &&
-    observedAnswerPolicies[0]?.capabilities.join(",") === "conversation.respond" &&
-    observedAnswerPolicies[0]?.maxToolCalls === 0,
-  "a normal AgentSession turn dispatches only conversation.respond with zero tool calls",
+    observedAnswerPolicies[0]?.capabilities.join(",") ===
+      "conversation.respond,project.read" &&
+    observedAnswerPolicies[0]?.maxToolCalls === 16,
+  "a normal AgentSession turn dispatches conversation.respond and project.read without a BuildJob",
+)
+check(
+  observedAnswerReadRevisions[0] === undefined,
+  "HTML-session turns do not invent a Next CAS revision for project.read",
+)
+const nextSourceRevision = `revision:sha256:${"b".repeat(64)}`
+let observedNextReadRevision: string | undefined
+const nextReadRuntime: AgentSessionRuntimeClientV1 = {
+  async *streamTurn(input) {
+    observedNextReadRevision = input.projectReadRevisionId
+    yield {
+      schemaVersion: 1,
+      sessionId: input.session.sessionId,
+      turnId: input.request.turnId,
+      eventId: "event:runtime0000000011",
+      sequence: input.baseSequence + 1,
+      occurredAt: input.policy.issuedAt,
+      type: "turn.accepted",
+      payload: { acceptedAt: input.policy.issuedAt },
+    }
+    yield {
+      schemaVersion: 1,
+      sessionId: input.session.sessionId,
+      turnId: input.request.turnId,
+      eventId: "event:runtime0000000012",
+      sequence: input.baseSequence + 2,
+      occurredAt: new Date(Date.parse(input.policy.issuedAt) + 1_000).toISOString(),
+      type: "message.delta",
+      payload: { messageId: "message:next-read", delta: "Jag läste app/page.tsx." },
+    }
+    yield {
+      schemaVersion: 1,
+      sessionId: input.session.sessionId,
+      turnId: input.request.turnId,
+      eventId: "event:runtime0000000013",
+      sequence: input.baseSequence + 3,
+      occurredAt: new Date(Date.parse(input.policy.issuedAt) + 2_000).toISOString(),
+      type: "turn.completed",
+      payload: { outcome: "answered" },
+    }
+  },
+}
+const nextReadRequest = request({
+  sessionId: refreshed.session.sessionId,
+  turnId: "turn:0000000000000014",
+  idempotencyKey: "idem:next-read",
+  revisionId: refreshed.session.activeBaseRevisionId,
+})
+const nextRead = await startAgentTurnV1(nextReadRequest, principal, {
+  ...dependencies,
+  runtime: nextReadRuntime,
+  readAcceptedNextSourceRevisionId: async () => nextSourceRevision,
+})
+check(nextRead.kind === "created", "a Next-aware conversation turn can complete")
+check(
+  observedNextReadRevision === nextSourceRevision,
+  "Site sends the accepted Next sourceRevisionId beside the HTML session revision",
 )
 check(
   answered.events.every(
@@ -936,9 +996,10 @@ const policy = mintDefaultAgentTurnPolicyV1({
 })
 check(
   !policy.capabilities.includes("build.request") &&
+    policy.capabilities.includes("project.read") &&
     policy.allowedMutationIntents.length === 0 &&
-    policy.maxToolCalls === 0,
-  "a coordinator-free policy remains answer-only",
+    policy.maxToolCalls === 16,
+  "a coordinator-free policy remains answer-only and may read the accepted source",
 )
 check(
   !AgentTurnRequestV1Schema.safeParse({
@@ -960,6 +1021,11 @@ check(
   turnRouteSource.includes("PostgresAgentTurnBuildCoordinatorV1") &&
     turnRouteSource.includes("buildCoordinator:"),
   "the product turn route injects the server-owned BuildJob join",
+)
+check(
+  turnRouteSource.includes("readAcceptedNextSourceRevisionId") &&
+    turnRouteSource.includes("acceptedNextSourceRevisionIdV1"),
+  "the product turn route sends the accepted Next source revision for project.read",
 )
 check(
   buildJoinSource.startsWith('import "server-only"') &&
@@ -1011,7 +1077,7 @@ const streamingFetch: typeof fetch = async (input, init) => {
       agentSessionContractVersion: 1,
       agentTurnStreamTransport: "sse",
       agentTurnStreamEnabled: true,
-      agentTurnCapabilities: ["conversation.respond"],
+      agentTurnCapabilities: ["conversation.respond", "project.read"],
       artifactReadEnabled: false,
     })
   }
@@ -1320,6 +1386,7 @@ const adapterPolicy = mintDefaultAgentTurnPolicyV1({
 })
 const adapterIngress: RuntimeAgentTurnIngressV1 = {
   schemaVersion: 1,
+  tenantId: principal.tenantId,
   session: refreshed.session,
   turn: answerRequest,
   policy: adapterPolicy,
@@ -1374,7 +1441,7 @@ const fakeFetch: typeof fetch = async (input, init) => {
       agentSessionContractVersion: 1,
       agentTurnStreamTransport: "sse",
       agentTurnStreamEnabled: true,
-      agentTurnCapabilities: ["conversation.respond"],
+      agentTurnCapabilities: ["conversation.respond", "project.read"],
       artifactReadEnabled: false,
     })
   }
@@ -1400,6 +1467,7 @@ const signedClient = new SignedAgentSessionRuntimeClientV1(
 )
 const receivedEvents = []
 for await (const event of signedClient.streamTurn({
+  tenantId: adapterIngress.tenantId,
   session: adapterIngress.session,
   request: adapterIngress.turn,
   policy: adapterIngress.policy,
@@ -1412,8 +1480,9 @@ check(
   "the signed adapter validates and returns the complete runtime event stream",
 )
 check(
-  JSON.stringify(JSON.parse(capturedBody)) === JSON.stringify(adapterIngress),
-  "the private POST body contains only session, turn, policy and base sequence",
+  JSON.stringify(JSON.parse(capturedBody)) === JSON.stringify(adapterIngress) &&
+    JSON.parse(capturedBody).tenantId === principal.tenantId,
+  "the private POST body contains tenant, session, turn, policy and base sequence",
 )
 const expectedSignature = createHmac("sha256", signingKey)
   .update(
@@ -1506,6 +1575,7 @@ const buildClient = new SignedAgentSessionRuntimeClientV1(
 )
 const receivedBuildHandoff = []
 for await (const event of buildClient.streamTurn({
+  tenantId: principal.tenantId,
   session: refreshed.session,
   request: buildRequest,
   policy: adapterBuildPolicy,
@@ -1530,7 +1600,7 @@ const recoveredConversationFetch: typeof fetch = async (input) => {
       agentSessionContractVersion: 1,
       agentTurnStreamTransport: "sse",
       agentTurnStreamEnabled: true,
-      agentTurnCapabilities: ["conversation.respond"],
+      agentTurnCapabilities: ["conversation.respond", "project.read"],
       artifactReadEnabled: false,
     })
   }
@@ -1553,6 +1623,7 @@ const recoveredConversationClient = new SignedAgentSessionRuntimeClientV1(
 )
 const receivedRecoveredConversation = []
 for await (const event of recoveredConversationClient.streamTurn({
+  tenantId: adapterIngress.tenantId,
   session: adapterIngress.session,
   request: adapterIngress.turn,
   policy: adapterIngress.policy,
@@ -1575,7 +1646,7 @@ const acceptedOnlyFetch: typeof fetch = async (input) => {
       agentSessionContractVersion: 1,
       agentTurnStreamTransport: "sse",
       agentTurnStreamEnabled: true,
-      agentTurnCapabilities: ["conversation.respond"],
+      agentTurnCapabilities: ["conversation.respond", "project.read"],
       artifactReadEnabled: false,
     })
   }
@@ -1599,6 +1670,7 @@ const acceptedOnlyClient = new SignedAgentSessionRuntimeClientV1(
 let acceptedOnlyRejected = false
 try {
   for await (const _event of acceptedOnlyClient.streamTurn({
+    tenantId: adapterIngress.tenantId,
     session: adapterIngress.session,
     request: adapterIngress.turn,
     policy: adapterIngress.policy,
@@ -1638,11 +1710,35 @@ check(
   "health can advertise the ratified build.request handoff only as the second capability",
 )
 check(
-  !ReadyAgentTurnRuntimeHealthV1Schema.safeParse({
+  ReadyAgentTurnRuntimeHealthV1Schema.safeParse({
     agentSessionContractVersion: 1,
     agentTurnStreamTransport: "sse",
     agentTurnStreamEnabled: true,
     agentTurnCapabilities: ["conversation.respond", "project.read"],
+    artifactReadEnabled: false,
+  }).success,
+  "health can advertise project.read as the second capability",
+)
+check(
+  ReadyAgentTurnRuntimeHealthV1Schema.safeParse({
+    agentSessionContractVersion: 1,
+    agentTurnStreamTransport: "sse",
+    agentTurnStreamEnabled: true,
+    agentTurnCapabilities: [
+      "conversation.respond",
+      "project.read",
+      "build.request",
+    ],
+    artifactReadEnabled: true,
+  }).success,
+  "health can advertise conversation, project.read and build.request together",
+)
+check(
+  !ReadyAgentTurnRuntimeHealthV1Schema.safeParse({
+    agentSessionContractVersion: 1,
+    agentTurnStreamTransport: "sse",
+    agentTurnStreamEnabled: true,
+    agentTurnCapabilities: ["conversation.respond", "checks.run"],
     artifactReadEnabled: false,
   }).success,
   "health fails closed when runtime advertises an unratified capability",
@@ -1809,13 +1905,14 @@ const questionWithCoordinator = await startAgentTurnV1(
 )
 check(
   questionWithCoordinator.kind === "created" &&
-    observedDoctrinePolicies[0]?.capabilities === "conversation.respond" &&
-    observedDoctrinePolicies[0]?.maxToolCalls === 0 &&
+    observedDoctrinePolicies[0]?.capabilities ===
+      "conversation.respond,project.read" &&
+    observedDoctrinePolicies[0]?.maxToolCalls === 16 &&
     doctrineRunCalls === 0 &&
     questionWithCoordinator.events.every(
       (event) => event.type !== "tool.started" && !event.type.startsWith("build."),
     ),
-  "a coordinator-backed question stays conversation-only and never starts a BuildJob",
+  "a coordinator-backed question may read the project and never starts a BuildJob",
 )
 
 const briefWithCoordinator = await startAgentTurnV1(
@@ -1943,7 +2040,7 @@ const explainAfterBuild = await startAgentTurnV1(
 )
 check(
   explainAfterBuild.kind === "created" &&
-    explainCapabilities === "conversation.respond" &&
+    explainCapabilities === "conversation.respond,project.read" &&
     doctrineRunCalls === 0 &&
     explainAfterBuild.events.some(
       (event) =>
@@ -2096,7 +2193,7 @@ check(nextStranger.kind === "session_not_found" && nextRuns === 1,
 
 const nextAnswerRuntime: AgentSessionRuntimeClientV1 = {
   async *streamTurn(input) {
-    check(input.policy.capabilities.join(",") === "conversation.respond", "Next availability does not authorize a build for a question")
+    check(input.policy.capabilities.join(",") === "conversation.respond,project.read", "Next availability does not authorize a build for a question")
     const base = { schemaVersion: 1 as const, sessionId: input.session.sessionId, turnId: input.request.turnId, occurredAt: input.policy.issuedAt }
     yield { ...base, eventId: "event:nextansweraccepted01", sequence: input.baseSequence + 1, type: "turn.accepted", payload: { acceptedAt: input.policy.issuedAt } }
     yield { ...base, eventId: "event:nextanswermessage001", sequence: input.baseSequence + 2, type: "message.delta", payload: { messageId: "message:nextanswer", delta: "Din sida finns kvar." } }
@@ -2172,6 +2269,38 @@ const forgedNext = await startAgentTurnV1({ ...nextRequest, turnId: "turn:next-f
 check(forgedNext.kind === "created" && forgedNext.events.at(-1)?.type === "turn.failed" &&
   !forgedNext.events.some(event => event.type === "next.preview.ready") && nextRuns === 1,
   "runtime cannot forge Site's Next acceptance event")
+const pageCoordinator: AgentTurnBuildCoordinatorV1 = {
+  async plan(input) {
+    const plan = await nextCoordinator.plan(input)
+    return plan ? { ...plan, pageMutations: [{ op: "add", route: "/kontakt" }] } : null
+  },
+  async run(input) {
+    await input.onStarted?.({ job: { jobId: "job:next-page-add", createdAt: buildVerifiedAt } })
+    return {
+      kind: "next", record: null, httpStatus: 201,
+      nextResult: {
+        schemaVersion: 2, status: "succeeded", projectId: input.plan.request.projectId,
+        jobId: "job:next-page-add", sourceRevisionId: `revision:sha256:${"c".repeat(64)}`,
+        previewRef: "preview:nextpageaddabcdefghijklmn", verifiedAt: buildVerifiedAt,
+      },
+    }
+  },
+}
+const pageTurn = await startAgentTurnV1({
+  ...nextRequest,
+  turnId: "turn:next-page-add0000001",
+  idempotencyKey: "idem:next-page-add",
+  message: "lägg till /kontakt",
+}, principal, { ...nextDeps, buildCoordinator: pageCoordinator })
+check(pageTurn.kind === "created", "a page-only prompt still completes through the ordinary Next turn")
+check(
+  pageTurn.kind === "created" &&
+    pageTurn.events.some((event) =>
+      event.type === "message.delta" &&
+      event.payload.delta === "Jag lade till /kontakt. Previewn är uppdaterad.",
+    ),
+  "a page-only Next turn tells the user which page was added",
+)
 
 
 // Simulate a process dying after reservation, before it writes any SSE event.

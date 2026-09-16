@@ -26,6 +26,8 @@ import type {
 import type { AgentSessionRuntimeClientV1 } from "./agent-session-runtime-client.ts"
 import {
   buildSuccessAssistantDeltaV1,
+  NEXT_BUILD_SUCCESS_DELTA_V1,
+  pageOnlyMutationAssistantDeltaV1,
   containsPrivateReasoningV1,
   publicRuntimeCatchMessageV1,
   publicTurnFailedMessageV1,
@@ -57,6 +59,38 @@ const SAFE_TOOL_LABEL_V1 = {
   "build.request": "Sajtagent förbereder bygget…",
 } as const
 
+const PROJECT_READ_TOOL_LABEL_V1 = {
+  read: "Läser en fil…",
+  ls: "Listar filer…",
+  find: "Söker efter filer…",
+  grep: "Söker i filer…",
+} as const
+
+const PROJECT_READ_FILE_LABEL_V1 =
+  /^(Läser|Listar|Söker) [A-Za-z0-9._@()-]{1,80}…$/
+
+export function publicToolStartedLabelV1(input: {
+  capability: keyof typeof SAFE_TOOL_LABEL_V1
+  safeLabel: string
+}): string {
+  if (input.capability === "project.read") {
+    const incoming = input.safeLabel.trim()
+    const toolName = incoming.toLowerCase()
+    if (toolName in PROJECT_READ_TOOL_LABEL_V1) {
+      return PROJECT_READ_TOOL_LABEL_V1[toolName as keyof typeof PROJECT_READ_TOOL_LABEL_V1]
+    }
+    if (
+      Object.values(PROJECT_READ_TOOL_LABEL_V1).includes(
+        incoming as (typeof PROJECT_READ_TOOL_LABEL_V1)[keyof typeof PROJECT_READ_TOOL_LABEL_V1],
+      ) ||
+      PROJECT_READ_FILE_LABEL_V1.test(incoming)
+    ) {
+      return incoming
+    }
+  }
+  return SAFE_TOOL_LABEL_V1[input.capability]
+}
+
 export type AgentTurnPolicyIssuerV1 = (input: {
   session: AgentSessionV1
   request: AgentTurnRequestV1
@@ -72,6 +106,16 @@ export type AgentSessionControllerDependenciesV1 = {
   createSessionSecret?: () => string
   issuePolicy?: AgentTurnPolicyIssuerV1
   buildCoordinator?: AgentTurnBuildCoordinatorV1 | null
+  readAcceptedNextSourceRevisionId?: (
+    principal: BuildPrincipalV1,
+    projectId: string,
+  ) => Promise<string | null>
+}
+
+const NEXT_SOURCE_REVISION_RE_V2 = /^revision:sha256:[a-f0-9]{64}$/
+
+export function acceptedNextSourceRevisionIdV1(value: string | null | undefined): string | null {
+  return value && NEXT_SOURCE_REVISION_RE_V2.test(value) ? value : null
 }
 
 export type OpenAgentSessionResultV1 =
@@ -142,7 +186,10 @@ function sanitizeRuntimeEventV1(event: AgentEventV1): AgentEventV1 {
       ...event,
       payload: {
         ...event.payload,
-        safeLabel: SAFE_TOOL_LABEL_V1[event.payload.capability],
+        safeLabel: publicToolStartedLabelV1({
+          capability: event.payload.capability,
+          safeLabel: event.payload.safeLabel,
+        }),
       },
     })
   }
@@ -199,9 +246,9 @@ export function mintDefaultAgentTurnPolicyV1(input: {
     expiresAt: new Date(Date.parse(input.issuedAt) + 5 * 60_000).toISOString(),
     capabilities: buildPlan
       ? ["conversation.respond", "build.request"]
-      : ["conversation.respond"],
+      : ["conversation.respond", "project.read"],
     allowedMutationIntents: buildPlan ? [buildPlan.intentType] : [],
-    maxToolCalls: buildPlan ? 1 : 0,
+    maxToolCalls: buildPlan ? 1 : 16,
     maxModelTokens: 32_000,
     maxCostMicros: 250_000,
   })
@@ -373,7 +420,12 @@ async function* completeBuildHandoff(
     append({
       schemaVersion: 1, sessionId: record.request.sessionId, turnId: record.request.turnId,
       occurredAt: nextResult.verifiedAt, type: "message.delta",
-      payload: { messageId: createMessageId(dependencies), delta: "Klart — din React/Next-sida är byggd och verifierad. Previewn är redo." },
+      payload: {
+        messageId: createMessageId(dependencies),
+        delta: plan.pageMutations?.length
+          ? pageOnlyMutationAssistantDeltaV1(plan.pageMutations)
+          : NEXT_BUILD_SUCCESS_DELTA_V1,
+      },
     })
     append({
       schemaVersion: 1, sessionId: record.request.sessionId, turnId: record.request.turnId,
@@ -600,7 +652,19 @@ async function* streamRuntimeEvents(
     const events: AgentEventV1[] = []
     let bytes = 0
     let pendingTerminal: AgentEventV1 | null = null
+    const projectReadRevisionId =
+      record.policy.capabilities.includes("project.read") &&
+      dependencies.readAcceptedNextSourceRevisionId
+        ? acceptedNextSourceRevisionIdV1(
+            await dependencies.readAcceptedNextSourceRevisionId(
+              principal,
+              session.projectId,
+            ),
+          ) ?? undefined
+        : undefined
     for await (const value of dependencies.runtime.streamTurn({
+      tenantId: principal.tenantId,
+      ...(projectReadRevisionId ? { projectReadRevisionId } : {}),
       session,
       request: record.request,
       policy: record.policy,

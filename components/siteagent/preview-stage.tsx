@@ -9,11 +9,17 @@ import { ExternalLink, Globe, Loader2, Monitor, TriangleAlert } from "lucide-rea
 import { cn } from "@/lib/utils"
 import { previewAddressLabel, previewStatusChip } from "./card-states"
 import { useBuilder } from "./builder-store"
+import { NextPageRemoveButton, NextPagesAddForm } from "./next-pages-controls"
 import { NextPreviewFrame } from "./next-preview-frame"
+import { isPageRouteInSubtree, previewChromeRoute } from "@/lib/siteagent/preview-route-tree"
 
-function PreviewFrame({ className }: { className?: string }) {
-  const { previewUrl } = useBuilder()
-  if (!previewUrl) return null
+const HtmlPreviewFrame = React.memo(function HtmlPreviewFrame({
+  previewUrl,
+  className,
+}: {
+  previewUrl: string
+  className?: string
+}) {
   return (
     <iframe
       src={previewUrl}
@@ -22,17 +28,34 @@ function PreviewFrame({ className }: { className?: string }) {
       className={cn("w-full h-full border-0 bg-white", className)}
     />
   )
-}
+})
 
 export function PreviewStage() {
-  const { previewStatus, previewUrl, previewKind, nextState, nextAvailability, nextError, refreshNextPreview, cancelNextBuild } = useBuilder()
+  const {
+    previewStatus,
+    previewUrl,
+    previewKind,
+    previewableRoutes,
+    previewRoutes,
+    previewRoute,
+    setPreviewRoute,
+    nextState,
+    nextAvailability,
+    nextError,
+    refreshNextPreview,
+    cancelNextBuild,
+    mutateNextPages,
+    canMutateNextPages,
+  } = useBuilder()
   const [refresh, setRefresh] = useState(0)
   const [actionError, setActionError] = useState("")
   const isNext = previewKind === "next"
   const accepted = isNext ? nextState?.accepted : null
   const hasContent = nextAvailability !== "loading" && Boolean(previewUrl || accepted)
   const chip = previewStatusChip(previewStatus, hasContent)
-  const address = accepted ? "Privat · din verifierade React-sajt" : previewAddressLabel(previewStatus, previewUrl)
+  const chromeRoute = previewChromeRoute(previewableRoutes, previewRoute)
+  const canSwitchRoutes = Boolean(accepted) && previewableRoutes.length > 1
+  const address = accepted ? chromeRoute : previewAddressLabel(previewStatus, previewUrl)
 
   async function refreshPreview() {
     try { await refreshNextPreview(); setRefresh(value => value + 1); setActionError("") }
@@ -66,7 +89,7 @@ export function PreviewStage() {
 
       {/* Själva sajtfönstret — ljust, upphöjt, med chrome-list */}
       <div className="absolute inset-x-0 top-6 bottom-6 flex items-stretch justify-center px-6">
-        <div className="relative w-full max-w-[1100px] rounded-xl overflow-hidden shadow-2xl ring-1 ring-primary/30 flex flex-col bg-white dark:bg-zinc-100">
+        <div className="relative h-full w-[min(80vw,100%)] rounded-xl overflow-hidden shadow-2xl ring-1 ring-primary/30 flex flex-col bg-white dark:bg-zinc-100">
           {/* Chrome-list */}
           <div className="h-10 shrink-0 bg-zinc-100 dark:bg-zinc-200 border-b border-zinc-200 dark:border-zinc-300 flex items-center gap-3 px-3">
             <div className="flex items-center gap-1.5" aria-hidden="true">
@@ -78,11 +101,29 @@ export function PreviewStage() {
               {nextAvailability === "loading" ? "Läser byggläge…" : nextAvailability === "error" && !hasContent ? "Byggläge saknas" : isNext ? "React · Next.js" : "HTML-preview"}
             </span>
             <div className="flex-1 flex items-center justify-center">
-              <div className="flex items-center gap-2 bg-white dark:bg-zinc-50 border border-zinc-200 rounded-full px-3 py-1 max-w-[480px] w-full">
+              <div
+                className="flex items-center gap-2 bg-white dark:bg-zinc-50 border border-zinc-200 rounded-full px-3 py-1 max-w-[480px] w-full"
+                title={accepted ? "Privat · din verifierade React-sajt" : undefined}
+              >
                 <Globe className="w-3 h-3 shrink-0 text-zinc-400" />
-                <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-zinc-500">
-                  {address}
-                </span>
+                {canSwitchRoutes ? (
+                  <select
+                    aria-label="Sida"
+                    value={chromeRoute}
+                    onChange={(event) => setPreviewRoute(event.target.value)}
+                    className="min-w-0 flex-1 truncate bg-transparent font-mono text-[11px] text-zinc-600 outline-none"
+                  >
+                    {previewableRoutes.map((route) => (
+                      <option key={route} value={route}>
+                        {route}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-zinc-500">
+                    {address}
+                  </span>
+                )}
                 <span
                   role="status"
                   aria-live="polite"
@@ -123,6 +164,30 @@ export function PreviewStage() {
                 : nextAvailability === "available" ? "Visar HTML-historik. Nya byggbeställningar i Sajtagent använder React."
                   : "HTML-läge. React aktiveras när projektets byggmiljö är redo."}
           </p>
+          {accepted ? (
+            <div className="shrink-0 border-b border-zinc-200 bg-zinc-50 px-3 py-1.5">
+              <div className="flex flex-wrap items-center gap-2">
+                <NextPagesAddForm
+                  compact
+                  disabled={!canMutateNextPages}
+                  disabledReason={previewStatus === "building" ? "Ett bygge kör. Vänta tills det är klart innan du ändrar sidor." : undefined}
+                  onAdd={route => mutateNextPages("add", route)}
+                />
+                {previewRoute !== "/" ? (
+                  <NextPageRemoveButton
+                    route={previewRoute}
+                    hasSubtree={previewRoutes.some((route) => route !== previewRoute && isPageRouteInSubtree(route, previewRoute))}
+                    disabled={!canMutateNextPages}
+                    onRemove={route => mutateNextPages("remove", route)}
+                  />
+                ) : null}
+              </div>
+            </div>
+          ) : !isNext && previewStatus === "ready" ? (
+            <p className="shrink-0 border-b border-zinc-200 bg-zinc-50 px-3 py-1 text-[11px] text-zinc-500">
+              HTML-skissen är en sida. Lägg till och ta bort sidor i React-läget.
+            </p>
+          ) : null}
           {(nextError || actionError) && <p role="alert" className="shrink-0 bg-amber-50 px-3 py-2 text-xs text-amber-900">{actionError || nextError}</p>}
 
           {/* Innehåll */}
@@ -155,7 +220,17 @@ export function PreviewStage() {
             )}
             {hasContent && (
               <div className="relative w-full h-full">
-                {accepted ? <NextPreviewFrame key={`${accepted.projectId}:${accepted.previewRef}`} accepted={accepted} refresh={refresh} /> : <PreviewFrame />}
+                {accepted ? (
+                  <NextPreviewFrame
+                    key={`${accepted.projectId}:${accepted.previewRef}`}
+                    accepted={accepted}
+                    refresh={refresh}
+                    route={previewRoute}
+                    onRoute={setPreviewRoute}
+                  />
+                ) : previewUrl ? (
+                  <HtmlPreviewFrame previewUrl={previewUrl} />
+                ) : null}
                 {previewStatus === "building" && (
                   <div className="absolute inset-x-0 top-0 flex items-center justify-center gap-2 bg-white/80 py-2">
                     <Loader2 className="w-4 h-4 animate-spin text-zinc-400" />

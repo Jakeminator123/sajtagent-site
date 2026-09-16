@@ -3,6 +3,7 @@ import { z } from "zod"
 import { SourceRevisionIdV2Schema } from "../../../contracts/deployment-v2.ts"
 import type { BuildPrincipalV1 } from "./build-job-input.ts"
 import { sourceRevisionId, validateSourceFiles, type SourceFile } from "./next-preview-model.ts"
+import { exportPackageJsonFromSource } from "./next-preview-packages.ts"
 import { createTextFilesZip } from "./version-archive.ts"
 
 export const NextSourceExportRequestSchema = z.object({
@@ -22,14 +23,6 @@ export class NextSourceExportError extends Error {
   }
 }
 
-// Match sajtagent-sprites/src/sprites-next-transport-v2.ts's fixed worker package.
-// Lifecycle scripts from accepted source were never executed by that worker.
-const EXPORT_PACKAGE = {
-  private: true,
-  scripts: { dev: "next dev", build: "next build" },
-  dependencies: { next: "16.3.3", react: "19.2.3", "react-dom": "19.2.3" },
-  devDependencies: { typescript: "5.7.3", "@types/react": "19.2.2", "@types/node": "22.19.1" },
-}
 const EXPORT_CONFIG = { output: "export", images: { unoptimized: true }, trailingSlash: true }
 const EXPORT_README = `# Your Sajtagent Next.js source
 
@@ -46,8 +39,9 @@ Serve the resulting out/ folder through a static web server, rather than opening
 index.html directly from disk. This profile supports React client interactions
 and static Next.js pages; it does not include a server backend or SSR.
 
-The .tsx/CSS/assets are the accepted source. package.json is normalized to the
-same fixed direct dependencies used by the worker, with dev/build scripts added.
+The .tsx/CSS/assets are the accepted source. package.json is the same pinned
+Next/React/TS set the worker installs, plus optional clsx or lucide-react when
+the accepted source imports them, with dev/build scripts added.
 next.config.mjs keeps static export, unoptimized images and trailing slashes; the
 private preview basePath is omitted so this copy runs at your own site's root.
 No credentials or Sajtagent deployment access are needed to run the source.
@@ -101,7 +95,7 @@ export async function createAcceptedNextSourceArchive(
 
   const exported = files.filter(file => file.path !== "package.json" && file.path !== "next.config.mjs")
   exported.push(
-    { path: "package.json", content: `${JSON.stringify(EXPORT_PACKAGE, null, 2)}\n` },
+    { path: "package.json", content: exportPackageJsonFromSource(files) },
     { path: "next.config.mjs", content: `export default ${JSON.stringify(EXPORT_CONFIG, null, 2)};\n` },
     { path: ".sajtagent/README.md", content: EXPORT_README },
     { path: ".sajtagent/accepted-source.json", content: `${JSON.stringify({ schemaVersion: 2, ...intent, files }, null, 2)}\n` },

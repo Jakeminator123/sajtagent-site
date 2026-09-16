@@ -7,8 +7,8 @@
 //   aldrig av en vanlig konversationsturn.
 // Layouten (dock, storlek, position) sparas i localStorage.
 
-import React, { useCallback, useEffect, useRef, useState } from "react"
-import { LayoutGroup, motion, useDragControls, useMotionValue } from "motion/react"
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { motion, useDragControls, useMotionValue } from "motion/react"
 import { FlipHorizontal2, GripVertical, Lock, Maximize2, Minimize2, Minus, Plus, RotateCcw, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { FACES, type FaceDef, type FaceId } from "./faces/face-defs"
@@ -16,6 +16,40 @@ import { PreviewStage } from "./preview-stage"
 import { StatusDot } from "./card-states"
 import { useBuilder } from "./builder-store"
 import type { FaceOffset, FaceSize } from "./use-layout-prefs"
+
+function AutoFlipChoicesOnBuild({ onFlip }: { onFlip: () => void }) {
+  const { previewStatus } = useBuilder()
+  const autoFlippedRef = useRef(false)
+  useEffect(() => {
+    if (previewStatus === "building" && !autoFlippedRef.current) {
+      autoFlippedRef.current = true
+      onFlip()
+    }
+  }, [onFlip, previewStatus])
+  return null
+}
+
+function useChoicesLocked(): boolean {
+  const { versions, previewStatus } = useBuilder()
+  return versions.length > 0 || previewStatus === "building"
+}
+
+function ChoicesLockIcon() {
+  if (!useChoicesLocked()) return null
+  return <Lock className="w-3 h-3 text-workflow-text-subtle" />
+}
+
+function ChoicesLockOverlay() {
+  if (!useChoicesLocked()) return null
+  return (
+    <div className="absolute inset-0 bg-workflow-node-bg/70 backdrop-blur-[1px] flex flex-col items-center justify-center gap-2 z-10">
+      <Lock className="w-4 h-4 text-workflow-text-muted" />
+      <p className="font-mono text-[10px] text-workflow-text-muted text-center px-4 leading-relaxed">
+        Byggvalen låstes när ett verifierat bygge startade.
+      </p>
+    </div>
+  )
+}
 
 function FaceLiveStatus({ id }: { id: FaceId }) {
   const { agentProjection, isStreaming, sessionStatus, previewStatus } = useBuilder()
@@ -65,17 +99,39 @@ interface CubeStageProps {
   moveFace: (id: FaceId, x: number, y: number) => void
   dockScale: number
   setDockScale: (fn: (s: number) => number) => void
+  setStageSize: (width: number, height: number) => void
   resetLayout: () => void
 }
 
+const STAGE_GUTTER = 16
+const OPEN_CARD_GAP = 12
+
+function stackedCardHome(
+  column: "left" | "right",
+  faces: readonly FaceDef[],
+  index: number,
+  sizes: Record<FaceId, FaceSize>,
+): { left?: number; right?: number; top: number } {
+  let top = STAGE_GUTTER
+  for (let i = 0; i < index; i += 1) {
+    const face = faces[i]
+    if (!face) continue
+    top += sizes[face.id].h + OPEN_CARD_GAP
+  }
+  return column === "left"
+    ? { left: STAGE_GUTTER, top }
+    : { right: STAGE_GUTTER, top }
+}
+
 /** Ett öppet kort: dragbart i headern, resize-kanter, ev. flippbart. */
-function FaceCard({
+const FaceCard = React.memo(function FaceCard({
   face,
   size,
   offset,
+  home,
   column,
   flipped,
-  locked,
+  stageRef,
   onFlip,
   onToggle,
   resizeFace,
@@ -86,9 +142,10 @@ function FaceCard({
   face: FaceDef
   size: FaceSize
   offset: FaceOffset
+  home: { left?: number; right?: number; top: number }
   column: "left" | "right"
   flipped: boolean
-  locked: boolean
+  stageRef: React.RefObject<HTMLDivElement | null>
   onFlip: (id: FaceId) => void
   onToggle: (id: FaceId) => void
   resizeFace: (id: FaceId, dw: number, dh: number) => void
@@ -96,9 +153,11 @@ function FaceCard({
   resetFace: (id: FaceId) => void
   moveFace: (id: FaceId, x: number, y: number) => void
 }) {
-  const { isStreaming } = useBuilder()
   const dragRef = useRef<{ x: number; y: number } | null>(null)
-  const [resizing, setResizing] = useState(false)
+  const dragNodeRef = useRef<HTMLDivElement | null>(null)
+  const capturedPointerRef = useRef<number | null>(null)
+  const dragBoundsRef = useRef({ left: -1e6, right: 1e6, top: -1e6, bottom: 1e6 })
+  const [dragging, setDragging] = useState(false)
   const dragControls = useDragControls()
   const x = useMotionValue(offset.x)
   const y = useMotionValue(offset.y)
@@ -117,7 +176,6 @@ function FaceCard({
       const target = e.currentTarget as HTMLElement
       target.setPointerCapture(e.pointerId)
       dragRef.current = { x: e.clientX, y: e.clientY }
-      setResizing(true)
 
       const onMove = (ev: PointerEvent) => {
         if (!dragRef.current) return
@@ -129,7 +187,6 @@ function FaceCard({
       }
       const onUp = () => {
         dragRef.current = null
-        setResizing(false)
         target.releasePointerCapture?.(e.pointerId)
         window.removeEventListener("pointermove", onMove)
         window.removeEventListener("pointerup", onUp)
@@ -143,27 +200,79 @@ function FaceCard({
   const canFlip = Boolean(face.Back)
   const headerLabel = flipped && face.backLabel ? face.backLabel : face.label
 
+  const setStageDragging = (active: boolean) => {
+    dragNodeRef.current
+      ?.closest("[data-cube-stage]")
+      ?.toggleAttribute("data-card-dragging", active)
+  }
+
+  const endDrag = useCallback(() => {
+    const node = dragNodeRef.current
+    const pointerId = capturedPointerRef.current
+    capturedPointerRef.current = null
+    if (node && pointerId != null && node.hasPointerCapture?.(pointerId)) {
+      node.releasePointerCapture(pointerId)
+    }
+    setDragging(false)
+    setStageDragging(false)
+  }, [])
+
+  const beginDrag = useCallback(
+    (e: React.PointerEvent) => {
+      const node = dragNodeRef.current
+      const stage = stageRef.current
+      // Preview-iframen är ett syskon bakom korten. Utan capture försvinner
+      // pointermove in i iframen och draget fryser mitt över previewn.
+      if (node) {
+        try {
+          node.setPointerCapture(e.pointerId)
+          capturedPointerRef.current = e.pointerId
+        } catch {
+          capturedPointerRef.current = null
+        }
+      }
+      if (stage) {
+        const stageBox = stage.getBoundingClientRect()
+        const originLeft =
+          home.left != null
+            ? stageBox.left + home.left
+            : stageBox.right - (home.right ?? STAGE_GUTTER) - size.w
+        const originTop = stageBox.top + home.top
+        dragBoundsRef.current = {
+          left: stageBox.left - originLeft,
+          right: stageBox.right - originLeft - size.w,
+          top: stageBox.top - originTop,
+          bottom: stageBox.bottom - originTop - size.h,
+        }
+      }
+      setDragging(true)
+      setStageDragging(true)
+      dragControls.start(e)
+    },
+    [dragControls, home.left, home.right, home.top, size.h, size.w, stageRef],
+  )
+
   // Dra från vilken "tom" yta som helst på kortet — men aldrig från
-  // interaktiva element (knappar, textfält, länkar, resize-handtag).
+  // interaktiva element (knappar, textfält, länkar, resize-handtag, header).
   const startBodyDrag = useCallback(
     (e: React.PointerEvent) => {
       const target = e.target as HTMLElement
       if (
         target.closest(
-          "button, textarea, input, select, a, iframe, [role='separator'], [data-no-drag]"
+          "button, textarea, input, select, a, iframe, [role='separator'], [data-no-drag], [data-face-header]",
         )
       ) {
         return
       }
-      dragControls.start(e)
+      beginDrag(e)
     },
-    [dragControls]
+    [beginDrag],
   )
 
   const header = (
     <div
       data-face-header={flipped ? `${face.id}-back` : face.id}
-      onPointerDown={(e) => dragControls.start(e)}
+      onPointerDown={beginDrag}
       className={cn(
         "flex items-center gap-2 px-3 py-2 border-b border-workflow-border-subtle shrink-0 cursor-grab active:cursor-grabbing select-none touch-none",
         face.accent
@@ -173,7 +282,7 @@ function FaceCard({
       <face.icon className="w-4 h-4" />
       <span className="font-mono text-sm font-medium text-workflow-text">{headerLabel}</span>
       <FaceLiveStatus id={face.id} />
-      {face.id === "choices" && locked && <Lock className="w-3 h-3 text-workflow-text-subtle" />}
+      {face.id === "choices" ? <ChoicesLockIcon /> : null}
       <div
         className="ml-auto flex items-center gap-0.5"
         onPointerDown={(e) => e.stopPropagation()}
@@ -231,25 +340,48 @@ function FaceCard({
 
   return (
     <motion.div
-      layoutId={`face-${face.id}`}
-      transition={resizing ? { duration: 0 } : spring}
+      ref={dragNodeRef}
+      layout={false}
+      transition={{ duration: 0 }}
       drag
       dragListener={false}
       dragControls={dragControls}
+      dragConstraints={false}
       dragMomentum={false}
-      dragElastic={0.08}
-      onDragEnd={() => moveFace(face.id, x.get(), y.get())}
+      dragElastic={0}
+      onDrag={() => {
+        const bounds = dragBoundsRef.current
+        const nextX = Math.min(bounds.right, Math.max(bounds.left, x.get()))
+        const nextY = Math.min(bounds.bottom, Math.max(bounds.top, y.get()))
+        if (nextX !== x.get()) x.set(nextX)
+        if (nextY !== y.get()) y.set(nextY)
+      }}
+      onDragEnd={() => {
+        endDrag()
+        moveFace(face.id, x.get(), y.get())
+      }}
+      onPointerUp={endDrag}
+      onPointerCancel={endDrag}
       onPointerDown={startBodyDrag}
       role="region"
       aria-label={headerLabel}
-      aria-busy={face.id === "agent" ? isStreaming : undefined}
-      style={{ width: size.w, height: size.h, x, y, perspective: 1400 }}
-      className="relative pointer-events-auto shrink-0"
+      style={{
+        width: size.w,
+        height: size.h,
+        x,
+        y,
+        top: home.top,
+        ...(home.left != null ? { left: home.left } : { right: home.right }),
+      }}
+      className={cn(
+        "absolute pointer-events-auto shrink-0 z-10",
+        dragging && "z-30 select-none touch-none",
+      )}
     >
       <motion.div
         animate={{ rotateY: flipped ? 180 : 0 }}
-        transition={spring}
-        style={{ transformStyle: "preserve-3d" }}
+        transition={dragging ? { duration: 0 } : spring}
+        style={dragging ? undefined : { transformStyle: "preserve-3d", perspective: 1400 }}
         className="relative w-full h-full"
       >
         {/* Framsida — pointer-events stängs av när den är bortvänd */}
@@ -264,14 +396,7 @@ function FaceCard({
           <div className="flex-1 min-h-0 relative">
             <face.Component />
             {/* Byggval låses efter ett faktiskt bygge eller en verifierad version. */}
-            {face.id === "choices" && locked && (
-              <div className="absolute inset-0 bg-workflow-node-bg/70 backdrop-blur-[1px] flex flex-col items-center justify-center gap-2 z-10">
-                <Lock className="w-4 h-4 text-workflow-text-muted" />
-                <p className="font-mono text-[10px] text-workflow-text-muted text-center px-4 leading-relaxed">
-                  Byggvalen låstes när ett verifierat bygge startade.
-                </p>
-              </div>
-            )}
+            {face.id === "choices" ? <ChoicesLockOverlay /> : null}
           </div>
         </div>
 
@@ -323,8 +448,9 @@ function FaceCard({
       />
     </motion.div>
   )
-}
+})
 
+/** Scenen prenumererar inte på Builder-store. Samtalstokens får inte rita om draglagret. */
 export function CubeStage({
   docked,
   onToggle,
@@ -336,31 +462,64 @@ export function CubeStage({
   moveFace,
   dockScale,
   setDockScale,
+  setStageSize,
   resetLayout,
 }: CubeStageProps) {
   const [fanned, setFanned] = useState(false)
   const [flipped, setFlipped] = useState<Partial<Record<FaceId, boolean>>>({})
-  const { versions, previewStatus } = useBuilder()
+  const stageRef = useRef<HTMLDivElement>(null)
 
-  // En vanlig chatt-turn får inte se ut som ett bygge. Endast ett faktiskt
-  // build-event auto-flippar kortet; en verifierad version låser det också.
-  const buildStarted = previewStatus === "building"
-  const choicesLocked = versions.length > 0 || buildStarted
-  const autoFlippedRef = useRef(false)
   useEffect(() => {
-    if (buildStarted && !autoFlippedRef.current) {
-      autoFlippedRef.current = true
-      setFlipped((prev) => ({ ...prev, choices: true }))
+    const node = stageRef.current
+    if (!node) return
+    const report = (width: number, height: number) => {
+      setStageSize(width, height)
     }
-  }, [buildStarted])
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0]
+      if (!entry) return
+      report(entry.contentRect.width, entry.contentRect.height)
+    })
+    observer.observe(node)
+    const rect = node.getBoundingClientRect()
+    report(rect.width, rect.height)
+    return () => observer.disconnect()
+  }, [setStageSize])
 
   const toggleFlip = useCallback((id: FaceId) => {
     setFlipped((prev) => ({ ...prev, [id]: !prev[id] }))
   }, [])
+  const flipChoices = useCallback(() => {
+    setFlipped((prev) => ({ ...prev, choices: true }))
+  }, [])
 
-  const openLeft = FACES.filter((f) => f.column === "left" && !docked.has(f.id))
-  const openRight = FACES.filter((f) => f.column === "right" && !docked.has(f.id))
-  const dockedFaces = FACES.filter((f) => docked.has(f.id))
+  const openLeft = useMemo(
+    () => FACES.filter((f) => f.column === "left" && !docked.has(f.id)),
+    [docked],
+  )
+  const openRight = useMemo(
+    () => FACES.filter((f) => f.column === "right" && !docked.has(f.id)),
+    [docked],
+  )
+  const dockedFaces = useMemo(
+    () => FACES.filter((f) => docked.has(f.id)),
+    [docked],
+  )
+  const openCards = useMemo(
+    () => [
+      ...openLeft.map((face, index) => ({
+        face,
+        column: "left" as const,
+        home: stackedCardHome("left", openLeft, index, sizes),
+      })),
+      ...openRight.map((face, index) => ({
+        face,
+        column: "right" as const,
+        home: stackedCardHome("right", openRight, index, sizes),
+      })),
+    ],
+    [openLeft, openRight, sizes],
+  )
 
   const cardProps = {
     onToggle,
@@ -372,41 +531,29 @@ export function CubeStage({
   }
 
   return (
-    <div className="relative flex-1 overflow-hidden">
+    <div
+      ref={stageRef}
+      data-cube-stage=""
+      className="relative flex-1 overflow-hidden data-[card-dragging]:[&_iframe]:pointer-events-none"
+    >
       <PreviewStage />
+      <AutoFlipChoicesOnBuild onFlip={flipChoices} />
 
-      <LayoutGroup>
-        {/* Öppna kort — vänster kolumn */}
-        <div className="absolute left-4 top-4 bottom-4 flex flex-col items-start gap-3 pointer-events-none z-10">
-          {openLeft.map((face) => (
-            <FaceCard
-              key={face.id}
-              face={face}
-              size={sizes[face.id]}
-              offset={offsets[face.id]}
-              column="left"
-              flipped={Boolean(flipped[face.id])}
-              locked={face.id === "choices" && choicesLocked}
-              {...cardProps}
-            />
-          ))}
-        </div>
-
-        {/* Öppna kort — höger kolumn (lämnar plats för kortleken nertill) */}
-        <div className="absolute right-4 top-4 bottom-40 flex flex-col items-end gap-3 pointer-events-none z-10 overflow-visible">
-          {openRight.map((face) => (
-            <FaceCard
-              key={face.id}
-              face={face}
-              size={sizes[face.id]}
-              offset={offsets[face.id]}
-              column="right"
-              flipped={Boolean(flipped[face.id])}
-              locked={false}
-              {...cardProps}
-            />
-          ))}
-        </div>
+      {/* Öppna kort sitter på scenen. Kolumnen är bara hemposition, inte en flex-wrapper
+          som gör att dragConstraints mäts mot fel offset-parent. */}
+      {openCards.map(({ face, column, home }) => (
+        <FaceCard
+          key={face.id}
+          face={face}
+          size={sizes[face.id]}
+          offset={offsets[face.id]}
+          home={home}
+          column={column}
+          flipped={Boolean(flipped[face.id])}
+          stageRef={stageRef}
+          {...cardProps}
+        />
+      ))}
 
         {/* Kortleken — nedvikta kort BAKOM varandra, bara främsta syns. */}
         {dockedFaces.length > 0 && (
@@ -449,8 +596,6 @@ export function CubeStage({
                 return (
                   <motion.button
                     key={face.id}
-                    layoutId={`face-${face.id}`}
-                    transition={spring}
                     type="button"
                     onClick={() => {
                       if (!fanned && dockedFaces.length > 1) {
@@ -488,7 +633,6 @@ export function CubeStage({
             </div>
           </div>
         )}
-      </LayoutGroup>
     </div>
   )
 }

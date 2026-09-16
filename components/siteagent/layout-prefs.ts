@@ -10,6 +10,31 @@ export interface FaceSize {
   h: number
 }
 
+/** Golv så sparade offsets inte kläms hårdare än före geometriklampen. */
+export const FACE_OFFSET_MIN_LIMIT = 1200
+/** left-4 + right-4. Samma ränna på båda axlarna. */
+export const FACE_OFFSET_PADDING = 32
+
+export function faceOffsetLimit(stageLength: number, cardLength: number): number {
+  const usable = stageLength - cardLength - FACE_OFFSET_PADDING
+  if (!Number.isFinite(usable)) return FACE_OFFSET_MIN_LIMIT
+  return Math.max(FACE_OFFSET_MIN_LIMIT, usable)
+}
+
+export function clampFaceOffset(
+  x: number,
+  y: number,
+  stage: { width: number; height: number },
+  card: FaceSize,
+): { x: number; y: number } {
+  const maxX = faceOffsetLimit(stage.width, card.w)
+  const maxY = faceOffsetLimit(stage.height, card.h)
+  return {
+    x: Math.min(maxX, Math.max(-maxX, x)),
+    y: Math.min(maxY, Math.max(-maxY, y)),
+  }
+}
+
 /**
  * Agentstorlek som layout:v4 skrev före PR #22 (högerkolumn 340 × face height 440).
  * Används som sentinel: bara exakt denna storlek räknas som "aldrig anpassad".

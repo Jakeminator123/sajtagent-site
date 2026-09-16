@@ -21,7 +21,7 @@ brief, look at the preview, and keep prompting.
 
 | User turn | Site policy | BuildJob |
 | --- | --- | --- |
-| Question, status, explanation | `conversation.respond` only | none |
+| Question, status, explanation | `conversation.respond` + `project.read` | none |
 | Clear build brief, e.g. "hemsida med parallax, responsiv" | `conversation.respond` + `build.request` | only if Runtime emits the exact handoff |
 | Structured answer to `question.requested` | same pair, no second confirm | only on exact handoff |
 
@@ -48,10 +48,9 @@ Configure these as a pair on the Site server only:
 If either value is missing, Site fails the turn closed. It does not invent a
 model answer, preview or version.
 
-Health must advertise AgentSession contract 1, SSE, and either
-`conversation.respond` or the ordered pair `conversation.respond`,
-`build.request`. A conversation-only Runtime can answer questions. A build
-brief still requires the second capability.
+Health must advertise AgentSession contract 1, SSE, and `conversation.respond`.
+A live Runtime that can inspect the accepted source also advertises
+`project.read`. A build brief still requires `build.request`.
 
 ## Related contracts
 

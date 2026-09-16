@@ -5,7 +5,9 @@ import { applyExpectedTurnStreamEventV1 } from "../lib/siteagent/agent-event-str
 import { readFileSync } from "node:fs"
 import { dirname, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
-import { canSendWithNextProfile, isNextBuildActive, nextSourceDownloadHref, parseNextProjectRead, parseNextProjectState, reconcileNextPreview } from "../lib/siteagent/next-preview-client.ts"
+import { acceptedPreviewableRoutes, canSendWithNextProfile, isNextBuildActive, nextPreviewFramePropsEqual, nextSourceDownloadHref, parseNextProjectRead, parseNextProjectState, previewContentUrl, reconcileNextPreview } from "../lib/siteagent/next-preview-client.ts"
+import { publicToolStartedLabelV1 } from "../lib/siteagent/server/agent-session-controller.ts"
+import { buildPreviewRouteTree, draftRouteUnderParent, isPageRouteInSubtree, nextPreviewRouteAfterChange, normalizeManualPageRouteInput, pendingPreviewRouteFromPrompt, previewChromeRoute, previewRouteFromFrameMessage, previewRouteFromPathname, previewRouteLabel, SAJTAGENT_PREVIEW_ROUTE_MESSAGE_TYPE } from "../lib/siteagent/preview-route-tree.ts"
 
 const sessionId = "session:abcdefghijklmnopqrstuvwxyzABCDEF"
 assert.equal(canSendWithNextProfile("loading", false), false, "a delayed profile must not expose an HTML send that the server routes to React")
@@ -53,9 +55,33 @@ assert.equal(reduceAgentEventV1(withNext, event(6, "preview.ready", {jobId: resu
 const accepted = {...result, acceptedAt: occurredAt}
 const body = {schemaVersion: 2, state: {current: {...result, status: "accepted", expiresAt}, accepted}, profile: {available: ["html", "next"] as const, preference: "html" as const, effective: "html" as const}}
 const state = parseNextProjectState(body, result.projectId)
+assert.deepEqual(state.accepted?.routes, [])
 assert.deepEqual(parseNextProjectRead(body, result.projectId).profile, body.profile)
 assert.equal(parseNextProjectRead({schemaVersion: 2, state: {current: null, accepted: null}}, result.projectId).profile, null)
 assert.equal(reconcileNextPreview(result, state, result.projectId), true)
+assert.deepEqual(parseNextProjectState({
+  ...body,
+  state: {current: null, accepted: {...accepted, routes: ["/", "/about"]}},
+}, result.projectId).accepted?.routes, ["/", "/about"])
+assert.deepEqual(
+  parseNextProjectState({
+    ...body,
+    state: {current: null, accepted: {...accepted, routes: ["/", "/om", "/om/team"], previewableRoutes: ["/", "/om"]}},
+  }, result.projectId).accepted?.previewableRoutes,
+  ["/", "/om"],
+)
+assert.deepEqual(acceptedPreviewableRoutes({ routes: ["/", "/om"], previewableRoutes: ["/"] }), ["/"])
+assert.deepEqual(acceptedPreviewableRoutes({ routes: ["/", "/om"] }), ["/", "/om"])
+assert.throws(() => parseNextProjectState({
+  ...body,
+  state: {current: null, accepted: {...accepted, routes: ["about"]}},
+}, result.projectId))
+assert.throws(() => parseNextProjectState({
+  ...body,
+  state: {current: null, accepted: {...accepted, routes: ["/../secret"]}},
+}, result.projectId))
+assert.equal(previewContentUrl("https://abcd.preview.example.com", result.previewRef, "/"), `https://abcd.preview.example.com/api/siteagent/next-previews/${encodeURIComponent(result.previewRef)}/content/`)
+assert.equal(previewContentUrl("https://abcd.preview.example.com", result.previewRef, "/about"), `https://abcd.preview.example.com/api/siteagent/next-previews/${encodeURIComponent(result.previewRef)}/content/about/`)
 assert.throws(() => parseNextProjectState(body, "project:other"), /annat projekt/)
 assert.throws(() => parseNextProjectState({...body, state: {...body.state, current: {...body.state.current, projectId: "project:other"}}}, result.projectId))
 for (const [key, value] of Object.entries({jobId: "job:old", sourceRevisionId: `revision:sha256:${"c".repeat(64)}`, previewRef: `preview:${"d".repeat(32)}`})) {
@@ -90,6 +116,103 @@ assert.match(profileSwitch, /HTML-skiss/)
 assert.match(profileSwitch, /React \(Next\)/)
 assert.match(profileSwitch, /availability !== "available" \|\| !profile/)
 assert.match(nextHook, /setProfilePreference/)
+assert.match(nextHook, /mutatePages/)
+assert.match(nextHook, /\/next\/pages/)
 assert.match(nextHook, /availability: "available"/)
 assert.doesNotMatch(nextHook, /setSnapshot\([^\)]*availability: "loading"/)
+assert.deepEqual(buildPreviewRouteTree(["/", "/om", "/om/team", "/kontakt"]), [
+  {
+    route: "/",
+    children: [
+      { route: "/kontakt", children: [] },
+      { route: "/om", children: [{ route: "/om/team", children: [] }] },
+    ],
+  },
+])
+assert.deepEqual(buildPreviewRouteTree(["/om/team", "/kontakt"]), [
+  {
+    route: "/",
+    virtual: true,
+    children: [
+      { route: "/kontakt", children: [] },
+      { route: "/om", virtual: true, children: [{ route: "/om/team", children: [] }] },
+    ],
+  },
+])
+assert.equal(previewRouteLabel("/"), "/")
+assert.equal(previewRouteLabel("/om/team"), "team")
+assert.equal(nextPreviewRouteAfterChange({
+  previousRoutes: ["/", "/om"],
+  nextRoutes: ["/", "/kontakt", "/om"],
+  currentRoute: "/",
+  pendingRoute: "/kontakt",
+}), "/kontakt")
+assert.equal(nextPreviewRouteAfterChange({
+  previousRoutes: ["/", "/om"],
+  nextRoutes: ["/", "/kontakt", "/om"],
+  currentRoute: "/",
+}), "/kontakt")
+assert.equal(nextPreviewRouteAfterChange({
+  previousRoutes: [],
+  nextRoutes: ["/", "/om"],
+  currentRoute: "/",
+}), "/")
+assert.equal(nextPreviewRouteAfterChange({
+  previousRoutes: ["/", "/om"],
+  nextRoutes: ["/"],
+  currentRoute: "/om",
+}), "/")
+assert.match(store, /nextPreviewRouteAfterChange/)
+assert.match(store, /acceptedPreviewableRoutes/)
+assert.match(store, /pendingPreviewRouteRef/)
+assert.match(store, /pendingPreviewRouteFromPrompt/)
+assert.equal(previewRouteFromPathname("/om/"), "/om")
+assert.equal(previewRouteFromPathname("/"), "/")
+assert.equal(previewRouteFromFrameMessage({ type: SAJTAGENT_PREVIEW_ROUTE_MESSAGE_TYPE, route: "/om/" }, ["/", "/om"]), "/om")
+assert.equal(previewRouteFromFrameMessage({ type: SAJTAGENT_PREVIEW_ROUTE_MESSAGE_TYPE, route: "/hemlig" }, ["/", "/om"]), null)
+assert.equal(previewRouteFromFrameMessage({ type: "other", route: "/om" }, ["/", "/om"]), null)
+assert.equal(isPageRouteInSubtree("/om/team", "/om"), true)
+assert.equal(isPageRouteInSubtree("/oma", "/om"), false)
+assert.equal(isPageRouteInSubtree("/om", "/"), false)
+assert.equal(previewChromeRoute(["/"], "/om"), "/")
+assert.equal(previewChromeRoute(["/", "/om"], "/om"), "/om")
+assert.equal(previewChromeRoute([], "/om"), "/")
+assert.equal(pendingPreviewRouteFromPrompt("lägg till /kontakt"), "/kontakt")
+assert.equal(pendingPreviewRouteFromPrompt("lägg till en sida /kontakt"), "/kontakt")
+assert.equal(pendingPreviewRouteFromPrompt("kan du lägga till /om?"), "/om")
+assert.equal(pendingPreviewRouteFromPrompt("lägg till /kontakt och /team"), null)
+assert.equal(pendingPreviewRouteFromPrompt("hur lägger jag till en sida?"), null)
+assert.equal(draftRouteUnderParent("/"), "/")
+assert.equal(draftRouteUnderParent("/om"), "/om/")
+assert.equal(pendingPreviewRouteFromPrompt("lägg till /om/team"), "/om/team")
+assert.equal(normalizeManualPageRouteInput("Kontakt"), "/kontakt")
+assert.equal(normalizeManualPageRouteInput("/Om/Team/"), "/om/team")
+assert.equal(normalizeManualPageRouteInput("/Om/"), "/om")
+assert.equal(normalizeManualPageRouteInput("  /team  "), "/team")
+assert.equal(normalizeManualPageRouteInput(""), "")
+const pagesControls = readFileSync(resolve(here, "../components/siteagent/next-pages-controls.tsx"), "utf8")
+assert.match(pagesControls, /normalizeManualPageRouteInput/)
+assert.match(pagesControls, /NextPageAddUnderButton/)
+assert.match(pagesControls, /\/om\/team/)
+const sitemapFace = readFileSync(resolve(here, "../components/siteagent/faces/sitemap-face.tsx"), "utf8")
+assert.match(sitemapFace, /buildPreviewRouteTree/)
+assert.match(sitemapFace, /SitemapBranch/)
+assert.match(sitemapFace, /node\.virtual/)
+assert.match(sitemapFace, /onAddUnder/)
+assert.match(sitemapFace, /draftRouteUnderParent/)
+assert.match(sitemapFace, /addFocusRequest/)
+assert.match(pagesControls, /focusRequest/)
+assert.doesNotMatch(sitemapFace, /paddingLeft/)
+assert.equal(publicToolStartedLabelV1({ capability: "project.read", safeLabel: "read" }), "Läser en fil…")
+assert.equal(publicToolStartedLabelV1({ capability: "project.read", safeLabel: "grep" }), "Söker i filer…")
+assert.equal(publicToolStartedLabelV1({ capability: "project.read", safeLabel: "Läser page.tsx…" }), "Läser page.tsx…")
+assert.equal(publicToolStartedLabelV1({ capability: "project.read", safeLabel: "/tmp/secret/app/page.tsx" }), "Sajtagent läser projektet…")
+assert.equal(publicToolStartedLabelV1({ capability: "build.request", safeLabel: "internal" }), "Sajtagent förbereder bygget…")
+const onRoute = () => undefined
+const frameAccepted = { ...accepted, routes: ["/"] }
+const frameLeft = { accepted: frameAccepted, refresh: 0, route: "/", onRoute }
+assert.equal(nextPreviewFramePropsEqual(frameLeft, { accepted: { ...frameAccepted, routes: ["/", "/om"] }, refresh: 0, route: "/", onRoute }), true)
+assert.equal(nextPreviewFramePropsEqual(frameLeft, { accepted: frameAccepted, refresh: 1, route: "/", onRoute }), false)
+assert.equal(nextPreviewFramePropsEqual(frameLeft, { accepted: frameAccepted, refresh: 0, route: "/om", onRoute }), false)
+assert.equal(nextPreviewFramePropsEqual(frameLeft, { accepted: frameAccepted, refresh: 0, route: "/", onRoute: () => undefined }), false)
 console.log("PASS shared Next chat projection: lifecycle, replay, exact owner/job/revision binding, retained accepted output, source export")

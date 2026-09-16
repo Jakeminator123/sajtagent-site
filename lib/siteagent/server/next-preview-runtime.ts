@@ -2,6 +2,8 @@ import { createHmac, randomUUID } from "node:crypto"
 import { z } from "zod"
 import { runtimeSignaturePayloadV1 } from "./runtime-protocol-v1.ts"
 import { sourceRevisionId, validateSourceFiles, validateStaticFiles, type NextJob, type SourceFile, type StaticFile } from "./next-preview-model.ts"
+import { GENERATE_CONTEXT_BUDGET_V1, packGenerateBaseFiles } from "./next-preview-generate-context.ts"
+import { readOmittedBasePaths } from "./next-preview-pages.ts"
 
 const NAMED_RUNTIME_ERRORS = new Set([
   "source_generation_failed",
@@ -14,6 +16,8 @@ const NAMED_RUNTIME_ERRORS = new Set([
   "source_job_binding_conflict",
   "source_job_terminal",
   "source_context_too_large",
+  "unsupported_package",
+  "invalid_package",
 ])
 
 /** Closed runtime `{error}` codes only. Never echo an arbitrary body. */
@@ -71,18 +75,19 @@ export class NextRuntimeClient {
     const response=await this.post("/v2/next-builds/cancel",{schemaVersion:2,jobId:job.jobId,tenantId:job.tenantId,projectId:job.projectId},Date.now()+10_000)
     if(!response.ok)throw new Error("runtime_cancel_unconfirmed")
   }
-  async generate(input: {tenantId:string;projectId:string;prompt:string;baseFiles:SourceFile[]}, abort?: AbortSignal): Promise<SourceFile[]> {
+  async generate(input: {tenantId:string;projectId:string;prompt:string;baseFiles:SourceFile[]}, abort?: AbortSignal): Promise<{files:SourceFile[];omittedBasePaths:string[]}> {
     // A separate preparation job: the eventual build revision never mutates.
     const jobId=`source:${randomUUID()}`,createdAt=new Date().toISOString()
-    if (JSON.stringify([input.prompt,input.baseFiles]).length>18_000) throw new Error("source_context_too_large")
+    const packed=packGenerateBaseFiles(input.prompt,input.baseFiles,GENERATE_CONTEXT_BUDGET_V1)
+    if (packed.tooLarge || JSON.stringify([input.prompt,packed.files,packed.retainedBasePaths]).length>GENERATE_CONTEXT_BUDGET_V1) throw new Error("source_context_too_large")
     const expiresAt=new Date(Date.parse(createdAt)+120_000).toISOString()
-    const response=await this.post("/v2/next-source",{schemaVersion:2,...input,jobId,createdAt,expiresAt},Date.parse(expiresAt),abort)
+    const response=await this.post("/v2/next-source",{schemaVersion:2,tenantId:input.tenantId,projectId:input.projectId,prompt:input.prompt,baseFiles:packed.files,retainedBasePaths:packed.retainedBasePaths,jobId,createdAt,expiresAt},Date.parse(expiresAt),abort)
     await this.rejectFailedRuntime(response)
     try {
       const value=z.object({schemaVersion:z.literal(2),tenantId:z.string(),projectId:z.string(),jobId:z.string(),sourceRevisionId:z.string(),files:z.array(z.object({path:z.string(),content:z.string()}).strict())}).passthrough().parse(await response.json())
       const files=validateSourceFiles(value.files)
       if(value.tenantId!==input.tenantId || value.projectId!==input.projectId || value.jobId!==jobId || value.sourceRevisionId!==sourceRevisionId(input.tenantId,input.projectId,files))throw new Error("source_binding_mismatch")
-      return files
+      return {files, omittedBasePaths: readOmittedBasePaths(value)}
     } catch (error) {
       if (error instanceof Error && ["source_binding_mismatch","invalid_source_path","invalid_source_bundle","invalid_source_file_size","invalid_source_count"].includes(error.message)) throw error
       throw new Error("worker_build_failed")

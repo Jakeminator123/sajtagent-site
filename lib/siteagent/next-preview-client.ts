@@ -11,12 +11,20 @@ const profileSchema = z.object({
   preference: z.enum(["html", "next"]).nullable(),
   effective: z.enum(["html", "next"]),
 }).strict()
+const previewRouteSchema = z.string().min(1).max(241).regex(/^\/(?:[^/\s]+(?:\/[^/\s]+)*)?$/).refine(
+  (route) => route === "/" || route.slice(1).split("/").every((part) => part !== "." && part !== ".."),
+  { message: "invalid_preview_route" },
+)
 
 const stateSchema = z.object({
   schemaVersion: z.literal(2),
   state: z.object({
     current: binding.extend({status: z.enum(["building", "accepted", "failed"]), expiresAt: z.string().datetime({offset: true}), failureCode: z.string().optional()}).nullable(),
-    accepted: binding.extend({acceptedAt: z.string().datetime({offset: true})}).nullable(),
+    accepted: binding.extend({
+      acceptedAt: z.string().datetime({offset: true}),
+      routes: z.array(previewRouteSchema).max(200).default([]),
+      previewableRoutes: z.array(previewRouteSchema).max(200).optional(),
+    }).nullable(),
   }),
   profile: profileSchema.optional(),
 })
@@ -58,4 +66,31 @@ export function reconcileNextPreview(candidate: AgentNextPreviewProjection, stat
 export function nextSourceDownloadHref(accepted: AcceptedNextPreview): string {
   const query = new URLSearchParams({sourceRevisionId: accepted.sourceRevisionId, jobId: accepted.jobId})
   return `/api/siteagent/projects/${encodeURIComponent(accepted.projectId)}/next/download?${query}`
+}
+
+/** Iframe and chrome may only open export-backed routes. */
+export function acceptedPreviewableRoutes(accepted: Pick<AcceptedNextPreview, "routes" | "previewableRoutes">): string[] {
+  return accepted.previewableRoutes ?? accepted.routes
+}
+
+/** Conversation tokens must not reconcile the live preview iframe. */
+export function nextPreviewFramePropsEqual(
+  left: { accepted: AcceptedNextPreview; refresh: number; route: string; onRoute?: (route: string) => void },
+  right: { accepted: AcceptedNextPreview; refresh: number; route: string; onRoute?: (route: string) => void },
+): boolean {
+  return (
+    left.refresh === right.refresh &&
+    left.route === right.route &&
+    left.onRoute === right.onRoute &&
+    left.accepted.projectId === right.accepted.projectId &&
+    left.accepted.jobId === right.accepted.jobId &&
+    left.accepted.sourceRevisionId === right.accepted.sourceRevisionId &&
+    left.accepted.previewRef === right.accepted.previewRef
+  )
+}
+
+export function previewContentUrl(origin: string, previewRef: string, route: string): string {
+  const prefix = `/api/siteagent/next-previews/${encodeURIComponent(previewRef)}/content/`
+  const suffix = route === "/" ? "" : `${route.slice(1).split("/").map(encodeURIComponent).join("/")}/`
+  return `${origin}${prefix}${suffix}`
 }

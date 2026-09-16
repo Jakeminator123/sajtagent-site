@@ -7,8 +7,10 @@ import {
   PRIVATE_REASONING_BLOCKED_MESSAGE_V1,
   RUNTIME_CONTRACT_FAILED_MESSAGE_V1,
   RUNTIME_STREAM_FAILED_MESSAGE_V1,
+  NEXT_BUILD_SUCCESS_DELTA_V1,
   SHORT_BUILD_SUCCESS_STATUS_DELTA_V1,
   buildSuccessAssistantDeltaV1,
+  pageOnlyMutationAssistantDeltaV1,
   containsPrivateReasoningV1,
   publicRuntimeCatchMessageV1,
   publicTurnFailedMessageV1,
@@ -59,6 +61,34 @@ check(
     message: "invalid payload https://internal.example/secret",
   }) === "Källan gick inte att använda. Beskriv sidan tydligare eller försök igen.",
   "invalid generated source is not treated as a contract leak",
+)
+check(
+  publicTurnFailedMessageV1({
+    code: "source_context_too_large",
+    message: "source_context_too_large https://internal.example/secret",
+  }) === "Sidan är för stor för att ändras i ett steg. Dela upp beställningen eller korta den nämnda sidan.",
+  "oversized generate context stays a short Swedish failure",
+)
+check(
+  publicTurnFailedMessageV1({
+    code: "unsupported_package",
+    message: "whatever",
+  }) === "Det paketet är inte tillåtet. Sajtagent kan använda Next, React, TypeScript, clsx, date-fns, lucide-react och zod.",
+  "blocked package imports stay named and visible",
+)
+check(
+  publicTurnFailedMessageV1({
+    code: "invalid_package",
+    message: "invalid package.json https://internal.example/secret",
+  }) === "package.json gick inte att använda. Sajtagent styr beroenden själv.",
+  "invalid package.json is not treated as a contract leak",
+)
+check(
+  publicTurnFailedMessageV1({
+    code: "workspace_revision_unavailable",
+    message: "Next-CAS-objektet saknas för den signerade revisionen.",
+  }) === "Sajtagent kunde inte läsa projektfilerna för den här turen.",
+  "a missing project snapshot stays a short Swedish failure",
 )
 check(
   publicTurnFailedMessageV1({
@@ -132,6 +162,22 @@ check(
   buildSuccessAssistantDeltaV1("Jag har byggt startsidan med hero.") ===
     SHORT_BUILD_SUCCESS_STATUS_DELTA_V1,
   "existing OpenClaw summary gets a short status instead of the canned wipe",
+)
+check(
+  pageOnlyMutationAssistantDeltaV1([{ op: "add", route: "/kontakt" }]) ===
+    "Jag lade till /kontakt. Previewn är uppdaterad.",
+  "a page-only add names the new route instead of claiming a full rebuild",
+)
+check(
+  pageOnlyMutationAssistantDeltaV1([
+    { op: "add", route: "/kontakt" },
+    { op: "remove", route: "/om" },
+  ]) === "Jag lade till /kontakt och tog bort /om. Previewn är uppdaterad.",
+  "a page-only add+remove names both routes",
+)
+check(
+  pageOnlyMutationAssistantDeltaV1([]) === NEXT_BUILD_SUCCESS_DELTA_V1,
+  "empty page mutations keep the generic Next success line",
 )
 
 const accepted: AgentEventV1 = {

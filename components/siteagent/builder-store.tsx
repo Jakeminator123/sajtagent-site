@@ -45,7 +45,8 @@ import {
   type CanonicalProjectReadModelV1,
 } from "@/lib/siteagent/read-model"
 import type { ChatMessage, PreviewStatus, PublishState, SiteVersion } from "@/lib/siteagent/types"
-import { canSendWithNextProfile, isNextBuildActive, reconcileNextPreview, type NextAvailability, type NextBuildProfile, type NextProjectState } from "@/lib/siteagent/next-preview-client"
+import { acceptedPreviewableRoutes, canSendWithNextProfile, isNextBuildActive, reconcileNextPreview, type NextAvailability, type NextBuildProfile, type NextProjectState } from "@/lib/siteagent/next-preview-client"
+import { nextPreviewRouteAfterChange, pendingPreviewRouteFromPrompt } from "@/lib/siteagent/preview-route-tree"
 import { useNextProject } from "./use-next-project"
 
 type SessionStatusV1 = "opening" | "ready" | "error"
@@ -74,6 +75,10 @@ interface BuilderStore {
   previewStatus: PreviewStatus
   previewUrl: string | null
   sitemapRevision: string | null
+  previewRoutes: string[]
+  previewableRoutes: string[]
+  previewRoute: string
+  setPreviewRoute: (route: string) => void
   previewKind: "html" | "next"
   nextState: NextProjectState | null
   nextAvailability: NextAvailability
@@ -84,6 +89,8 @@ interface BuilderStore {
   showNextPreview: () => void
   refreshNextPreview: () => Promise<void>
   cancelNextBuild: () => Promise<void>
+  mutateNextPages: (op: "add" | "remove", route: string) => Promise<void>
+  canMutateNextPages: boolean
 
   versions: SiteVersion[]
   activeVersionId: string | null
@@ -180,6 +187,9 @@ export function BuilderProvider({ children, initialProjectId = null, initialDraf
   const [logs, setLogs] = useState<string[]>([])
   const nextProject = useNextProject(projectId)
   const [previewSelection, setPreviewSelection] = useState<"auto" | "html" | "next">("auto")
+  const [previewRoute, setPreviewRouteState] = useState("/")
+  const previousPreviewRoutesRef = useRef<string[]>([])
+  const pendingPreviewRouteRef = useRef<string | null>(null)
   const nextBuildActive = isNextBuildActive(nextProject.state?.current ?? null)
   const nextCurrent = nextProject.state?.current ?? null
   const buildProfileReady = canSendWithNextProfile(nextProject.availability, nextProject.hasNext)
@@ -244,6 +254,39 @@ export function BuilderProvider({ children, initialProjectId = null, initialDraf
   )
   const previewUrl = previewKind === "html" ? activeVersion?.previewUrl ?? null : null
   const sitemapRevision = previewKind === "html" ? activeVersion?.sitemapRevision ?? null : null
+  const previewRoutes = useMemo(() => {
+    if (previewKind === "next") return nextProject.state?.accepted?.routes ?? []
+    return previewKind === "html" && activeVersion ? ["/"] : []
+  }, [previewKind, nextProject.state?.accepted?.routes, activeVersion])
+  const previewableRoutes = useMemo(() => {
+    if (previewKind === "next" && nextProject.state?.accepted) {
+      return acceptedPreviewableRoutes(nextProject.state.accepted)
+    }
+    return previewRoutes
+  }, [previewKind, nextProject.state?.accepted, previewRoutes])
+
+  useEffect(() => {
+    const previousRoutes = previousPreviewRoutesRef.current
+    const candidate = nextPreviewRouteAfterChange({
+      previousRoutes,
+      nextRoutes: previewRoutes,
+      currentRoute: previewRoute,
+      pendingRoute: pendingPreviewRouteRef.current,
+    })
+    previousPreviewRoutesRef.current = previewRoutes
+    if (pendingPreviewRouteRef.current && previewableRoutes.includes(pendingPreviewRouteRef.current)) {
+      pendingPreviewRouteRef.current = null
+    }
+    const nextRoute = previewableRoutes.includes(candidate)
+      ? candidate
+      : (previewableRoutes[0] ?? "/")
+    if (nextRoute !== previewRoute) setPreviewRouteState(nextRoute)
+  }, [previewRoutes, previewableRoutes, previewRoute])
+
+  const setPreviewRoute = useCallback((route: string) => {
+    setPreviewRouteState((current) => (previewableRoutes.includes(route) ? route : current))
+  }, [previewableRoutes])
+
   const activeTurn = agentProjection.activeTurnId
     ? agentProjection.turns[agentProjection.activeTurnId]
     : null
@@ -606,6 +649,8 @@ export function BuilderProvider({ children, initialProjectId = null, initialDraf
             turnId,
           },
         ])
+        const hintedRoute = pendingPreviewRouteFromPrompt(trimmed)
+        if (hintedRoute) pendingPreviewRouteRef.current = hintedRoute
         pushLog("> skickar agentturn till Sajtagent")
 
         const onEvent = async (event: AgentEventV1) => {
@@ -747,6 +792,10 @@ export function BuilderProvider({ children, initialProjectId = null, initialDraf
           setPreviewSelection("html")
         }
       } catch (error) {
+        const hintedRoute = pendingPreviewRouteFromPrompt(trimmed)
+        if (hintedRoute && pendingPreviewRouteRef.current === hintedRoute) {
+          pendingPreviewRouteRef.current = null
+        }
         if (!controller.signal.aborted && requestGeneration === requestGenerationRef.current) {
           const rejected = rejectAgentEventStreamV1(
             projectionRef.current,
@@ -962,6 +1011,18 @@ export function BuilderProvider({ children, initialProjectId = null, initialDraf
     if (!response.ok) throw new Error("Avbrottet kunde inte bekräftas. Den godkända versionen behålls.")
     await refreshNextState()
   }, [projectId, nextCurrent, refreshNextState])
+  const canMutateNextPages = Boolean(
+    previewKind === "next" && nextProject.state?.accepted && !nextBuildActive && !agentTurnActive && nextProject.availability === "available",
+  )
+  const mutateNextPages = useCallback(async (op: "add" | "remove", route: string) => {
+    if (op === "add") pendingPreviewRouteRef.current = route
+    try {
+      await nextProject.mutatePages(op, route)
+    } catch (error) {
+      if (op === "add" && pendingPreviewRouteRef.current === route) pendingPreviewRouteRef.current = null
+      throw error
+    }
+  }, [nextProject.mutatePages])
 
   const value = useMemo<BuilderStore>(
     () => ({
@@ -987,6 +1048,10 @@ export function BuilderProvider({ children, initialProjectId = null, initialDraf
       previewStatus,
       previewUrl,
       sitemapRevision,
+      previewRoutes,
+      previewableRoutes,
+      previewRoute,
+      setPreviewRoute,
       previewKind,
       nextState: nextProject.state,
       nextAvailability: nextProject.availability,
@@ -997,6 +1062,8 @@ export function BuilderProvider({ children, initialProjectId = null, initialDraf
       showNextPreview,
       refreshNextPreview,
       cancelNextBuild,
+      mutateNextPages,
+      canMutateNextPages,
       versions,
       activeVersionId,
       restoreVersion,
@@ -1030,6 +1097,10 @@ export function BuilderProvider({ children, initialProjectId = null, initialDraf
       previewStatus,
       previewUrl,
       sitemapRevision,
+      previewRoutes,
+      previewableRoutes,
+      previewRoute,
+      setPreviewRoute,
       previewKind,
       nextProject.state,
       nextProject.availability,
@@ -1042,6 +1113,8 @@ export function BuilderProvider({ children, initialProjectId = null, initialDraf
       showNextPreview,
       refreshNextPreview,
       cancelNextBuild,
+      mutateNextPages,
+      canMutateNextPages,
       versions,
       activeVersionId,
       restoreVersion,

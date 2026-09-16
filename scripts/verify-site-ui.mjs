@@ -28,6 +28,8 @@ const builderPageSource = readFileSync(resolve(root, "app/builder/page.tsx"), "u
 const layoutPrefsSource = readFileSync(resolve(root, "components/siteagent/layout-prefs.ts"), "utf8")
 const versionListSource = readFileSync(resolve(root, "components/siteagent/version-list.tsx"), "utf8")
 const sitemapFaceSource = readFileSync(resolve(root, "components/siteagent/faces/sitemap-face.tsx"), "utf8")
+const nextPagesControlsSource = readFileSync(resolve(root, "components/siteagent/next-pages-controls.tsx"), "utf8")
+const nextPreviewFrameSource = readFileSync(resolve(root, "components/siteagent/next-preview-frame.tsx"), "utf8")
 const conversationHandoffSource = readFileSync(
   resolve(root, "components/siteagent/conversation-handoff.ts"),
   "utf8",
@@ -201,6 +203,126 @@ assert.match(
   cubeStageSource,
   /role="region"/,
   "open Builder cards must be named regions",
+)
+assert.match(
+  cubeStageSource,
+  /setPointerCapture/,
+  "open cards must capture the pointer so preview iframes cannot swallow drag",
+)
+assert.match(
+  cubeStageSource,
+  /dragElastic=\{0\}/,
+  "open-card drag must not rubber-band",
+)
+assert.match(
+  cubeStageSource,
+  /dragConstraints=\{false\}/,
+  "open-card drag must not remeasure the iframe-bearing stage on every move",
+)
+assert.match(
+  cubeStageSource,
+  /dragBoundsRef/,
+  "card travel is clamped from a one-shot stage measure at pointer down",
+)
+assert.doesNotMatch(
+  cubeStageSource,
+  /absolute left-4 top-4 bottom-4 flex flex-col items-start/,
+  "open cards must not live in a left flex column that fights left-right drag",
+)
+assert.doesNotMatch(
+  cubeStageSource,
+  /absolute right-4 top-4 bottom-40 flex flex-col items-end/,
+  "open cards must not live in a right flex column that fights left-right drag",
+)
+assert.match(
+  cubeStageSource,
+  /function stackedCardHome/,
+  "column is only a home corner on the stage, not a drag parent",
+)
+assert.match(
+  cubeStageSource,
+  /dragging && "z-30 select-none touch-none"/,
+  "touch scrolling must yield only while a card is being dragged",
+)
+assert.match(
+  cubeStageSource,
+  /layout=\{false\}/,
+  "the draggable card node must not run layout projection during drag",
+)
+assert.match(
+  cubeStageSource,
+  /React\.memo\(function FaceCard/,
+  "open cards must not rerender because a sibling subscribed to the conversation",
+)
+assert.match(
+  cubeStageSource,
+  /function AutoFlipChoicesOnBuild/,
+  "build auto-flip must subscribe without rerendering the drag stage",
+)
+assert.match(
+  cubeStageSource,
+  /function ChoicesLockOverlay/,
+  "choices lock must subscribe on the overlay, not the drag stage",
+)
+assert.doesNotMatch(
+  cubeStageSource,
+  /export function CubeStage\([\s\S]*const \{ versions, previewStatus \} = useBuilder/,
+  "CubeStage must not rerender every conversation token while a card is dragged",
+)
+assert.match(
+  nextPreviewFrameSource,
+  /React\.memo\(function NextPreviewFrame/,
+  "the live Next iframe must not reconcile on every conversation token",
+)
+assert.match(
+  nextPreviewFrameSource,
+  /nextPreviewFramePropsEqual/,
+  "poll snapshots of the same accepted preview must not remount the iframe",
+)
+assert.match(
+  previewStageSource,
+  /React\.memo\(function HtmlPreviewFrame/,
+  "the HTML iframe must not reconcile on every conversation token",
+)
+assert.doesNotMatch(
+  previewStageSource,
+  /function PreviewFrame\([\s\S]*useBuilder/,
+  "HTML preview must not subscribe to the conversation store inside the iframe",
+)
+assert.doesNotMatch(
+  cubeStageSource,
+  /style=\{\{ width: size\.w, height: size\.h, x, y, perspective/,
+  "3D perspective must not sit on the dragged node",
+)
+assert.match(
+  cubeStageSource,
+  /transformStyle: "preserve-3d", perspective: 1400/,
+  "card flip keeps perspective on the inner face, not the drag layer",
+)
+assert.doesNotMatch(
+  cubeStageSource,
+  /LayoutGroup/,
+  "open cards must not share a LayoutGroup with the dock",
+)
+assert.doesNotMatch(
+  cubeStageSource,
+  /layoutId=/,
+  "docked cards must not project into open cards via layoutId",
+)
+assert.doesNotMatch(
+  layoutSource,
+  /clamp\([^;]*-1200,\s*1200\)/,
+  "face offsets must not use a hardcoded ±1200 clamp",
+)
+assert.match(
+  layoutPrefsSource,
+  /export function clampFaceOffset/,
+  "offset clamp must be a shared geometry helper",
+)
+assert.equal(
+  [...layoutSource.matchAll(/clampFaceOffset/g)].length >= 2,
+  true,
+  "hydration and moveFace must share clampFaceOffset",
 )
 assert.doesNotMatch(
   layoutSource,
@@ -378,8 +500,185 @@ assert.match(
 )
 assert.doesNotMatch(
   sitemapFaceSource,
-  /canonical revision|read-modellen/,
-  "Map stub copy must not expose internal read-model wording",
+  /canonical revision|read-modellen|Sidträdet kopplas i nästa steg|Sidträdet för React är inte anslutet/,
+  "Map copy must not expose internal read-model wording or the old stub",
+)
+assert.doesNotMatch(
+  sitemapFaceSource,
+  /accepted_source_files|app\/page\.tsx/,
+  "Map must render owner routes, not parse source paths in the browser",
+)
+assert.match(
+  sitemapFaceSource,
+  /Sidor i den accepterade React-källan/,
+  "Map must describe Next routes as accepted source pages",
+)
+assert.match(
+  sitemapFaceSource,
+  /node\.virtual/,
+  "Map must mark invented parent folders as virtual group nodes",
+)
+assert.match(
+  sitemapFaceSource,
+  /HTML-skissen är en sida/,
+  "HTML map must stay a single honest page node",
+)
+assert.match(
+  sitemapFaceSource,
+  /Lägg till och ta bort sidor i React-läget/,
+  "HTML map must not offer active add\/remove",
+)
+assert.match(
+  sitemapFaceSource,
+  /NextPagesAddForm/,
+  "Map must expose the Next add-page form",
+)
+assert.match(
+  sitemapFaceSource,
+  /NextPageAddUnderButton/,
+  "Map must grow a nested page from a tree node",
+)
+assert.match(
+  sitemapFaceSource,
+  /draftRouteUnderParent/,
+  "Map + must prefill /parent/ including virtual groups",
+)
+assert.match(
+  sitemapFaceSource,
+  /focusRequest=\{addFocusRequest\}/,
+  "Map + must move keyboard focus to the add field",
+)
+assert.match(
+  nextPagesControlsSource,
+  /focusRequest/,
+  "Add form must accept a focus request from the tree",
+)
+assert.match(
+  nextPagesControlsSource,
+  /\/om\/team/,
+  "Manual add must describe nested App Router routes",
+)
+assert.match(
+  sitemapFaceSource,
+  /NextPageRemoveButton/,
+  "Map must expose remove on child pages",
+)
+assert.match(
+  sitemapFaceSource,
+  /buildPreviewRouteTree/,
+  "Map must nest accepted routes as a page tree",
+)
+assert.doesNotMatch(
+  sitemapFaceSource,
+  /paddingLeft|routeDepth/,
+  "Map must nest children instead of padding a flat list",
+)
+assert.match(nextPagesControlsSource, /Lägg till/)
+assert.match(nextPagesControlsSource, /Ta bort/)
+assert.match(
+  nextPagesControlsSource,
+  /normalizeManualPageRouteInput/,
+  "manual add must lowercase and strip trailing slashes before POST",
+)
+assert.match(
+  previewStageSource,
+  /w-\[min\(80vw,100%\)\]/,
+  "Preview window must occupy about 80% of the viewport, not a 1100px cap",
+)
+assert.doesNotMatch(
+  previewStageSource,
+  /max-w-\[1100px\]/,
+  "Preview must not keep the old 1100px width cap",
+)
+assert.match(
+  previewStageSource,
+  /NextPagesAddForm/,
+  "Preview chrome can add a Next page",
+)
+assert.match(
+  previewStageSource,
+  /HTML-skissen är en sida\. Lägg till och ta bort sidor i React-läget/,
+  "HTML preview must not present an active page editor",
+)
+assert.match(
+  sitemapFaceSource,
+  /previewKind === "next"/,
+  "Map must not show the HTML sketch as the current Next tree",
+)
+assert.match(
+  previewStageSource,
+  /previewableRoutes\.length > 1/,
+  "Preview chrome only shows a page switcher when several export-backed routes exist",
+)
+assert.match(
+  previewStageSource,
+  /previewChromeRoute/,
+  "Preview chrome must show the current export route even when only one page exists",
+)
+assert.match(
+  nextPreviewFrameSource,
+  /acceptedPreviewableRoutes/,
+  "Next preview must not navigate source-only routes that the export cannot serve",
+)
+assert.match(
+  sitemapFaceSource,
+  /inte i previewn ännu/,
+  "Map must mark source pages that are not in the accepted export",
+)
+assert.match(
+  sitemapFaceSource,
+  /sitemapRowNote/,
+  "Map must show group and not-yet-preview notes in the row, not only a title tooltip",
+)
+assert.match(
+  sitemapFaceSource,
+  /!node\.virtual \|\| node\.children\.length > 0/,
+  "Map must let the user remove a group node that still has pages under it",
+)
+assert.match(
+  nextPagesControlsSource,
+  /Ta bort \$\{route\} och undersidor/,
+  "Removing a branch must name the subtree in the control",
+)
+assert.doesNotMatch(
+  sitemapFaceSource,
+  /canSelect = previewKind === "next" && previewableRoutes\.length > 1/,
+  "Map must let the user select an export-backed page even when it is the only one",
+)
+assert.match(
+  nextPreviewFrameSource,
+  /previewOrigin\.current = action\.origin/,
+  "Next preview must keep the bootstrap origin before navigating pages",
+)
+assert.match(
+  nextPreviewFrameSource,
+  /if \(!bootstrapped \|\| !frame \|\| !origin\) return/,
+  "Next preview must not navigate content routes before bootstrap",
+)
+assert.match(
+  nextPreviewFrameSource,
+  /previewContentUrl/,
+  "Next preview page URLs must use the gateway content path",
+)
+assert.match(
+  nextPreviewFrameSource,
+  /previewRouteFromFrameMessage/,
+  "Next preview must accept only typed route messages from the gateway origin",
+)
+assert.match(
+  nextPreviewFrameSource,
+  /event\.origin !== origin/,
+  "Next preview must ignore route messages from other origins",
+)
+assert.match(
+  previewStageSource,
+  /onRoute=\{setPreviewRoute\}/,
+  "In-preview navigation must update Karta and the chrome route",
+)
+assert.doesNotMatch(
+  nextPreviewFrameSource,
+  /src=\{/,
+  "Next preview iframe must not request a content URL before the bootstrap POST",
 )
 assert.doesNotMatch(
   builderStoreSource,
